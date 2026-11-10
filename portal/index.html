@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Geoportal Ambiental · Gobernación de Nariño</title>
+    <meta name="description" content="Geoportal de la Secretaría de Ambiente y Desarrollo Sostenible de la Gobernación de Nariño: consulta, visualización y descarga de información geográfica ambiental.">
+    <link rel="icon" href="assets/img/escudo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="assets/css/institucional.css">
+    <link rel="stylesheet" href="assets/css/visor.css">
+  </head>
+  <body>
+    <a class="saltar-contenido" href="#contenido">Saltar al contenido</a>
+    <div data-govco></div>
+
+    <header class="encabezado">
+      <a class="marca" href="./" aria-label="Inicio del Geoportal Ambiental">
+        <img src="assets/img/logo-gobernacion-narino.png" alt="Gobernación de Nariño">
+        <span class="dependencia">
+          <strong>Geoportal Ambiental</strong>
+          <span>Secretaría de Ambiente y Desarrollo Sostenible</span>
+        </span>
+      </a>
+      <button class="boton-menu" type="button" aria-expanded="false" aria-controls="navegacion" aria-label="Abrir menú"><span data-icono="menu"></span></button>
+      <nav class="navegacion" id="navegacion" aria-label="Navegación principal">
+        <a href="#visor" data-ruta="visor">Visor</a>
+        <a href="#catalogo" data-ruta="catalogo">Catálogo</a>
+        <a href="#acerca" data-ruta="acerca">Acerca del geoportal</a>
+        <a class="btn btn-acento btn-chico" id="abrir-geolibre" href="#" target="_blank" rel="noopener" data-icono="abrir">Abrir en GeoLibre</a>
+      </nav>
+    </header>
+
+    <main id="contenido">
+      <!-- ============================ VISOR ============================ -->
+      <section class="vista visor" id="vista-visor" aria-label="Visor geográfico">
+        <aside class="panel" id="panel" aria-label="Capas disponibles">
+          <div class="panel-cabecera">
+            <h1>Capas ambientales</h1>
+            <p class="panel-resumen" id="resumen-capas">Cargando información…</p>
+            <label class="buscador">
+              <span class="sr-only">Buscar capas</span>
+              <span data-icono="buscar"></span>
+              <input type="search" id="buscar" placeholder="Buscar capa, tema o fuente" autocomplete="off">
+            </label>
+          </div>
+          <div class="panel-lista" id="lista-capas" role="tree" aria-label="Capas por categoría"></div>
+          <div class="panel-pie">
+            <button class="btn btn-secundario btn-chico" type="button" id="apagar-todo">Apagar todas</button>
+            <a class="btn btn-secundario btn-chico" id="descargar-proyecto" href="#" download data-icono="descargar">Proyecto .geolibre</a>
+          </div>
+        </aside>
+
+        <button class="alternar-panel" type="button" id="alternar-panel" aria-controls="panel" aria-expanded="true" title="Mostrar u ocultar el panel de capas">
+          <span data-icono="capas"></span><span class="sr-only">Panel de capas</span>
+        </button>
+
+        <div class="mapa-contenedor">
+          <div id="mapa" role="region" aria-label="Mapa"></div>
+
+          <div class="control-mapa control-base" id="control-base">
+            <button type="button" class="btn-icono" id="boton-base" aria-expanded="false" title="Mapa base"><span data-icono="base"></span><span class="sr-only">Mapa base</span></button>
+            <div class="menu-base" id="menu-base" hidden></div>
+          </div>
+
+          <section class="leyenda" id="leyenda" aria-label="Leyenda" hidden>
+            <header><h2>Leyenda</h2>
+              <button class="btn-icono" type="button" id="plegar-leyenda" aria-expanded="true" title="Plegar leyenda"><span data-icono="leyenda"></span><span class="sr-only">Plegar o desplegar la leyenda</span></button>
+            </header>
+            <ul id="leyenda-items"></ul>
+          </section>
+
+          <div class="coordenadas" id="coordenadas" aria-live="off">Lon —, Lat —</div>
+        </div>
+      </section>
+
+      <!-- ============================ CATÁLOGO ============================ -->
+      <section class="vista pagina" id="vista-catalogo" hidden>
+        <div class="pagina-ancho">
+          <div class="pagina-titulo">
+            <h1>Catálogo de geodatos</h1>
+            <p>Información geográfica ambiental producida y administrada por la Secretaría de Ambiente y Desarrollo Sostenible y sus aliados. Cada geodato cuenta con su ficha de metadatos, descarga en formato abierto y apertura directa en GeoLibre.</p>
+          </div>
+          <div class="filtros">
+            <label class="buscador">
+              <span class="sr-only">Buscar en el catálogo</span>
+              <span data-icono="buscar"></span>
+              <input type="search" id="buscar-catalogo" placeholder="Buscar en el catálogo" autocomplete="off">
+            </label>
+            <select id="filtro-categoria" aria-label="Filtrar por categoría"><option value="">Todas las categorías</option></select>
+            <select id="filtro-tipo" aria-label="Filtrar por tipo"><option value="">Vector y ráster</option><option value="vector">Vectorial</option><option value="raster">Ráster</option></select>
+          </div>
+          <div class="rejilla-catalogo" id="rejilla-catalogo"></div>
+        </div>
+      </section>
+
+      <!-- ============================ ACERCA ============================ -->
+      <section class="vista pagina" id="vista-acerca" hidden>
+        <div class="pagina-ancho prosa">
+          <h1>Acerca del Geoportal Ambiental</h1>
+          <p>El Geoportal Ambiental de la <strong>Gobernación de Nariño</strong> es la herramienta de la <strong>Secretaría de Ambiente y Desarrollo Sostenible</strong> para divulgar la información geográfica que soporta la planificación y gestión ambiental del departamento: recurso hídrico, áreas protegidas y ecosistemas estratégicos, biodiversidad, cambio climático y gestión del riesgo, y ordenamiento ambiental del territorio.</p>
+          <h2>¿Qué puede hacer aquí?</h2>
+          <ul>
+            <li><strong>Visualizar</strong> las capas publicadas sobre distintos mapas base, consultar sus atributos haciendo clic sobre el mapa y combinar capas con control de transparencia.</li>
+            <li><strong>Consultar la ficha de metadatos</strong> de cada geodato: fuente, fecha, escala, sistema de referencia original y licencia de uso.</li>
+            <li><strong>Descargar</strong> los geodatos en formatos abiertos: GeoJSON (vector, EPSG:4326) y GeoTIFF optimizado para la nube — COG (ráster).</li>
+            <li><strong>Analizar en GeoLibre</strong>: el botón «Abrir en GeoLibre» carga las capas en <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un SIG libre y de código abierto que corre en el navegador, con más de mil herramientas de geoprocesamiento, sin instalar nada y sin que los datos salgan de su equipo.</li>
+          </ul>
+          <h2>Sistema de referencia</h2>
+          <p>Los geodatos se publican en WGS 84 (EPSG:4326) para su visualización web. La ficha de cada capa indica el sistema de referencia en el que fue producida (p. ej. MAGNA-SIRGAS Origen Nacional, EPSG:9377).</p>
+          <h2>Servicios para desarrolladores</h2>
+          <p>Toda la información del catálogo está disponible mediante una API abierta en <code>/api/capas</code>, con documentación en <a href="api/docs">/api/docs</a>. El proyecto completo de GeoLibre está en <a href="api/proyecto.geolibre">/api/proyecto.geolibre</a>.</p>
+          <h2>Condiciones de uso</h2>
+          <p>Salvo que la ficha indique otra licencia, los geodatos se publican bajo <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener">Creative Commons Atribución 4.0</a>: puede usarlos citando a la Gobernación de Nariño y a la fuente indicada. La información tiene carácter de referencia y no reemplaza los actos administrativos que la adoptan.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Ficha de metadatos -->
+    <dialog class="dialogo" id="ficha" aria-labelledby="ficha-titulo">
+      <div class="dialogo-encabezado">
+        <div style="flex:1">
+          <p class="ficha-categoria" id="ficha-categoria"></p>
+          <h2 id="ficha-titulo"></h2>
+        </div>
+        <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
+      </div>
+      <div class="dialogo-cuerpo" id="ficha-cuerpo"></div>
+    </dialog>
+
+    <div data-pie></div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="assets/js/config-institucional.js"></script>
+    <script src="assets/js/institucional.js"></script>
+    <script src="assets/js/visor.js"></script>
+  </body>
+</html>
