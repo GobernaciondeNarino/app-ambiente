@@ -397,7 +397,7 @@ def admin_publish(
     return layer_out(_load_layer(session, layer_id), settings)
 
 
-@router.delete("/capas/{layer_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/capas/{layer_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def admin_delete_layer(
     layer_id: int,
     user: User = Depends(require_admin),
@@ -474,7 +474,7 @@ def admin_update_category(
     return category_out(session, cat)
 
 
-@router.delete("/categorias/{cat_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/categorias/{cat_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def admin_delete_category(cat_id: int, user: User = Depends(require_admin), session: Session = Depends(get_session)) -> None:
     cat = session.get(Category, cat_id)
     if cat is None:
