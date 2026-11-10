@@ -81,6 +81,13 @@
     return r.json();
   }
 
+  // Rutas relativas al propio geoportal: funcionan en cualquier dominio o subdirectorio
+  // aunque GEOPORTAL_PUBLIC_URL no esté configurada (las absolutas solo las usa GeoLibre).
+  function rutaCapa(capa, recurso) {
+    // Absoluta respecto a la página actual: MapLibre descarga desde un worker
+    return new URL(API + "/capas/" + encodeURIComponent(capa.slug) + "/" + recurso, location.href).href;
+  }
+
   function capaPorSlug(slug) {
     return estado.capas.find((c) => c.slug === slug);
   }
@@ -173,12 +180,12 @@
     if (capa.kind === "raster") {
       const esquinas = (capa.raster_info && capa.raster_info.corners) || null;
       if (!esquinas) return;
-      m.addSource(src, { type: "image", url: capa.urls.vista_previa + "?v=" + encodeURIComponent(capa.updated_at), coordinates: esquinas });
+      m.addSource(src, { type: "image", url: rutaCapa(capa, "vista-previa.png") + "?v=" + encodeURIComponent(capa.updated_at), coordinates: esquinas });
       m.addLayer({ id: src + "-raster", type: "raster", source: src, paint: { "raster-opacity": op, "raster-fade-duration": 0 } });
       return;
     }
 
-    m.addSource(src, { type: "geojson", data: capa.urls.datos, attribution: capa.source || "Gobernación de Nariño" });
+    m.addSource(src, { type: "geojson", data: rutaCapa(capa, "datos.geojson"), attribution: capa.source || "Gobernación de Nariño" });
     const tipo = capa.geometry_type;
     if (tipo === "Polígono" || tipo === "Mixta" || !tipo) {
       m.addLayer({
@@ -593,9 +600,9 @@
       '<div class="ficha-acciones">' +
       '<button class="btn btn-primario" type="button" data-ver>' + icono("mapa") + "Ver en el mapa</button>" +
       '<a class="btn btn-acento" href="' + escapar(urlGeoLibre([capa.slug])) + '" target="_blank" rel="noopener">' + icono("abrir") + "Abrir en GeoLibre</a>" +
-      (capa.urls.descarga
-        ? '<a class="btn btn-secundario" href="' + escapar(capa.urls.descarga) + '">' + icono("descargar") + (capa.kind === "raster" ? "Descargar COG" : "Descargar GeoJSON") + "</a>" +
-          '<a class="btn btn-secundario" href="' + escapar(capa.urls.descarga_original) + '">' + icono("archivo") + "Archivo original</a>"
+      (capa.downloadable
+        ? '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga")) + '">' + icono("descargar") + (capa.kind === "raster" ? "Descargar COG" : "Descargar GeoJSON") + "</a>" +
+          '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga?original=1")) + '">' + icono("archivo") + "Archivo original</a>"
         : "") +
       "</div>" +
       (capa.description ? '<p class="ficha-descripcion">' + escapar(capa.description) + "</p>" : "") +
@@ -729,8 +736,9 @@
     }
     iniciarMapa();
     const n = estado.capas.length;
+    const nc = estado.categorias.length;
     $("#resumen-capas").textContent = n
-      ? n + (n === 1 ? " capa publicada" : " capas publicadas") + " en " + estado.categorias.length + " categorías"
+      ? n + (n === 1 ? " capa publicada" : " capas publicadas") + (nc ? " en " + nc + (nc === 1 ? " categoría" : " categorías") : "")
       : "No hay capas publicadas todavía.";
     $("#filtro-categoria").insertAdjacentHTML(
       "beforeend",

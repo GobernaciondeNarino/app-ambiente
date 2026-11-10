@@ -6,16 +6,21 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import String, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..config import Settings, get_settings
+from ..config import Settings, request_settings
 from ..db import get_session
 from ..models import Category, Layer
 from ..services.geolibre import build_project, geolibre_open_url
 from ..services.layers import category_out, public_layer_dict
+
+
+def _settings(request: Request) -> Settings:
+    return request_settings(request)
+
 
 router = APIRouter(prefix="/api", tags=["público"])
 
@@ -45,7 +50,7 @@ def health() -> dict:
 
 
 @router.get("/config")
-def portal_config(settings: Settings = Depends(get_settings)) -> dict:
+def portal_config(settings: Settings = Depends(_settings)) -> dict:
     """Parámetros que el visor necesita (centro, URLs de GeoLibre)."""
     project_url = f"{settings.public_base_url}/api/proyecto.geolibre"
     return {
@@ -72,7 +77,7 @@ def list_layers(
     categoria: str | None = Query(default=None, description="Slug de la categoría"),
     tipo: str | None = Query(default=None, pattern="^(vector|raster)$"),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> list[dict]:
     query = select(Layer).options(selectinload(Layer.category)).where(Layer.published.is_(True))
     if q:
@@ -95,7 +100,7 @@ def list_layers(
 
 
 @router.get("/capas/{slug}")
-def get_layer(slug: str, session: Session = Depends(get_session), settings: Settings = Depends(get_settings)) -> dict:
+def get_layer(slug: str, session: Session = Depends(get_session), settings: Settings = Depends(_settings)) -> dict:
     return public_layer_dict(_published(session, slug), settings)
 
 
@@ -143,7 +148,7 @@ def layer_download(
 
 
 @router.get("/capas/{slug}/proyecto.geolibre")
-def layer_project(slug: str, session: Session = Depends(get_session), settings: Settings = Depends(get_settings)) -> Response:
+def layer_project(slug: str, session: Session = Depends(get_session), settings: Settings = Depends(_settings)) -> Response:
     layer = _published(session, slug)
     project = build_project([layer], settings, name=layer.title, categories=[layer.category] if layer.category else [])
     return _project_response(project, f"{layer.slug}.geolibre")
@@ -154,7 +159,7 @@ def full_project(
     categoria: str | None = None,
     capas: str | None = Query(default=None, description="Slugs separados por coma"),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> Response:
     """Proyecto GeoLibre con todas las capas publicadas (o un subconjunto)."""
     query = select(Layer).options(selectinload(Layer.category)).where(Layer.published.is_(True))
@@ -176,6 +181,8 @@ def _project_response(project: dict, filename: str) -> Response:
         media_type=GEOLIBRE_MEDIA,
         headers={
             "Cache-Control": CACHE_SHORT,
+            # Las URL internas dependen del dominio/subdirectorio por el que se accede
+            "Vary": "Host, X-Forwarded-Host, X-Forwarded-Proto, X-Forwarded-Prefix",
             "Content-Disposition": f'inline; filename="{filename}"',
         },
     )

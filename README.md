@@ -79,7 +79,15 @@ metros) el administrador permite indicar el EPSG de origen.
 
 - [Manual del administrador](docs/manual-administrador.md): cómo cargar, documentar, simbolizar y publicar geodatos.
 - [Arquitectura y despliegue](docs/arquitectura.md): componentes, API, integración con GeoLibre, producción y respaldos.
+- [Despliegue en Plesk](docs/despliegue-plesk.md): dominio, subdominio, subdirectorio o subcarpeta, con o sin Docker.
 - [Identidad visual](docs/identidad-visual.md): cómo se aplicaron los manuales de la Gobernación.
+
+## Auditoría de seguridad
+
+El repositorio incluye la skill [`security-audit`](.claude/skills/security-audit/) de Cloudflare
+(MIT), revisada y fijada a un commit (ver [`PROCEDENCIA.md`](.claude/skills/security-audit/PROCEDENCIA.md)).
+En Claude Code, dentro del repositorio, pida por ejemplo «haz una auditoría de seguridad de este
+repositorio». Los informes se escriben fuera del repositorio.
 
 ## Licencia
 

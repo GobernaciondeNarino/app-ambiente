@@ -14,14 +14,14 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from ..config import Settings, get_settings
+from ..config import Settings, request_settings
 from ..db import get_session
 from ..models import AuditLog, Category, Layer, User
 from ..schemas import (
@@ -59,6 +59,11 @@ from ..services.layers import (
 )
 
 auth_router = APIRouter(prefix="/api/auth", tags=["autenticación"])
+
+def _settings(request: Request) -> Settings:
+    return request_settings(request)
+
+
 router = APIRouter(prefix="/api/admin", tags=["administración"])
 
 DEFAULT_VECTOR_STYLE = {
@@ -238,7 +243,7 @@ def admin_list_layers(
     categoria_id: int | None = None,
     user: User = Depends(current_user),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> list[LayerOut]:
     query = select(Layer).options(selectinload(Layer.category))
     if q:
@@ -259,7 +264,7 @@ def admin_get_layer(
     layer_id: int,
     user: User = Depends(current_user),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> LayerOut:
     return layer_out(_load_layer(session, layer_id), settings)
 
@@ -274,7 +279,7 @@ async def admin_create_layer(
     columna_lat: str | None = Form(default=None),
     user: User = Depends(current_user),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> dict:
     meta = _parse_meta(metadatos)
     if user.role != "administrador" and "published" in meta.model_fields_set:
@@ -330,7 +335,7 @@ async def admin_update_layer(
     meta: LayerMetaIn,
     user: User = Depends(current_user),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> LayerOut:
     layer = _load_layer(session, layer_id)
     changed = _apply_meta(layer, meta, session, user)
@@ -354,7 +359,7 @@ async def admin_replace_file(
     columna_lat: str | None = Form(default=None),
     user: User = Depends(current_user),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> dict:
     """Actualiza el geodato de una capa existente conservando sus metadatos."""
     layer = _load_layer(session, layer_id)
@@ -385,7 +390,7 @@ def admin_publish(
     publicar: bool = Query(..., description="true para publicar, false para retirar"),
     user: User = Depends(require_admin),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> LayerOut:
     layer = _load_layer(session, layer_id)
     if publicar and not layer.processed_path:
@@ -402,7 +407,7 @@ def admin_delete_layer(
     layer_id: int,
     user: User = Depends(require_admin),
     session: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(_settings),
 ) -> None:
     layer = get_layer_or_404(session, layer_id)
     slug = layer.slug

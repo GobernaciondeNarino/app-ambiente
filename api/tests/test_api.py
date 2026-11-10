@@ -166,3 +166,28 @@ def test_change_password(client, auth):
     )
     assert r.status_code == 200
     assert client.post("/api/auth/ingresar", json={"username": "admin", "password": "Otra-Clave-2027"}).status_code == 200
+
+
+def test_public_url_autodetected_for_subdirectory(client, auth, geojson_file, monkeypatch):
+    """Sin GEOPORTAL_PUBLIC_URL, las URL siguen al dominio y subdirectorio del proxy."""
+    from app import config
+
+    monkeypatch.setattr(config.get_settings(), "public_base_url", "")
+    capa = _upload(client, auth, geojson_file, {"title": "Humedales", "published": True}).json()["capa"]
+    h = {"X-Forwarded-Host": "www.narino.gov.co", "X-Forwarded-Proto": "https", "X-Forwarded-Prefix": "/ambiente/geoportal/"}
+    ficha = client.get(f"/api/capas/{capa['slug']}", headers=h).json()
+    assert ficha["urls"]["datos"] == "https://www.narino.gov.co/ambiente/geoportal/api/capas/humedales/datos.geojson"
+    proj = client.get("/api/proyecto.geolibre", headers=h)
+    assert "Host" in proj.headers["vary"]
+    assert proj.json()["layers"][0]["source"]["url"].startswith("https://www.narino.gov.co/ambiente/geoportal/api/")
+    cfg = client.get("/api/config", headers={"Host": "sig.narino.gov.co"}).json()
+    assert cfg["proyecto_url"] == "http://sig.narino.gov.co/api/proyecto.geolibre"
+    # Cabeceras malformadas no se reflejan
+    bad = client.get("/api/config", headers={"X-Forwarded-Host": "evil.com/<x>", "X-Forwarded-Prefix": "/a b"}).json()
+    assert bad["proyecto_url"] == "http://localhost/api/proyecto.geolibre"
+
+
+def test_docs_use_relative_openapi(client):
+    r = client.get("/api/docs")
+    assert r.status_code == 200 and "'openapi.json'" in r.text or '"openapi.json"' in r.text
+    assert client.get("/api/openapi.json").status_code == 200

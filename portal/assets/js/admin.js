@@ -8,7 +8,8 @@
   montar("../");
 
   const API = "../api";
-  const CLAVE_SESION = "geoportal.sesion";
+  // Una clave por instalación: dos geoportales en el mismo dominio no comparten sesión
+  const CLAVE_SESION = "geoportal.sesion:" + location.pathname.replace(/[^/]*$/, "");
   const $ = (s, raiz) => (raiz || document).querySelector(s);
   const $$ = (s, raiz) => Array.from((raiz || document).querySelectorAll(s));
 

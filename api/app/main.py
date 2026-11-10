@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from .config import get_settings
+from .config import get_settings, origin_of
 from .db import Base, get_engine, session_scope
 from .models import Category, User
 from .routers import admin, public
@@ -75,12 +75,23 @@ def create_app() -> FastAPI:
         description="API de catálogo, consulta y administración de geodatos de la Secretaría de Ambiente y Desarrollo Sostenible.",
         version=os.getenv("GEOPORTAL_VERSION", "1.0.0"),
         lifespan=lifespan,
-        docs_url="/api/docs" if settings.docs_enabled else None,
+        docs_url=None,  # se sirve abajo con una URL relativa (funciona en subdirectorios)
         redoc_url=None,
         openapi_url="/api/openapi.json" if settings.docs_enabled else None,
     )
-    # GeoLibre se sirve desde otro origen y descarga proyectos y datos desde la API
-    origins = settings.cors_origins or [settings.geolibre_url, settings.public_base_url]
+    if settings.docs_enabled:
+        from fastapi.openapi.docs import get_swagger_ui_html
+
+        @app.get("/api/docs", include_in_schema=False)
+        def docs():
+            # «openapi.json» relativo a /…/api/docs: vale en la raíz y en cualquier subdirectorio
+            return get_swagger_ui_html(openapi_url="openapi.json", title="API · Geoportal Ambiental")
+
+    # GeoLibre se sirve desde otro origen y descarga proyectos y datos desde la API.
+    # CORS compara orígenes (esquema + dominio + puerto), nunca rutas.
+    origins = settings.cors_origins or [
+        o for o in {origin_of(settings.geolibre_url), origin_of(settings.public_base_url)} if o
+    ]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,

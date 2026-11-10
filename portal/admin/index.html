@@ -2,6 +2,12 @@
 <html lang="es">
   <head>
     <meta charset="utf-8">
+    <script>
+      // /geoportal → /geoportal/ : las rutas relativas (assets, api) dependen de la barra final
+      (function (l) {
+        if (!/\/$|\.[a-z0-9]+$/i.test(l.pathname)) l.replace(l.pathname + "/" + l.search + l.hash);
+      })(location);
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>Administrador · Geoportal Ambiental · Gobernación de Nariño</title>

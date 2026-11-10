@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 from pathlib import Path
 
 
@@ -34,9 +37,8 @@ class Settings:
     admin_email: str = field(default_factory=lambda: os.getenv("GEOPORTAL_ADMIN_EMAIL", ""))
 
     # URLs públicas
-    public_base_url: str = field(
-        default_factory=lambda: os.getenv("GEOPORTAL_PUBLIC_URL", "http://localhost:8080").rstrip("/")
-    )
+    # Vacío = se detecta en cada petición (dominio, esquema y prefijo de subdirectorio)
+    public_base_url: str = field(default_factory=lambda: os.getenv("GEOPORTAL_PUBLIC_URL", "").strip().rstrip("/"))
     geolibre_url: str = field(
         default_factory=lambda: os.getenv("GEOLIBRE_PUBLIC_URL", "http://localhost:8081").rstrip("/")
     )
@@ -98,6 +100,43 @@ def get_settings() -> Settings:
         _settings = Settings()
         _settings.ensure_dirs()
     return _settings
+
+
+_HOST_RE = re.compile(r"^[A-Za-z0-9.-]+(:[0-9]{1,5})?$|^\[[0-9A-Fa-f:.]+\](:[0-9]{1,5})?$")
+_PREFIX_RE = re.compile(r"^(/[A-Za-z0-9._~-]+)*$")
+
+
+def origin_of(url: str) -> str:
+    """``https://dominio.gov.co/geoportal`` → ``https://dominio.gov.co`` (lo que usa CORS)."""
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}" if parts.scheme and parts.netloc else ""
+
+
+def detect_public_url(request) -> str:
+    """URL pública vista por el navegador, a partir de la petición.
+
+    Usa ``X-Forwarded-Host``/``Host``, el esquema (uvicorn ya aplica
+    ``X-Forwarded-Proto`` con ``--proxy-headers``) y ``X-Forwarded-Prefix``,
+    que el proxy envía cuando el geoportal vive en un subdirectorio.
+    """
+    headers = request.headers
+    host = (headers.get("x-forwarded-host") or headers.get("host") or "").split(",")[0].strip()
+    if not _HOST_RE.match(host):
+        host = "localhost"
+    proto = (headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
+    scheme = proto if proto in ("http", "https") else request.url.scheme
+    prefix = (headers.get("x-forwarded-prefix") or "").split(",")[0].strip().rstrip("/")
+    if not _PREFIX_RE.match(prefix):
+        prefix = ""
+    return f"{scheme}://{host}{prefix}"
+
+
+def request_settings(request) -> Settings:
+    """Configuración con la URL pública resuelta para esta petición."""
+    settings = get_settings()
+    if settings.public_base_url:
+        return settings
+    return dataclasses.replace(settings, public_base_url=detect_public_url(request))
 
 
 def reset_settings() -> None:

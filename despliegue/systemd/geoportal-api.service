@@ -1,0 +1,24 @@
+# API del Geoportal Ambiental como servicio (Plesk Modo B, sin Docker).
+# Instalación: ver docs/despliegue-plesk.md
+[Unit]
+Description=API del Geoportal Ambiental (Gobernación de Nariño)
+After=network.target
+
+[Service]
+Type=simple
+User=geoportal
+Group=geoportal
+WorkingDirectory=/opt/geoportal/api
+EnvironmentFile=/opt/geoportal/geoportal.env
+ExecStart=/opt/geoportal/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+# Endurecimiento
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/geoportal/datos
+
+[Install]
+WantedBy=multi-user.target
