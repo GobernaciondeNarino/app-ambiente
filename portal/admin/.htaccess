@@ -1,0 +1,6 @@
+# Administrador: sin caché, sin indexación y sin incrustarse en otros sitios
+<IfModule mod_headers.c>
+    Header always set Cache-Control "no-store"
+    Header always set X-Robots-Tag "noindex, nofollow"
+    Header always set X-Frame-Options "DENY"
+</IfModule>

@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  api:
+  api-python:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,3 +19,33 @@ jobs:
           cache-dependency-path: api/requirements*.txt
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q
+
+  edicion-php:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: raiz-pruebas
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -praiz-pruebas"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.1"
+          extensions: pdo_mysql, mbstring, intl
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Sintaxis PHP
+        run: find portal -name '*.php' -print0 | xargs -0 -n1 php -l
+      - run: pip install pytest==8.3.5 httpx==0.28.1
+      - name: Instalación con el asistente y API
+        env:
+          GP_MYSQL_HOST: 127.0.0.1
+          GP_MYSQL_USER: root
+          GP_MYSQL_PASSWORD: raiz-pruebas
+        run: python -m pytest -q pruebas/edicion_php

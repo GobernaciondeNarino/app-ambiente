@@ -77,7 +77,11 @@
 
   async function obtener(ruta) {
     const r = await fetch(API + ruta, { headers: { Accept: "application/json" } });
-    if (!r.ok) throw new Error("Error " + r.status + " al consultar " + ruta);
+    if (!r.ok) {
+      const e = new Error("Error " + r.status + " al consultar " + ruta);
+      if (r.status === 503) e.instalar = ((await r.json().catch(() => ({}))).instalar) || "";
+      throw e;
+    }
     return r.json();
   }
 
@@ -731,6 +735,12 @@
       estado.capas = capas;
     } catch (err) {
       console.error(err);
+      if (err.instalar) {
+        $("#resumen-capas").innerHTML = 'El geoportal todavía no está instalado. <a href="' + escapar(err.instalar) + '">Abrir el asistente de instalación</a>.';
+        $("#lista-capas").innerHTML = "";
+        iniciarMapa();
+        return;
+      }
       $("#resumen-capas").textContent = "No fue posible conectar con el servicio de datos.";
       notificar("No fue posible cargar el catálogo de capas. Intente de nuevo más tarde.", "error");
     }

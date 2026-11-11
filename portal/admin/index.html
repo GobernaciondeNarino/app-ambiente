@@ -59,6 +59,7 @@
           <a href="#categorias" data-vista="categorias" data-icono="etiqueta">Categorías</a>
           <a href="#usuarios" data-vista="usuarios" data-icono="usuarios" data-solo-admin>Usuarios</a>
           <a href="#bitacora" data-vista="bitacora" data-icono="historial" data-solo-admin>Bitácora</a>
+          <a href="#configuracion" data-vista="configuracion" data-icono="tablero" data-solo-php hidden>Configuración</a>
           <a href="#cuenta" data-vista="cuenta" data-icono="usuario">Mi cuenta</a>
         </nav>
 
@@ -215,6 +216,26 @@
             </div>
           </section>
 
+          <!-- CONFIGURACIÓN (edición PHP) -->
+          <section class="vista" id="vista-configuracion" hidden>
+            <div class="titulo-vista"><h1>Configuración del sitio</h1></div>
+            <div class="dos-columnas">
+              <form class="tarjeta formulario" id="form-configuracion" novalidate>
+                <div class="campo"><label for="cfg-nombre">Nombre del geoportal</label><input id="cfg-nombre" name="nombre_portal" type="text" required></div>
+                <div class="campo"><label for="cfg-url">URL pública</label><input id="cfg-url" name="url_publica" type="url"><span class="ayuda">Vacía = se detecta en cada visita (ahora: <span id="config-detectada"></span>). GeoLibre usa esta URL para descargar los datos.</span></div>
+                <div class="campo"><label for="cfg-geolibre">GeoLibre</label><input id="cfg-geolibre" name="geolibre_url" type="url" required><span class="ayuda">https://web.geolibre.app o la URL de su propio GeoLibre.</span></div>
+                <div class="rejilla-campos">
+                  <div class="campo"><label for="cfg-max">Tamaño máximo de carga (MB)</label><input id="cfg-max" name="max_carga_mb" type="number" min="1" max="4096"></div>
+                  <div class="campo"><label for="cfg-inline">Embeber en GeoLibre hasta (MB)</label><input id="cfg-inline" name="inline_max_mb" type="number" min="0" max="200"></div>
+                  <div class="campo"><label for="cfg-horas">Duración de la sesión (horas)</label><input id="cfg-horas" name="horas_sesion" type="number" min="1" max="72"></div>
+                </div>
+                <div class="acciones-formulario"><button class="btn btn-primario" type="submit">Guardar configuración</button></div>
+              </form>
+              <section class="tarjeta bloque"><h2>Servidor</h2><dl class="tecnica" id="config-servidor"></dl>
+                <p class="ayuda-pie">El límite real de carga es el menor entre este valor y los de PHP (upload_max_filesize y post_max_size).</p></section>
+            </div>
+          </section>
+
           <!-- CUENTA -->
           <section class="vista" id="vista-cuenta" hidden>
             <div class="titulo-vista"><h1>Mi cuenta</h1></div>
@@ -242,6 +263,7 @@
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script src="../assets/js/config-institucional.js"></script>
     <script src="../assets/js/institucional.js"></script>
+    <script src="../assets/js/ingesta-navegador.js"></script>
     <script src="../assets/js/admin.js"></script>
   </body>
 </html>

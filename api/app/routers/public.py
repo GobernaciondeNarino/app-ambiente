@@ -61,6 +61,10 @@ def portal_config(settings: Settings = Depends(_settings)) -> dict:
         "proyecto_url": project_url,
         "geolibre_proyecto_url": geolibre_open_url(settings, project_url),
         "geolibre_editor_url": geolibre_open_url(settings, project_url, viewer=False),
+        # La edición Docker procesa los geodatos en el servidor (GDAL); la de Plesk, en el navegador
+        "edicion": "docker",
+        "ingesta": "servidor",
+        "max_carga_mb": settings.max_upload_mb,
     }
 
 
