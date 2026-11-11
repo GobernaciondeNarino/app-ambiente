@@ -1,4 +1,8 @@
-# Despliegue en Plesk (dominio, subdominio o subdirectorio)
+# Despliegue en Plesk con Docker o systemd (edición Python)
+
+> ¿Prefiere subir archivos y usar un asistente, sin SSH ni Docker? Use la
+> [edición PHP + MySQL](instalacion-plesk.md). Esta página describe la edición Python
+> (FastAPI + GDAL), que requiere la extensión Docker de Plesk o acceso SSH.
 
 El geoportal funciona en cualquiera de estas ubicaciones sin cambiar código:
 

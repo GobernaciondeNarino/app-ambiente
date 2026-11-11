@@ -1,0 +1,31 @@
+name: Paquete para Plesk
+
+# Genera geoportal-plesk-<versión>.zip (carpeta lista para subir a Plesk y abrir el asistente).
+# Con una etiqueta v* lo adjunta a la publicación (Release) de GitHub.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  paquete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Empaquetar
+        run: scripts/empaquetar-plesk.sh "${GITHUB_REF_NAME#v}"
+        if: startsWith(github.ref, 'refs/tags/')
+      - name: Empaquetar (versión del código)
+        run: scripts/empaquetar-plesk.sh
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geoportal-plesk
+          path: dist/geoportal-plesk-*.zip
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/geoportal-plesk-*.zip

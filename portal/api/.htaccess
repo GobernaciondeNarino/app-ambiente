@@ -1,0 +1,19 @@
+# API del Geoportal Ambiental (Apache / Plesk)
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Con PHP-FPM, Apache no entrega la cabecera Authorization a PHP sin esto
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+<FilesMatch "^\.user\.ini$">
+    Require all denied
+</FilesMatch>

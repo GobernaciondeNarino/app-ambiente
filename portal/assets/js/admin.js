@@ -47,7 +47,8 @@
     cambio_clave: "Cambio de contraseña",
   };
 
-  const estado = { token: null, usuario: null, categorias: [], capa: null, mapa: null, sucio: false };
+  const estado = { token: null, usuario: null, categorias: [], capa: null, mapa: null, sucio: false, ingesta: "servidor", edicion: "" };
+  const ACEPTA_NAVEGADOR = ".geojson,.json,.zip,.gpkg,.kml,.kmz,.csv,.tif,.tiff";
 
   // ------------------------------------------------------------------ sesión
 
@@ -150,6 +151,13 @@
     const u = estado.usuario;
     $("#usuario-nombre").innerHTML = escapar(u.full_name || u.username) + "<small>" + escapar(u.role) + "</small>";
     $$("[data-solo-admin]").forEach((el) => (el.hidden = !esAdmin()));
+    $$("[data-solo-php]").forEach((el) => (el.hidden = !(esAdmin() && estado.edicion === "php")));
+    if (estado.ingesta === "navegador") {
+      $("#archivo").setAttribute("accept", ACEPTA_NAVEGADOR);
+      $("#zona-ayuda").textContent =
+        "GeoJSON · Shapefile (.zip con .shp, .shx, .dbf y .prj) · GeoPackage · KML/KMZ · CSV · GeoTIFF/COG" +
+        (estado.maxCargaMb ? " · máximo " + estado.maxCargaMb + " MB" : "") + ". El archivo se procesa en su navegador antes de subirlo.";
+    }
     await cargarCategorias();
     enrutar();
   }
@@ -190,6 +198,7 @@
     usuarios: verUsuarios,
     bitacora: verBitacora,
     cuenta: () => {},
+    configuracion: verConfiguracion,
   };
 
   function enrutar() {
@@ -382,6 +391,32 @@
 
   // ------------------------------------------------------------------ cargar
 
+  /**
+   * Arma el formulario de carga. En la edición Docker (Python) el servidor procesa el archivo;
+   * en la edición para Plesk (PHP) se procesa aquí, en el navegador, y se suben el original
+   * y el resultado (GeoJSON en EPSG:4326 o vista previa del ráster).
+   */
+  async function prepararCarga(archivo, opciones, alAvanzar) {
+    const fd = new FormData();
+    fd.append("archivo", archivo);
+    if (estado.ingesta !== "navegador") {
+      if (opciones.epsg) fd.append("epsg", opciones.epsg);
+      if (opciones.capaInterna) fd.append("capa_interna", opciones.capaInterna);
+      if (opciones.colLon) fd.append("columna_lon", opciones.colLon);
+      if (opciones.colLat) fd.append("columna_lat", opciones.colLat);
+      return { fd, advertencias: [] };
+    }
+    if (estado.maxCargaMb && archivo.size > estado.maxCargaMb * 1048576) {
+      throw new Error("El archivo (" + formatoBytes(archivo.size) + ") supera el máximo que admite el servidor (" + estado.maxCargaMb + " MB).");
+    }
+    alAvanzar && alAvanzar("Leyendo y reproyectando el geodato en su navegador…");
+    const r = await window.IngestaNavegador.procesar(archivo, opciones);
+    fd.append("procesado", r.procesado, r.nombreProcesado);
+    if (r.geotiff) fd.append("geotiff", r.geotiff, "datos_4326.tif");
+    fd.append("info", JSON.stringify(r.info));
+    return { fd, advertencias: r.advertencias };
+  }
+
   let archivoElegido = null;
 
   function verCargar() {
@@ -441,19 +476,19 @@
         return;
       }
       if (esAdmin() && $("#publicar-al-cargar").checked) meta.published = true;
-      const fd = new FormData();
-      fd.append("archivo", archivoElegido);
-      fd.append("metadatos", JSON.stringify(meta));
-      ["epsg", "capa-interna", "col-lon", "col-lat"].forEach((id) => {
-        const el = $("#" + id);
-        if (el.value.trim()) fd.append(el.name, el.value.trim());
-      });
       const prog = $("#progreso");
       const boton = form.querySelector("button[type=submit]");
       prog.hidden = false;
-      prog.classList.remove("procesando");
+      prog.classList.add("procesando");
       boton.disabled = true;
       try {
+        const { fd, advertencias } = await prepararCarga(
+          archivoElegido,
+          { epsg: $("#epsg").value.trim(), capaInterna: $("#capa-interna").value.trim(), colLon: $("#col-lon").value.trim(), colLat: $("#col-lat").value.trim() },
+          (t) => ($("#progreso-texto").textContent = t),
+        );
+        fd.append("metadatos", JSON.stringify(meta));
+        prog.classList.remove("procesando");
         const r = await subir("/admin/capas", fd, (f, terminado) => {
           $("#progreso-barra").style.width = Math.round(f * 100) + "%";
           $("#progreso-texto").textContent = terminado ? "Procesando y validando el geodato…" : "Subiendo " + Math.round(f * 100) + "%";
@@ -462,7 +497,7 @@
         notificar("Geodato cargado: " + r.capa.title);
         form.reset();
         elegirArchivo(null);
-        estado.advertencias = r.advertencias || [];
+        estado.advertencias = advertencias.concat((r.advertencias || []).filter((a) => !advertencias.includes(a)));
         location.hash = "#capa/" + r.capa.id;
       } catch (ex) {
         err.textContent = ex.message;
@@ -761,7 +796,16 @@
       cuerpo.style = Object.assign(base, sim.style);
     }
     try {
-      const actualizada = await api("/admin/capas/" + c.id, { method: "PUT", json: cuerpo });
+      let actualizada = await api("/admin/capas/" + c.id, { method: "PUT", json: cuerpo });
+      if (estado.ingesta === "navegador" && c.kind === "raster" && JSON.stringify(c.style) !== JSON.stringify(actualizada.style)) {
+        // En la edición para Plesk la vista previa se dibuja en el navegador a partir del GeoTIFF original
+        const r = await fetch(API + "/admin/capas/" + c.id + "/original", { headers: { Authorization: "Bearer " + estado.token } });
+        if (!r.ok) throw new Error("No se pudo leer el ráster original para actualizar la vista previa.");
+        const png = await window.IngestaNavegador.vistaPreviaRaster(await r.blob(), actualizada.style);
+        const fd = new FormData();
+        fd.append("vista_previa", png, "vista_previa.png");
+        actualizada = await subir("/admin/capas/" + c.id + "/vista-previa", fd, () => {});
+      }
       estado.capa = actualizada;
       estado.sucio = false;
       $("#sin-guardar").hidden = true;
@@ -808,7 +852,7 @@
     $("#archivo-capa").innerHTML =
       "<p>Reemplace el geodato por una versión actualizada. Se conservan la ficha de metadatos, la categoría y el estado de publicación; la simbología se mantiene si el tipo de geometría no cambia.</p>" +
       '<div class="rejilla-campos">' +
-      '<div class="campo ancho"><label for="reemplazo">Nuevo archivo</label><input type="file" id="reemplazo" accept=".geojson,.json,.zip,.gpkg,.kml,.kmz,.gml,.fgb,.parquet,.geoparquet,.csv,.tif,.tiff,.img,.asc,.jp2"></div>' +
+      '<div class="campo ancho"><label for="reemplazo">Nuevo archivo</label><input type="file" id="reemplazo" accept="' + (estado.ingesta === "navegador" ? ACEPTA_NAVEGADOR : ".geojson,.json,.zip,.gpkg,.kml,.kmz,.gml,.fgb,.parquet,.geoparquet,.csv,.tif,.tiff,.img,.asc,.jp2") + '"></div>' +
       '<div class="campo"><label for="reemplazo-epsg">EPSG de origen (opcional)</label><input type="number" id="reemplazo-epsg" placeholder="9377"></div>' +
       "</div>" +
       '<div class="progreso" id="progreso-reemplazo" hidden><div class="barra"><span></span></div><span>Procesando…</span></div>' +
@@ -818,16 +862,14 @@
       const archivo = $("#reemplazo").files[0];
       if (!archivo) return notificar("Seleccione el archivo nuevo.", "error");
       if (!(await confirmar("Reemplazar geodato", "Se reemplazarán los datos de <strong>" + escapar(c.title) + "</strong>" + (c.published ? ", que está publicada," : "") + " por <strong>" + escapar(archivo.name) + "</strong>.", "Reemplazar"))) return;
-      const fd = new FormData();
-      fd.append("archivo", archivo);
-      if ($("#reemplazo-epsg").value) fd.append("epsg", $("#reemplazo-epsg").value);
       const prog = $("#progreso-reemplazo");
       prog.hidden = false;
       prog.classList.add("procesando");
       try {
+        const { fd, advertencias } = await prepararCarga(archivo, { epsg: $("#reemplazo-epsg").value.trim() });
         const r = await subir("/admin/capas/" + c.id + "/archivo", fd, () => {});
         notificar("Geodato actualizado.");
-        estado.advertencias = r.advertencias;
+        estado.advertencias = advertencias.concat((r.advertencias || []).filter((a) => !advertencias.includes(a)));
         verCapa(c.id);
       } catch (ex) {
         notificar(ex.message, "error");
@@ -1111,8 +1153,76 @@
     }
   });
 
+  // ------------------------------------------------------------------ configuración (edición PHP)
+
+  async function verConfiguracion() {
+    if (!esAdmin() || estado.edicion !== "php") return (location.hash = "#resumen");
+    const c = await api("/admin/configuracion");
+    const f = $("#form-configuracion");
+    f.nombre_portal.value = c.nombre_portal;
+    f.url_publica.value = c.url_publica;
+    f.geolibre_url.value = c.geolibre_url;
+    f.max_carga_mb.value = c.max_carga_mb;
+    f.inline_max_mb.value = c.inline_max_mb;
+    f.horas_sesion.value = c.horas_sesion;
+    $("#config-detectada").textContent = c.url_detectada;
+    $("#config-servidor").innerHTML = [
+      ["Versión del geoportal", c.version],
+      ["PHP", c.php],
+      ["MySQL", c.mysql],
+      ["Límite de carga de PHP", c.limite_php_mb + " MB"],
+      ["Carpeta de datos", c.datos_dir],
+    ].map(([k, v]) => "<dt>" + k + "</dt><dd>" + escapar(v) + "</dd>").join("");
+  }
+
+  $("#form-configuracion").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget;
+    try {
+      await api("/admin/configuracion", {
+        method: "PUT",
+        json: {
+          nombre_portal: f.nombre_portal.value.trim(),
+          url_publica: f.url_publica.value.trim(),
+          geolibre_url: f.geolibre_url.value.trim(),
+          max_carga_mb: Number(f.max_carga_mb.value),
+          inline_max_mb: Number(f.inline_max_mb.value),
+          horas_sesion: Number(f.horas_sesion.value),
+        },
+      });
+      notificar("Configuración guardada.");
+      verConfiguracion();
+    } catch (ex) {
+      notificar(ex.message, "error");
+    }
+  });
+
   // ------------------------------------------------------------------ inicio
 
+  async function leerConfiguracionPublica() {
+    try {
+      const r = await fetch(API + "/config", { headers: { Accept: "application/json" } });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 503 && d.instalar) {
+        $("#error-ingreso").innerHTML = 'El geoportal todavía no está instalado. <a href="../' + escapar(d.instalar) + '">Abrir el asistente de instalación</a>.';
+        $("#error-ingreso").hidden = false;
+        return false;
+      }
+      estado.ingesta = d.ingesta || "servidor";
+      estado.edicion = d.edicion || "";
+      estado.maxCargaMb = d.max_carga_mb || 0;
+    } catch (_) {
+      /* la API responderá el error en el ingreso */
+    }
+    return true;
+  }
+
+  leerConfiguracionPublica().then((instalado) => {
+    if (!instalado) return mostrarIngreso();
+    iniciarSesion();
+  });
+
+  function iniciarSesion() {
   leerSesion();
   if (estado.token) {
     api("/auth/yo")
@@ -1123,4 +1233,5 @@
       })
       .catch(() => cerrarSesion());
   } else mostrarIngreso();
+  }
 })();

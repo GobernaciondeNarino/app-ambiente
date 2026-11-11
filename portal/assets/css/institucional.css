@@ -374,7 +374,9 @@ label {
   color: var(--gris-titulo);
 }
 
+input:not([type]),
 input[type="text"],
+input[type="url"],
 input[type="search"],
 input[type="email"],
 input[type="password"],

@@ -324,6 +324,8 @@ async def admin_create_layer(
     if meta.style and layer.kind == "raster" and layer.preview_path:
         await run_in_threadpool(render_raster_preview, Path(layer.processed_path), Path(layer.preview_path), layer.raster_info or {}, layer.style)
     audit(session, user.username, "carga", layer.slug, f"{layer.source_format} · {layer.feature_count} entidades")
+    if layer.published:
+        audit(session, user.username, "publicacion", layer.slug, "al cargar")
     session.commit()
     layer = _load_layer(session, layer.id)
     return {"capa": layer_out(layer, settings).model_dump(mode="json"), "advertencias": result.warnings, "capas_internas": result.sublayers}
@@ -345,6 +347,8 @@ async def admin_update_layer(
         await run_in_threadpool(render_raster_preview, Path(layer.processed_path), Path(layer.preview_path), layer.raster_info or {}, layer.style)
     if changed:
         audit(session, user.username, "edicion", layer.slug, ", ".join(changed))
+    if "published" in changed:
+        audit(session, user.username, "publicacion" if layer.published else "retiro", layer.slug)
     session.commit()
     return layer_out(_load_layer(session, layer_id), settings)
 

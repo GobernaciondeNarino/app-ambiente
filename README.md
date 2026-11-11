@@ -24,6 +24,29 @@ flowchart LR
   G -- proyecto .geolibre, GeoJSON, COG por rangos --> API
 ```
 
+## Dos ediciones, la misma interfaz
+
+| | **Plesk / hosting PHP** | **Docker / servidor** |
+| --- | --- | --- |
+| Instalación | Subir la carpeta y completar el **asistente de instalación** (como WordPress) | `docker compose up` o servicio systemd |
+| Backend | PHP 8.1+ (`portal/api/`) | Python FastAPI + GDAL (`api/`) |
+| Base de datos | **MySQL / MariaDB** | MySQL, PostgreSQL o SQLite |
+| Conversión de geodatos | En el navegador del administrador, con validación en el servidor | En el servidor (GDAL) |
+| Guía | [Instalación en Plesk](docs/instalacion-plesk.md) | Ver abajo y [arquitectura](docs/arquitectura.md) |
+
+Ambas exponen la misma API (`/api/...`), así que el visor, el catálogo, el administrador y la
+integración con GeoLibre son idénticos.
+
+## Instalación en Plesk (subiendo archivos)
+
+1. Cree una base de datos MySQL en Plesk.
+2. Genere el paquete con `scripts/empaquetar-plesk.sh` o descárguelo de *Releases*.
+3. Súbalo con el Administrador de archivos y elija «Extraer».
+4. Abra `https://su-dominio/geoportal/instalar/` y siga el asistente.
+
+Los detalles, la solución de problemas y la verificación realizada están en
+[docs/instalacion-plesk.md](docs/instalacion-plesk.md).
+
 ## Inicio rápido (Docker)
 
 ```bash
@@ -63,6 +86,12 @@ Pruebas:
 cd api && python -m pytest
 ```
 
+Pruebas de la edición PHP (necesitan PHP 8.1+ con `pdo_mysql` y un MySQL accesible):
+
+```bash
+GP_MYSQL_USER=usuario GP_MYSQL_PASSWORD=clave python -m pytest pruebas/edicion_php
+```
+
 ## Formatos que acepta el administrador
 
 | Tipo | Formatos | Resultado publicado |
@@ -79,7 +108,8 @@ metros) el administrador permite indicar el EPSG de origen.
 
 - [Manual del administrador](docs/manual-administrador.md): cómo cargar, documentar, simbolizar y publicar geodatos.
 - [Arquitectura y despliegue](docs/arquitectura.md): componentes, API, integración con GeoLibre, producción y respaldos.
-- [Despliegue en Plesk](docs/despliegue-plesk.md): dominio, subdominio, subdirectorio o subcarpeta, con o sin Docker.
+- [Instalación en Plesk subiendo archivos](docs/instalacion-plesk.md): edición PHP + MySQL con asistente de instalación.
+- [Despliegue en Plesk con Docker o systemd](docs/despliegue-plesk.md): edición Python, en dominio, subdominio o subdirectorio.
 - [Identidad visual](docs/identidad-visual.md): cómo se aplicaron los manuales de la Gobernación.
 
 ## Auditoría de seguridad

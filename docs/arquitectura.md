@@ -18,6 +18,22 @@ GeoLibre se usa sin modificar su código (imagen oficial
 `ghcr.io/opengeos/geolibre`), así las actualizaciones del proyecto se adoptan
 cambiando la etiqueta de la imagen.
 
+## Ediciones
+
+El repositorio tiene dos backends con el mismo contrato de API. El sitio estático de `portal/`
+(visor, catálogo y administrador) funciona con cualquiera de los dos y detecta la edición con
+`GET /api/config` (`edicion`, `ingesta`).
+
+| | Edición Docker (`api/`, Python) | Edición Plesk (`portal/api/`, PHP) |
+| --- | --- | --- |
+| Ingesta | En el servidor con GDAL (geopandas, rasterio) | En el navegador (`assets/js/ingesta-navegador.js`: shpjs, proj4, togeojson, JSZip, sql.js, geotiff.js) y validación en el servidor |
+| Base de datos | SQLAlchemy: SQLite, MySQL, PostgreSQL | PDO MySQL / MariaDB, con prefijo de tablas |
+| Instalación | Variables de entorno | Asistente `instalar/` → `config.php` + tabla `opciones` |
+| Archivos | `api/app/` | `portal/api/index.php`, `portal/api/lib/*.php`, `portal/instalar/index.php` |
+
+Las librerías del navegador están en `portal/assets/vendor/`, con sus licencias en `licencias/`.
+Solo se cargan en el administrador y cuando se necesitan.
+
 ## Componentes
 
 ```mermaid
