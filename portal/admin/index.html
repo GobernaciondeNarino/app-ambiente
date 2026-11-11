@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <script>
+      // /geoportal → /geoportal/ : las rutas relativas (assets, api) dependen de la barra final
+      (function (l) {
+        if (!/\/$|\.[a-z0-9]+$/i.test(l.pathname)) l.replace(l.pathname + "/" + l.search + l.hash);
+      })(location);
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Administrador · Geoportal Ambiental · Gobernación de Nariño</title>
+    <link rel="icon" href="../assets/img/escudo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="../assets/css/institucional.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+  </head>
+  <body>
+    <a class="saltar-contenido" href="#contenido">Saltar al contenido</a>
+    <div data-govco></div>
+
+    <!-- ============================ INGRESO ============================ -->
+    <section class="ingreso" id="pantalla-ingreso" hidden>
+      <form class="ingreso-tarjeta tarjeta" id="form-ingreso" novalidate>
+        <img src="../assets/img/logo-gobernacion-narino.png" alt="Gobernación de Nariño">
+        <h1>Administrador del Geoportal Ambiental</h1>
+        <p>Secretaría de Ambiente y Desarrollo Sostenible</p>
+        <div class="campo"><label for="usuario">Usuario</label><input id="usuario" name="username" type="text" autocomplete="username" required></div>
+        <div class="campo"><label for="clave">Contraseña</label><input id="clave" name="password" type="password" autocomplete="current-password" required></div>
+        <div class="aviso error" id="error-ingreso" hidden></div>
+        <button class="btn btn-primario" type="submit">Ingresar</button>
+        <a href="../" class="volver">← Volver al geoportal</a>
+      </form>
+    </section>
+
+    <!-- ============================ APLICACIÓN ============================ -->
+    <div class="app" id="app" hidden>
+      <header class="encabezado">
+        <a class="marca" href="#resumen">
+          <img src="../assets/img/logo-gobernacion-narino.png" alt="Gobernación de Nariño">
+          <span class="dependencia"><strong>Administrador del Geoportal</strong><span>Secretaría de Ambiente y Desarrollo Sostenible</span></span>
+        </a>
+        <div class="usuario-actual">
+          <a class="btn btn-secundario btn-chico" href="../" target="_blank" rel="noopener" data-icono="publicar">Ver geoportal</a>
+          <span class="usuario-nombre" id="usuario-nombre"></span>
+          <button class="btn btn-secundario btn-chico" type="button" id="salir" data-icono="salir">Salir</button>
+        </div>
+      </header>
+
+      <div class="app-cuerpo">
+        <nav class="menu-lateral" aria-label="Secciones del administrador">
+          <a href="#resumen" data-vista="resumen" data-icono="tablero">Resumen</a>
+          <a href="#cargar" data-vista="cargar" data-icono="subir">Cargar geodato</a>
+          <a href="#capas" data-vista="capas" data-icono="capas">Capas</a>
+          <a href="#categorias" data-vista="categorias" data-icono="etiqueta">Categorías</a>
+          <a href="#usuarios" data-vista="usuarios" data-icono="usuarios" data-solo-admin>Usuarios</a>
+          <a href="#bitacora" data-vista="bitacora" data-icono="historial" data-solo-admin>Bitácora</a>
+          <a href="#cuenta" data-vista="cuenta" data-icono="usuario">Mi cuenta</a>
+        </nav>
+
+        <main class="contenido" id="contenido" tabindex="-1">
+          <!-- RESUMEN -->
+          <section class="vista" id="vista-resumen" hidden>
+            <div class="titulo-vista"><h1>Resumen</h1><a class="btn btn-primario" href="#cargar" data-icono="subir">Cargar geodato</a></div>
+            <div class="indicadores" id="indicadores"></div>
+            <div class="dos-columnas">
+              <section class="tarjeta bloque">
+                <h2>Actividad reciente</h2>
+                <ul class="actividad" id="actividad"></ul>
+              </section>
+              <section class="tarjeta bloque">
+                <h2>Flujo de publicación</h2>
+                <ol class="pasos">
+                  <li><strong>Cargar</strong> el geodato (GeoJSON, Shapefile en .zip, GeoPackage, KML/KMZ, CSV, GeoTIFF…). El sistema lo valida, repara geometrías y lo reproyecta a WGS 84.</li>
+                  <li><strong>Documentar</strong> la ficha de metadatos: fuente, fecha, escala, licencia y palabras clave.</li>
+                  <li><strong>Simbolizar</strong>: colores, grosor, transparencia y campos de la ventana emergente.</li>
+                  <li><strong>Publicar</strong> (rol administrador). La capa aparece en el visor, el catálogo y el proyecto de GeoLibre.</li>
+                </ol>
+                <p class="ayuda-pie">Formatos admitidos: <span id="formatos"></span></p>
+              </section>
+            </div>
+          </section>
+
+          <!-- CARGAR -->
+          <section class="vista" id="vista-cargar" hidden>
+            <div class="titulo-vista"><h1>Cargar geodato</h1></div>
+            <form id="form-carga" class="tarjeta formulario" novalidate>
+              <div class="zona-carga" id="zona-carga" tabindex="0" role="button" aria-describedby="zona-ayuda">
+                <span data-icono="subir"></span>
+                <strong>Arrastre aquí el archivo o haga clic para seleccionarlo</strong>
+                <span id="zona-ayuda">GeoJSON · Shapefile (.zip con .shp, .shx, .dbf y .prj) · GeoPackage · KML/KMZ · GML · FlatGeobuf · GeoParquet · CSV · GeoTIFF/COG · IMG · ASC · JP2</span>
+                <span class="archivo-elegido" id="archivo-elegido"></span>
+                <input type="file" id="archivo" name="archivo" hidden accept=".geojson,.json,.zip,.gpkg,.kml,.kmz,.gml,.fgb,.parquet,.geoparquet,.csv,.tif,.tiff,.img,.asc,.jp2">
+              </div>
+              <div id="campos-carga"></div>
+              <details class="avanzado">
+                <summary>Opciones avanzadas de lectura</summary>
+                <div class="rejilla-campos">
+                  <div class="campo">
+                    <label for="epsg">Sistema de referencia de origen</label>
+                    <select id="epsg" name="epsg">
+                      <option value="">Detectar automáticamente (recomendado)</option>
+                      <option value="9377">EPSG:9377 · MAGNA-SIRGAS / Origen Nacional (CTM12)</option>
+                      <option value="3116">EPSG:3116 · MAGNA-SIRGAS / Colombia Bogotá</option>
+                      <option value="3115">EPSG:3115 · MAGNA-SIRGAS / Colombia Oeste</option>
+                      <option value="3117">EPSG:3117 · MAGNA-SIRGAS / Colombia Este Central</option>
+                      <option value="4686">EPSG:4686 · MAGNA-SIRGAS geográficas</option>
+                      <option value="4326">EPSG:4326 · WGS 84 geográficas</option>
+                      <option value="32618">EPSG:32618 · WGS 84 / UTM zona 18N</option>
+                      <option value="32617">EPSG:32617 · WGS 84 / UTM zona 17N</option>
+                    </select>
+                    <span class="ayuda">Solo se usa si el archivo no declara su sistema de referencia (p. ej. Shapefile sin .prj o CSV en metros).</span>
+                  </div>
+                  <div class="campo"><label for="capa-interna">Capa interna</label><input id="capa-interna" name="capa_interna" type="text"><span class="ayuda">Para GeoPackage o KML con varias capas.</span></div>
+                  <div class="campo"><label for="col-lon">Columna de longitud / X (CSV)</label><input id="col-lon" name="columna_lon" type="text" placeholder="longitud"></div>
+                  <div class="campo"><label for="col-lat">Columna de latitud / Y (CSV)</label><input id="col-lat" name="columna_lat" type="text" placeholder="latitud"></div>
+                </div>
+              </details>
+              <label class="check" data-solo-admin><input type="checkbox" id="publicar-al-cargar"> Publicar inmediatamente después de cargar</label>
+              <div class="progreso" id="progreso" hidden><div class="barra"><span id="progreso-barra"></span></div><span id="progreso-texto">Subiendo…</span></div>
+              <div class="aviso error" id="error-carga" hidden></div>
+              <div class="acciones-formulario"><button class="btn btn-primario" type="submit" data-icono="subir">Cargar y procesar</button></div>
+            </form>
+          </section>
+
+          <!-- CAPAS -->
+          <section class="vista" id="vista-capas" hidden>
+            <div class="titulo-vista"><h1>Capas</h1><a class="btn btn-primario" href="#cargar" data-icono="subir">Cargar geodato</a></div>
+            <div class="filtros-tabla">
+              <input type="search" id="filtro-capas" placeholder="Buscar por título, descripción o archivo" aria-label="Buscar capas">
+              <select id="filtro-estado" aria-label="Estado"><option value="">Todos los estados</option><option value="publicadas">Publicadas</option><option value="borradores">Borradores</option></select>
+              <select id="filtro-cat" aria-label="Categoría"><option value="">Todas las categorías</option></select>
+            </div>
+            <div class="tarjeta tabla-contenedor">
+              <table class="tabla" id="tabla-capas">
+                <thead><tr><th>Capa</th><th>Categoría</th><th>Tipo</th><th>Tamaño</th><th>Estado</th><th>Actualizada</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- EDITAR CAPA -->
+          <section class="vista" id="vista-capa" hidden>
+            <div class="titulo-vista">
+              <div>
+                <a href="#capas" class="volver">← Capas</a>
+                <h1 id="capa-titulo"></h1>
+                <div class="estado-capa" id="capa-estado"></div>
+              </div>
+              <div class="acciones-capa" id="capa-acciones"></div>
+            </div>
+            <div class="aviso advertencia" id="capa-advertencias" hidden></div>
+            <div class="editor">
+              <div class="tarjeta editor-formulario">
+                <div class="pestanas" role="tablist">
+                  <button role="tab" type="button" aria-selected="true" data-pestana="metadatos">Metadatos</button>
+                  <button role="tab" type="button" aria-selected="false" data-pestana="simbologia">Simbología</button>
+                  <button role="tab" type="button" aria-selected="false" data-pestana="datos">Datos</button>
+                  <button role="tab" type="button" aria-selected="false" data-pestana="archivo">Archivo</button>
+                </div>
+                <form id="form-capa" novalidate>
+                  <div class="panel-pestana" data-panel="metadatos"><div id="campos-edicion"></div></div>
+                  <div class="panel-pestana" data-panel="simbologia" hidden><div id="campos-simbologia"></div></div>
+                  <div class="panel-pestana" data-panel="datos" hidden><div id="datos-capa"></div></div>
+                  <div class="panel-pestana" data-panel="archivo" hidden><div id="archivo-capa"></div></div>
+                  <div class="acciones-formulario" id="acciones-guardar">
+                    <span class="sin-guardar" id="sin-guardar" hidden>Cambios sin guardar</span>
+                    <button class="btn btn-primario" type="submit" data-icono="check">Guardar cambios</button>
+                  </div>
+                </form>
+              </div>
+              <div class="editor-lateral">
+                <div class="tarjeta mapa-previa"><div id="mapa-previa"></div></div>
+                <div class="tarjeta bloque" id="capa-tecnica"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- CATEGORÍAS -->
+          <section class="vista" id="vista-categorias" hidden>
+            <div class="titulo-vista"><h1>Categorías temáticas</h1><button class="btn btn-primario" type="button" id="nueva-categoria" data-solo-admin data-icono="etiqueta">Nueva categoría</button></div>
+            <p class="introduccion">Las categorías organizan el panel de capas del visor y las carpetas del proyecto en GeoLibre. El orden define cómo se muestran.</p>
+            <div class="tarjeta tabla-contenedor">
+              <table class="tabla" id="tabla-categorias">
+                <thead><tr><th>Orden</th><th>Categoría</th><th>Descripción</th><th>Capas</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- USUARIOS -->
+          <section class="vista" id="vista-usuarios" hidden>
+            <div class="titulo-vista"><h1>Usuarios</h1><button class="btn btn-primario" type="button" id="nuevo-usuario" data-icono="usuario">Nuevo usuario</button></div>
+            <p class="introduccion"><strong>Editor:</strong> carga geodatos y edita metadatos y simbología. <strong>Administrador:</strong> además publica, elimina y gestiona categorías y usuarios.</p>
+            <div class="tarjeta tabla-contenedor">
+              <table class="tabla" id="tabla-usuarios">
+                <thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Último ingreso</th><th><span class="sr-only">Acciones</span></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- BITÁCORA -->
+          <section class="vista" id="vista-bitacora" hidden>
+            <div class="titulo-vista"><h1>Bitácora de cambios</h1></div>
+            <div class="tarjeta tabla-contenedor">
+              <table class="tabla" id="tabla-bitacora">
+                <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Objeto</th><th>Detalle</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- CUENTA -->
+          <section class="vista" id="vista-cuenta" hidden>
+            <div class="titulo-vista"><h1>Mi cuenta</h1></div>
+            <form class="tarjeta formulario angosto" id="form-clave" novalidate>
+              <h2>Cambiar contraseña</h2>
+              <div class="campo"><label for="clave-actual">Contraseña actual</label><input id="clave-actual" type="password" autocomplete="current-password" required></div>
+              <div class="campo"><label for="clave-nueva">Nueva contraseña</label><input id="clave-nueva" type="password" autocomplete="new-password" minlength="10" required><span class="ayuda">Mínimo 10 caracteres, combinando letras con números o símbolos.</span></div>
+              <div class="campo"><label for="clave-confirmar">Confirmar nueva contraseña</label><input id="clave-confirmar" type="password" autocomplete="new-password" required></div>
+              <div class="acciones-formulario"><button class="btn btn-primario" type="submit">Actualizar contraseña</button></div>
+            </form>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <!-- Diálogo genérico -->
+    <dialog class="dialogo" id="dialogo">
+      <form method="dialog" id="dialogo-form" novalidate>
+        <div class="dialogo-encabezado"><h2 id="dialogo-titulo"></h2><button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button></div>
+        <div class="dialogo-cuerpo" id="dialogo-cuerpo"></div>
+        <div class="dialogo-pie" id="dialogo-pie"></div>
+      </form>
+    </dialog>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script src="../assets/js/config-institucional.js"></script>
+    <script src="../assets/js/institucional.js"></script>
+    <script src="../assets/js/admin.js"></script>
+  </body>
+</html>

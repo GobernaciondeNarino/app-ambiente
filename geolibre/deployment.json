@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "interface": {
+    "enabled": true,
+    "level": "intermediate",
+    "lock": false
+  },
+  "basemaps": {
+    "regional": false
+  }
+}

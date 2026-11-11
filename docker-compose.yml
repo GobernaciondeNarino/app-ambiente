@@ -1,0 +1,46 @@
+# Geoportal Ambiental — Gobernación de Nariño
+# Uso:  cp .env.example .env  &&  docker compose up -d
+services:
+  api:
+    build: ./api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GEOPORTAL_DATA_DIR: /datos
+    volumes:
+      - geodatos:/datos
+    networks: [interna]
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "${GEOPORTAL_IP:-0.0.0.0}:${GEOPORTAL_PUERTO:-8080}:80"
+    volumes:
+      - ./portal:/usr/share/nginx/html:ro
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [interna]
+
+  # GeoLibre (https://github.com/opengeos/GeoLibre): SIG web para análisis avanzado.
+  # Abre los proyectos .geolibre que genera la API (?url=…/api/proyecto.geolibre).
+  geolibre:
+    image: ghcr.io/opengeos/geolibre:${GEOLIBRE_VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      - "${GEOPORTAL_IP:-0.0.0.0}:${GEOLIBRE_PUERTO:-8081}:80"
+    environment:
+      GEOLIBRE_APP_NAME: "Geoportal Ambiental Nariño"
+      GEOLIBRE_SHARE_URL: "off"
+      GEOLIBRE_GEOLENS_URL: "off"
+      GEOLIBRE_DISABLE_SIDECAR: "${GEOLIBRE_DISABLE_SIDECAR:-1}"
+      GEOLIBRE_DEPLOYMENT_FILE: /etc/geolibre/deployment.json
+    volumes:
+      - ./geolibre/deployment.json:/etc/geolibre/deployment.json:ro
+    networks: [interna]
+
+volumes:
+  geodatos:
+
+networks:
+  interna:

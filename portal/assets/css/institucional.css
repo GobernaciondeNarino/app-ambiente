@@ -1,0 +1,751 @@
+/*
+ * Estilos institucionales — Gobernación de Nariño
+ * Basado en el Manual de Identidad Visual (v1.0, junio 2024) y el Manual de
+ * Usabilidad y Estructura de Sitios Web (v1.0, marzo 2025).
+ *   Colores principales: Amarillo #FFD500 · Verde #10A13B
+ *   Tipografía principal: Hind Madurai · secundaria: Source Sans
+ *   Títulos #383838 · textos #4D4D4D
+ */
+
+:root {
+  --amarillo: #ffd500;
+  --verde: #10a13b;
+  --verde-oscuro: #0b7a2c; /* variante para texto blanco con contraste AA */
+  --verde-claro: #e7f5ec;
+  --amarillo-claro: #fff8d1;
+  --gris-titulo: #383838;
+  --gris-texto: #4d4d4d;
+  --gris-suave: #767676;
+  --borde: #dfe3df;
+  --fondo: #f5f7f5;
+  --superficie: #ffffff;
+  --govco: #3366cc;
+  --peligro: #b3261e;
+  --peligro-claro: #fdecea;
+  --info: #0e6ba8;
+  --radio: 8px;
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 14px rgba(0, 0, 0, 0.08);
+  --fuente-titulos: "Hind Madurai", "Segoe UI", system-ui, sans-serif;
+  --fuente-texto: "Source Sans 3", "Hind Madurai", "Segoe UI", system-ui, sans-serif;
+  --alto-govco: 40px;
+  --alto-encabezado: 68px;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fuente-texto);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--gris-texto);
+  background: var(--fondo);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--fuente-titulos);
+  color: var(--gris-titulo);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 0.5em;
+}
+
+a {
+  color: var(--verde-oscuro);
+}
+
+a:hover {
+  color: var(--gris-titulo);
+}
+
+:focus-visible {
+  outline: 3px solid var(--amarillo);
+  outline-offset: 2px;
+}
+
+.saltar-contenido {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  background: var(--gris-titulo);
+  color: #fff;
+  padding: 8px 16px;
+}
+
+.saltar-contenido:focus {
+  left: 8px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Barra GOV.CO                                                        */
+/* ------------------------------------------------------------------ */
+
+.barra-govco {
+  height: var(--alto-govco);
+  background: #fff;
+  border-bottom: 2px solid var(--amarillo);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.barra-govco a.govco-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--govco);
+  font-family: var(--fuente-titulos);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.barra-govco .govco-logo svg {
+  width: 22px;
+  height: 22px;
+}
+
+.barra-govco .govco-separador {
+  width: 1px;
+  height: 18px;
+  background: var(--govco);
+}
+
+.barra-govco .govco-enlaces {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.barra-govco .govco-enlaces a {
+  color: var(--gris-texto);
+  text-decoration: none;
+}
+
+.barra-govco .govco-enlaces a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ */
+/* Encabezado institucional                                            */
+/* ------------------------------------------------------------------ */
+
+.encabezado {
+  min-height: var(--alto-encabezado);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--borde);
+  position: relative;
+  z-index: 20;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.marca img {
+  height: 46px;
+  width: auto;
+  display: block;
+}
+
+.marca .dependencia {
+  border-left: 2px solid var(--borde);
+  padding-left: 14px;
+  font-family: var(--fuente-titulos);
+  color: var(--gris-titulo);
+  line-height: 1.15;
+}
+
+.marca .dependencia strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.marca .dependencia span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gris-texto);
+}
+
+.navegacion {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.navegacion a,
+.navegacion button.enlace {
+  font-family: var(--fuente-titulos);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--gris-titulo);
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.navegacion a:hover,
+.navegacion button.enlace:hover {
+  background: var(--verde-claro);
+  color: var(--verde-oscuro);
+}
+
+.navegacion a.btn-acento {
+  background: var(--amarillo);
+  color: var(--gris-titulo);
+  margin-left: 8px;
+  padding: 9px 14px;
+}
+
+.navegacion a.btn-acento:hover {
+  background: #f0c800;
+  color: var(--gris-titulo);
+}
+
+.navegacion a[aria-current="page"] {
+  color: var(--verde-oscuro);
+  box-shadow: inset 0 -3px 0 var(--verde);
+  border-radius: 0;
+}
+
+.boton-menu svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+  color: var(--gris-titulo);
+}
+
+.boton-menu {
+  display: none;
+  margin-left: auto;
+  border: 1px solid var(--borde);
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ */
+/* Botones, formularios y utilidades                                   */
+/* ------------------------------------------------------------------ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--fuente-titulos);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.btn-primario {
+  background: var(--verde-oscuro);
+  color: #fff;
+}
+
+.btn-primario:hover {
+  background: #096224;
+  color: #fff;
+}
+
+.btn-acento {
+  background: var(--amarillo);
+  color: var(--gris-titulo);
+}
+
+.btn-acento:hover {
+  background: #f0c800;
+  color: var(--gris-titulo);
+}
+
+.btn-secundario {
+  background: #fff;
+  color: var(--gris-titulo);
+  border-color: var(--borde);
+}
+
+.btn-secundario:hover {
+  border-color: var(--verde);
+  color: var(--verde-oscuro);
+}
+
+.btn-peligro {
+  background: #fff;
+  color: var(--peligro);
+  border-color: #f0c4c0;
+}
+
+.btn-peligro:hover {
+  background: var(--peligro-claro);
+  color: var(--peligro);
+}
+
+.btn-chico {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.btn-icono {
+  padding: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--gris-texto);
+  display: inline-flex;
+}
+
+.btn-icono:hover {
+  background: var(--verde-claro);
+  color: var(--verde-oscuro);
+}
+
+.btn-icono svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn[disabled],
+.btn-icono[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+label {
+  font-family: var(--fuente-titulos);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--gris-titulo);
+}
+
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--gris-titulo);
+  background: #fff;
+  border: 1px solid #c9cfc9;
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--verde);
+  box-shadow: 0 0 0 3px rgba(16, 161, 59, 0.18);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campo .ayuda {
+  font-size: 13px;
+  color: var(--gris-suave);
+  font-weight: 400;
+  font-family: var(--fuente-texto);
+}
+
+.insignia {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--fuente-titulos);
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef0ee;
+  color: var(--gris-texto);
+  white-space: nowrap;
+}
+
+.insignia.verde {
+  background: var(--verde-claro);
+  color: var(--verde-oscuro);
+}
+
+.insignia.amarilla {
+  background: var(--amarillo-claro);
+  color: #6b5800;
+}
+
+.insignia.roja {
+  background: var(--peligro-claro);
+  color: var(--peligro);
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.aviso {
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 14px;
+  border-left: 4px solid var(--info);
+  background: #eaf3fa;
+  color: #123a55;
+}
+
+.aviso.error {
+  border-color: var(--peligro);
+  background: var(--peligro-claro);
+  color: #5c120d;
+}
+
+.aviso.exito {
+  border-color: var(--verde);
+  background: var(--verde-claro);
+  color: #08401a;
+}
+
+.aviso.advertencia {
+  border-color: #d4a600;
+  background: var(--amarillo-claro);
+  color: #4a3d00;
+}
+
+.vacio {
+  text-align: center;
+  color: var(--gris-suave);
+  padding: 28px 16px;
+  font-size: 15px;
+}
+
+/* Notificaciones flotantes */
+.notificaciones {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+}
+
+.notificacion {
+  background: var(--gris-titulo);
+  color: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: var(--sombra);
+  font-size: 14px;
+  border-left: 4px solid var(--amarillo);
+  animation: entrar 0.2s ease-out;
+}
+
+.notificacion.error {
+  border-left-color: #ff8a80;
+}
+
+@keyframes entrar {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* Diálogos */
+dialog.dialogo {
+  border: 0;
+  border-radius: 12px;
+  padding: 0;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  color: var(--gris-texto);
+}
+
+dialog.dialogo::backdrop {
+  background: rgba(30, 35, 30, 0.45);
+}
+
+.dialogo-encabezado {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--borde);
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.dialogo-encabezado h2 {
+  font-size: 22px;
+  margin: 0;
+  flex: 1;
+}
+
+.dialogo-cuerpo {
+  padding: 18px 24px 24px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pie de página institucional                                         */
+/* ------------------------------------------------------------------ */
+
+.pie {
+  background: #fff;
+  border-top: 4px solid var(--verde);
+  padding: 32px 24px 16px;
+  font-size: 14px;
+}
+
+.pie-rejilla {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  border: 1px solid var(--gris-titulo);
+  border-radius: 6px;
+}
+
+.pie-rejilla > div {
+  padding: 20px 22px;
+}
+
+.pie-rejilla > div + div {
+  border-left: 1px solid var(--gris-titulo);
+}
+
+.pie h2 {
+  font-size: 17px;
+  margin: 12px 0 8px;
+  text-transform: uppercase;
+}
+
+.pie h3 {
+  font-size: 14px;
+  margin: 0 0 2px;
+}
+
+.pie p {
+  margin: 0 0 10px;
+}
+
+.pie img.logo-pie {
+  height: 40px;
+}
+
+.redes {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+
+.redes a {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--gris-titulo);
+  color: #fff;
+}
+
+.redes a:hover {
+  background: var(--verde-oscuro);
+}
+
+.redes svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pie-legal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pie-hora {
+  max-width: 1200px;
+  margin: 16px auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--fuente-titulos);
+  color: var(--gris-titulo);
+}
+
+.pie-hora .reloj {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pie-hora small {
+  font-size: 11px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.pie-creditos {
+  text-align: center;
+  font-size: 12px;
+  color: var(--gris-suave);
+  margin-top: 10px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsivo                                                          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 960px) {
+  .pie-rejilla {
+    grid-template-columns: 1fr;
+  }
+
+  .pie-rejilla > div + div {
+    border-left: 0;
+    border-top: 1px solid var(--gris-titulo);
+  }
+}
+
+@media (max-width: 860px) {
+  .barra-govco {
+    padding: 0 16px;
+  }
+
+  .barra-govco .govco-enlaces {
+    display: none;
+  }
+
+  .encabezado {
+    padding: 8px 16px;
+    flex-wrap: wrap;
+  }
+
+  .marca {
+    gap: 10px;
+    flex: 1 1 auto;
+  }
+
+  .marca img {
+    height: 36px;
+  }
+
+  .marca .dependencia {
+    padding-left: 10px;
+  }
+
+  .marca .dependencia strong {
+    font-size: 14px;
+  }
+
+  .marca .dependencia span {
+    display: none;
+  }
+
+  .boton-menu {
+    display: inline-flex;
+  }
+
+  .navegacion {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    padding-bottom: 8px;
+  }
+
+  .navegacion.abierta {
+    display: flex;
+  }
+
+  .navegacion a[aria-current="page"] {
+    box-shadow: inset 3px 0 0 var(--verde);
+  }
+
+  .pie {
+    padding: 24px 16px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
