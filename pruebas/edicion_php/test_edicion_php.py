@@ -228,7 +228,7 @@ def test_estudio_sig(sitio):
         d = c.get(url + "api/admin/geolibre", headers=h).json()
         assert d["estado"]["instalado"] is False and d["estado"]["version_disponible"] == "3.7.0"
         assert d["integrado"] is False and d["ajustes"]["idioma"] == "es"
-        assert d["politica"]["sharing"] == {"shareUrl": "off", "embedOrigins": [origen]}
+        assert d["politica"]["sharing"] == {"shareUrl": "off", "embedOrigins": [origen, origen.replace("http://", "https://")]}
         assert d["politica"]["ai"] == {"enabled": False}
         for malo in ({"nivel": "experto"}, {"idioma": "xx"}, {"color_acento": "verde"}, {"url_colaboracion": "http://relé"},
                      {"geolens_url": "http://inseguro"}, {"servicios": [{"name": "Sin URL", "kind": "wms"}]},
@@ -250,8 +250,16 @@ def test_estudio_sig(sitio):
         dep = json.loads((carpeta / "deployment.json").read_text())
         assert dep["branding"] == {"appName": "Estudio Ambiental", "welcome": False}
         assert dep["interface"]["hiddenMenus"] == ["help"] and dep["capabilities"] == ["project:edit", "data:add"]
-        assert dep["sharing"]["embedOrigins"] == [origen]
+        assert dep["sharing"]["embedOrigins"][0] == origen and "allowed" not in dep["plugins"]
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"restringir_complementos": True, "complementos_permitidos": ""})
+        assert r.json()["politica"]["plugins"]["allowed"] == []
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"restringir_complementos": False})
+        assert "allowed" not in r.json()["politica"]["plugins"]
         assert c.get(url + "geolibre/deployment.json").json() == dep == c.get(url + "api/geolibre/deployment.json").json()
+        # GeoLibre copiado a mano trae un deployment.json vacío: /api/config lo regenera
+        (carpeta / "deployment.json").write_text("null")
+        c.get(url + "api/config")
+        assert json.loads((carpeta / "deployment.json").read_text())["branding"]["appName"] == "Estudio Ambiental"
         interfaz = c.get(url + "geolibre/geoportal-ajustes.json").json()
         assert interfaz == {"type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "custom", "customColor": "#10A13B"}}
 

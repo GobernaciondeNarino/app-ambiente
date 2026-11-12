@@ -14,9 +14,11 @@ donde se le indique». El geoportal cubre esa parte:
   consumen directamente;
 - la **generación de proyectos GeoLibre** a partir del catálogo.
 
-GeoLibre se usa sin modificar su código (imagen oficial
-`ghcr.io/opengeos/geolibre`), así las actualizaciones del proyecto se adoptan
-cambiando la etiqueta de la imagen.
+GeoLibre se usa sin modificar su código: su compilación web oficial (la que publica
+en PyPI, verificada con SHA-256) se sirve en `geolibre/` del propio geoportal como
+**Estudio SIG**, y se configura con sus mecanismos oficiales (`deployment.json` y
+`?settingsUrl=`). Las actualizaciones se adoptan cambiando la versión fijada en
+`portal/api/geolibre-version.json`. Ver [Estudio SIG](estudio-sig.md).
 
 ## Ediciones
 
@@ -41,24 +43,26 @@ flowchart TB
   subgraph Navegador
     V[Visor público<br>MapLibre GL JS 4]
     A[Administrador]
-    G[GeoLibre]
+    G[Estudio SIG<br>GeoLibre en un iframe]
   end
   subgraph Servidor
-    N[nginx<br>sitio estático + proxy /api]
+    N[nginx<br>sitio estático, /geolibre/ y proxy /api]
     API[API FastAPI]
-    GL[Contenedor GeoLibre]
     D[(Volumen /datos)]
+    GV[(Volumen geolibre)]
   end
   V & A --> N --> API --> D
-  G -. carga la app .-> GL
-  G -- ?url=…/api/proyecto.geolibre --> N
+  V -- API de incrustación v2 --> G
+  G -- /geolibre/ y ?url=…/api/proyecto.geolibre --> N
+  API -- instala y escribe deployment.json --> GV
+  N -- sirve --> GV
 ```
 
 | Servicio | Imagen | Puerto | Función |
 | --- | --- | --- | --- |
-| `web` | `nginx:1.27-alpine` | 8080 | Sirve `portal/` y hace proxy de `/api/` |
-| `api` | `./api` (Python 3.12) | interno 8000 | Ingesta, catálogo, datos, autenticación, proyectos |
-| `geolibre` | `ghcr.io/opengeos/geolibre` | 8081 | SIG web para análisis |
+| `web` | `nginx:1.27-alpine` | 8080 | Sirve `portal/`, el Estudio SIG en `/geolibre/` (volumen `geolibre`) y hace proxy de `/api/` |
+| `api` | `./api` (Python 3.12) | interno 8000 | Ingesta, catálogo, datos, autenticación, proyectos, instalación y política de GeoLibre |
+| `geolibre` (perfil `geolibre-separado`) | `ghcr.io/opengeos/geolibre` | 8081 | Opcional: GeoLibre en su propio origen, con *sidecar* de Python |
 
 ### Almacenamiento (volumen `geodatos` → `/datos`)
 
@@ -81,7 +85,8 @@ Documentación interactiva en `/api/docs`.
 
 | Método y ruta | Descripción |
 | --- | --- |
-| `GET /api/config` | Parámetros del visor y URL de GeoLibre |
+| `GET /api/config` | Parámetros del visor, URL de GeoLibre y estado del Estudio SIG |
+| `GET /api/geolibre/deployment.json` · `ajustes.json` | Política de despliegue y archivo de interfaz del Estudio |
 | `GET /api/categorias` | Categorías con capas publicadas |
 | `GET /api/capas?q=&categoria=&tipo=` | Catálogo con búsqueda |
 | `GET /api/capas/{slug}` | Ficha de la capa |
@@ -90,10 +95,11 @@ Documentación interactiva en `/api/docs`.
 | `GET /api/capas/{slug}/vista-previa.png` | Vista previa del ráster |
 | `GET /api/capas/{slug}/descarga[?original=1]` | Descarga |
 | `GET /api/capas/{slug}/proyecto.geolibre` | Proyecto GeoLibre de una capa |
-| `GET /api/proyecto.geolibre[?categoria=&capas=a,b]` | Proyecto GeoLibre del catálogo |
+| `GET /api/proyecto.geolibre[?categoria=&capas=a,b&base=]` | Proyecto GeoLibre del catálogo |
 
 **Administración (token Bearer):** `POST /api/auth/ingresar`, `GET /api/auth/yo`,
-`POST /api/auth/cambiar-clave`, y bajo `/api/admin/`: `resumen`, `capas` (CRUD,
+`POST /api/auth/cambiar-clave`, y bajo `/api/admin/`: `geolibre` (GET/PUT, solo
+administradores), `geolibre/instalar` (POST), `resumen`, `capas` (CRUD,
 `POST capas` multipart con `archivo` + `metadatos` JSON, `POST capas/{id}/archivo`,
 `POST capas/{id}/publicacion?publicar=`, `GET capas/{id}/muestra`),
 `categorias`, `usuarios`, `bitacora`.
@@ -112,24 +118,41 @@ Documentación interactiva en `/api/docs`.
 - simbología → `style`; ventana emergente → `popup`; ficha →
   `descriptiveMetadata` (GeoLibre la muestra en *Metadata* y la exporta como
   STAC); `capabilities.export` refleja «permitir descarga»;
-- los identificadores son deterministas (UUID v5 del slug), así un proyecto
-  guardado sigue reconociendo sus capas.
+- los identificadores son deterministas (UUID v5 del slug, expuestos como
+  `geolibre_id` en `/api/capas`), así un proyecto guardado sigue reconociendo sus
+  capas y el visor las controla en el Estudio con la API de incrustación;
+- `?base=calles|claro|oscuro|fiord|brillante` elige el mapa base del proyecto;
+- en la edición PHP, un ráster cuyo GeoTIFF publicado no está teselado o no está en
+  EPSG:4326/3857 entra como imagen georreferenciada (vista previa PNG).
 
-El enlace usa los parámetros de GeoLibre `?url=<proyecto>&layout=viewer`
-(interfaz de solo lectura). El administrador puede quitar `&layout=viewer` para
-la interfaz completa.
+El Estudio SIG abre `geolibre/?url=<proyecto>&settingsUrl=geolibre/geoportal-ajustes.json`
+con `locale`, `theme` (claro u oscuro, el del portal), `lat`/`lon`/`zoom` y, en modo
+visor, `layout=viewer`. Con una instancia externa se usa `?url=<proyecto>&welcome=0`.
+
+### Estudio SIG
+
+| Pieza | Edición PHP | Edición Python/Docker |
+| --- | --- | --- |
+| Ajustes | Opción `geolibre` (JSON) en la tabla `opciones` | `geolibre-ajustes.json` en el volumen de datos |
+| Política y archivo de interfaz | `geolibre/deployment.json`, `geolibre/geoportal-ajustes.json` (y `/api/geolibre/deployment.json`) | Igual, en el volumen `geolibre` |
+| Instalación | `gl_instalar()` en `portal/api/lib/geolibre.php` | `estudio.instalar()` en `api/app/services/estudio.py` |
+| Integrado o externo | Opción `geolibre_url` (`local` o URL) y `geolibre_url_externa` | `GEOLIBRE_PUBLIC_URL` y `geolibre-url*.txt` en el volumen de datos |
+| Rutas | `GET/PUT /api/admin/geolibre`, `POST /api/admin/geolibre/instalar` | Iguales |
+
+`sharing.embedOrigins` contiene el origen público del portal y sus variantes
+`http`/`https` y con o sin `www.`. Si GeoLibre se copió a mano y trae el
+`deployment.json` vacío del paquete, `/api/config` genera el del geoportal.
 
 ## Despliegue en producción
 
 1. Servidor Linux con Docker y Docker Compose.
-2. Dos nombres DNS con TLS, por ejemplo:
-   - `geoportal-ambiental.narino.gov.co` → puerto 8080
-   - `visor-sig.narino.gov.co` → puerto 8081
+2. Un nombre DNS con TLS, por ejemplo `geoportal-ambiental.narino.gov.co` → puerto 8080
+   (el Estudio SIG queda en `/geolibre/` del mismo origen).
 3. `.env`:
 
    ```ini
    GEOPORTAL_PUBLIC_URL=https://geoportal-ambiental.narino.gov.co
-   GEOLIBRE_PUBLIC_URL=https://visor-sig.narino.gov.co
+   GEOLIBRE_PUBLIC_URL=local
    GEOPORTAL_SECRET_KEY=<openssl rand -base64 48>
    GEOPORTAL_ADMIN_PASSWORD=<clave fuerte>
    GEOPORTAL_API_DOCS=false
@@ -138,22 +161,28 @@ la interfaz completa.
 4. `docker compose up -d --build`.
 5. Proxy inverso con TLS delante (nginx/Caddy/Traefik institucional). Ajuste
    `client_max_body_size` y los tiempos de espera si cambia el límite de carga.
+6. *Administrador → Estudio SIG → Instalar GeoLibre* (la API necesita salida HTTPS hacia
+   `files.pythonhosted.org`; el archivo queda en el volumen `geolibre`).
 
-Requisitos que impone GeoLibre:
+Requisitos de GeoLibre:
 
-- su política de seguridad (CSP) solo permite conectarse a orígenes `https:`
-  (más `localhost` en desarrollo), por lo que **el geoportal debe publicarse con
-  HTTPS**;
-- descarga proyecto y datos desde otro origen: la API ya responde con CORS para
-  `GEOLIBRE_PUBLIC_URL` (y expone `Content-Range`/`Accept-Ranges` para las COG).
+- su política de seguridad (CSP) solo permite conectarse a orígenes `https:` (más
+  `localhost`), por lo que una **instancia externa** exige el geoportal en HTTPS; el
+  Estudio integrado comparte origen y no tiene esa restricción, pero HTTPS se recomienda
+  igual;
+- una instancia externa descarga proyecto y datos desde otro origen: la API responde con
+  CORS para su origen (configurable en caliente desde el administrador) y expone
+  `Content-Range`/`Accept-Ranges` para los GeoTIFF.
 
 ### Configuración de GeoLibre
 
-`geolibre/deployment.json` fija la política de la instancia (nivel de interfaz
-*intermedio*, sin mapas base regionales). El `docker-compose.yml` además
-desactiva el servicio de compartir proyectos públicos, la conexión GeoLens y el
-*sidecar* de Python (`GEOLIBRE_DISABLE_SIDECAR=1`; póngalo en `0` si necesita la
-caja de herramientas Whitebox del lado del servidor). Ver
+Toda la política se edita en *Administrador → Estudio SIG* (marca, idioma, acento, modo,
+nivel de interfaz y menús, permisos, complementos, catálogo de servicios, compartir,
+colaboración, Overpass y GeoLens); ver la tabla completa en
+[Estudio SIG](estudio-sig.md#configuración-administrador--estudio-sig). El servicio
+separado `geolibre` del `docker-compose.yml` (imagen oficial, con *sidecar* de Python
+opcional) queda en el perfil `geolibre-separado` y usa `geolibre/deployment.json` del
+repositorio. Ver
 [self-hosting](https://github.com/opengeos/GeoLibre/blob/main/docs/self-hosting.md)
 y [deployment-policy](https://github.com/opengeos/GeoLibre/blob/main/docs/deployment-policy.md).
 

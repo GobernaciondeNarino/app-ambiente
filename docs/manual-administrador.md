@@ -151,15 +151,41 @@ eliminar una categoría con capas asignadas.
 - **Bitácora:** registra ingresos (también los fallidos), cargas, ediciones,
   publicaciones, retiros, eliminaciones y cambios de categorías y usuarios.
 
-## 10. Uso en GeoLibre
+## 10. Estudio SIG (GeoLibre)
 
-El botón **Abrir en GeoLibre** (visor, catálogo, ficha o administrador) abre
-GeoLibre con un proyecto que contiene las capas: todas las publicadas, las que
-estén encendidas en el visor o una sola capa. En GeoLibre las categorías
-aparecen como carpetas, con la simbología, ventanas emergentes y metadatos
-definidos en el administrador. Desde ahí se puede medir, filtrar, hacer
-geoprocesamiento, componer mapas para impresión o guardar el proyecto `.geolibre`
-para trabajo posterior.
+El menú **Estudio SIG** del geoportal abre [GeoLibre](https://github.com/opengeos/GeoLibre)
+integrado en la misma página, con todas las capas publicadas: las categorías aparecen como
+carpetas, con la simbología, ventanas emergentes y metadatos definidos en el administrador.
+Desde ahí se puede editar, cambiar estilos, consultar la tabla de atributos, hacer
+geoprocesamiento y consultas SQL, ver en 3D, componer mapas para impresión, exportar o guardar
+el proyecto `.geolibre`. El botón **Ver en Estudio SIG** de la ficha enciende y encuadra esa
+capa, y **Traer vista del visor** lleva al Estudio la vista y las capas encendidas.
 
-El botón **Proyecto .geolibre** del visor descarga el archivo del proyecto para
-abrirlo en GeoLibre de escritorio.
+Si se eligió una instancia externa, el botón **Abrir en GeoLibre** abre las capas en esa
+instancia en una pestaña nueva.
+
+El botón **Proyecto .geolibre** del visor descarga el archivo del proyecto para abrirlo en
+GeoLibre de escritorio.
+
+### Configurar el Estudio (solo administradores)
+
+En **Estudio SIG** del administrador:
+
+1. **GeoLibre en este servidor:** instala o actualiza GeoLibre (botón **Instalar GeoLibre**) y
+   muestra la versión y los requisitos.
+2. **¿Qué GeoLibre se usa?:** Estudio integrado o una instancia externa (por ejemplo
+   `https://web.geolibre.app`).
+3. **Pestañas de ajustes:** apariencia e idioma (nombre, idioma, color de acento, modo completo o
+   solo consulta, bienvenida), interfaz y menús (nivel, menús y elementos ocultos), permisos,
+   complementos, servicios institucionales (WMS, WFS, WMTS, XYZ, ArcGIS, CSW) y mapas base,
+   compartir y conexiones (servicio público desactivado por defecto, servidor propio, colaboración,
+   Overpass, GeoLens). La pestaña **deployment.json** muestra la política resultante.
+
+Los cambios se aplican la próxima vez que se abre el Estudio. La guía completa está en
+[Estudio SIG](estudio-sig.md).
+
+## 11. Modo oscuro
+
+El botón de tema de la barra superior (geoportal, administrador y asistente de instalación)
+alterna entre **Automático** (sigue la preferencia del sistema), **Claro** y **Oscuro**. La
+elección se recuerda en el navegador y se aplica también al mapa base del visor y al Estudio SIG.

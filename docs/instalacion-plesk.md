@@ -34,6 +34,11 @@ Opción recomendada, el **paquete listo para subir** `geoportal-plesk-<versión>
 
 El ZIP contiene una única carpeta `geoportal/`, con todo lo necesario.
 
+También existe `geoportal-plesk-<versión>-con-geolibre.zip` (≈56 MB), que incluye el **Estudio
+SIG** (GeoLibre) en `geoportal/geolibre/`. Úselo si el servidor no puede descargar archivos de
+Internet o no tiene la extensión `zip` de PHP; se genera con
+`scripts/empaquetar-plesk.sh --con-geolibre`.
+
 Si en su lugar usa **Code → Download ZIP** de GitHub, lo que se sube es el contenido de la carpeta
 `portal/` del repositorio (el resto es la edición Docker y la documentación).
 
@@ -61,8 +66,10 @@ si instaló en la raíz).
 | --- | --- |
 | **1. Requisitos** | Revisa la versión de PHP y las extensiones, los permisos, el tamaño de carga, HTTPS, que la API responda y que PHP reciba la cabecera de autorización |
 | **2. Base de datos** | Pide servidor (casi siempre `localhost`), nombre, usuario, contraseña y prefijo de tablas (`gp_`). Prueba la conexión y explica el error en español si falla. Crea `config.php` con una clave secreta aleatoria |
-| **3. Sitio y administrador** | Nombre del geoportal, URL pública (detectada), GeoLibre (`https://web.geolibre.app` por defecto) y la cuenta del administrador. En *Opciones avanzadas*, la carpeta de datos |
-| **4. Listo** | Crea las tablas, las 7 categorías temáticas iniciales y el administrador. Comprueba que la carpeta de datos no sea accesible desde Internet |
+| **3. Sitio y administrador** | Nombre del geoportal, URL pública (detectada), GeoLibre (vacío = Estudio SIG integrado, o la URL de una instancia externa) y la cuenta del administrador. En *Opciones avanzadas*, la carpeta de datos |
+| **4. Listo** | Crea las tablas, las 7 categorías temáticas iniciales y el administrador; si GeoLibre ya está en `geolibre/`, escribe su política. Comprueba que la carpeta de datos no sea accesible desde Internet |
+
+El asistente tiene el mismo botón de tema que el geoportal (automático, claro u oscuro).
 
 Si PHP no puede crear `config.php` (carpeta sin permiso de escritura), el asistente muestra su
 contenido para que lo cree a mano con el Administrador de archivos, igual que WordPress.
@@ -79,9 +86,16 @@ se crea dentro de la instalación con un nombre aleatorio y protegida con `.htac
 1. **SSL:** *Sitios web y dominios → SSL/TLS → Let's Encrypt*. Active «Redirigir de HTTP a HTTPS».
 2. **Ingrese** a `…/geoportal/admin/` con el usuario creado y cargue los geodatos. Vea el
    [manual del administrador](manual-administrador.md).
-3. **Configuración:** el administrador tiene la sección *Configuración* (nombre, URL pública,
-   GeoLibre, tamaño máximo de carga, duración de la sesión).
-4. **Tamaño de carga:** la API incluye un `.user.ini` que eleva los límites de PHP a 512 MB. Si su
+3. **Estudio SIG:** en *Administrador → Estudio SIG* pulse **Instalar GeoLibre**. El servidor
+   descarga la versión oficial desde PyPI (≈56 MB, se verifica su SHA-256) y la deja en
+   `geolibre/`; en la prueba tardó 12 s. Requiere la extensión `zip` de PHP, salida HTTPS y permiso
+   de escritura en la carpeta del geoportal. Si no se cumplen, use el paquete «con GeoLibre» o
+   suba la carpeta `geolibre/` (de `scripts/descargar-geolibre.sh`) con el Administrador de
+   archivos. En la misma sección se configuran marca, idioma, color, menús, permisos,
+   complementos, servicios y opciones para compartir: ver [Estudio SIG](estudio-sig.md).
+4. **Configuración:** el administrador tiene la sección *Configuración* (nombre, URL pública,
+   tamaño máximo de carga, duración de la sesión).
+5. **Tamaño de carga:** la API incluye un `.user.ini` que eleva los límites de PHP a 512 MB. Si su
    plan no lo permite, ajústelos en *Configuración de PHP* (`upload_max_filesize`, `post_max_size`)
    y, para archivos de más de 128 MB, en *Configuración de Apache y nginx*
    (`client_max_body_size 600m;` en las directivas adicionales de nginx).
@@ -119,14 +133,18 @@ expórtelos desde QGIS como COG en EPSG:4326 o EPSG:3857.
 ## Actualizar a una nueva versión
 
 1. Respalde la base de datos (*Bases de datos → Exportar volcado*) y la carpeta de datos.
-2. Suba los archivos nuevos sobre los anteriores **sin borrar** `config.php` ni la carpeta de datos.
+2. Suba los archivos nuevos sobre los anteriores **sin borrar** `config.php`, la carpeta de datos
+   ni `geolibre/`.
 3. No hace falta volver a ejecutar el asistente.
+4. Si la nueva versión fija otra versión de GeoLibre, *Administrador → Estudio SIG* ofrece
+   **Actualizar**; los ajustes del Estudio se conservan.
 
 ## Respaldos
 
 - **Base de datos:** *Bases de datos → Exportar volcado*, o el *Administrador de copias de seguridad*
   de Plesk, que incluye bases de datos y archivos.
-- **Archivos:** la carpeta de datos (`geoportal-datos-…`) y `config.php`.
+- **Archivos:** la carpeta de datos (`geoportal-datos-…`) y `config.php`. La carpeta `geolibre/`
+  no hace falta respaldarla: se reinstala desde el administrador y su política se regenera.
 
 ## Seguridad incluida
 
@@ -135,7 +153,9 @@ expórtelos desde QGIS como COG en EPSG:4326 o EPSG:3857.
 - Carpeta de datos fuera de la raíz pública (o protegida y con nombre aleatorio). Los datos
   solo se sirven a través de la API, y los borradores no son públicos.
 - Roles editor/administrador validados en el servidor y bitácora de acciones.
-- CORS solo para la instancia de GeoLibre configurada.
+- El Estudio SIG comparte origen con el portal; CORS solo para la instancia externa de GeoLibre
+  configurada. La API de incrustación de GeoLibre solo acepta órdenes del origen del portal.
+- Compartir proyectos en el servicio público de GeoLibre, desactivado por defecto.
 - Asistente bloqueado después de instalar.
 
 Recomendado: limitar el acceso a `/admin/` por IP desde *Configuración de Apache y nginx*.
@@ -148,10 +168,12 @@ Recomendado: limitar el acceso a `/admin/` por IP desde *Configuración de Apach
 | ✘ en «Cabecera de autorización» | Falta `api/.htaccess` | Súbalo. Sin él no se puede ingresar al administrador |
 | «No se pudo conectar con el servidor MySQL» | Servidor o puerto incorrectos | Use `localhost`. Si PHP no puede abrir el socket, el asistente reintenta con `127.0.0.1` |
 | «La base de datos … no existe» | No se creó en Plesk | *Bases de datos → Añadir base de datos* |
-| «El archivo supera el tamaño máximo» | Límites de PHP o nginx | Vea el punto 4 de «Después de instalar» |
+| «El archivo supera el tamaño máximo» | Límites de PHP o nginx | Vea el punto 5 de «Después de instalar» |
 | Página en blanco o error 500 | Error de PHP | *Registros* del dominio en Plesk (`error_log`) |
-| GeoLibre: «Could not fetch the project» | Sitio sin `https` | Active SSL |
-| GeoLibre no muestra un ráster | GeoTIFF muy grande en un sistema distinto de 4326/3857 o sin teselar | Expórtelo como COG en EPSG:4326 desde QGIS |
+| GeoLibre externo: «Could not fetch the project» | Sitio sin `https` | Active SSL (el Estudio SIG integrado no lo exige) |
+| Un ráster aparece como imagen en el Estudio SIG | GeoTIFF muy grande en un sistema distinto de 4326/3857 o sin teselar | Expórtelo como COG en EPSG:4326 desde QGIS y reemplace el archivo |
+| «Este servidor no puede instalar GeoLibre automáticamente» | Falta `zip`, salida HTTPS o permiso de escritura | Paquete «con GeoLibre» o subir `geolibre/` a mano |
+| No aparece «Estudio SIG» en el menú del visor | GeoLibre sin instalar o instancia externa elegida | *Administrador → Estudio SIG* |
 
 ### Hosting solo con nginx (sin Apache)
 
@@ -186,6 +208,9 @@ como lo haría un usuario.
 | `.user.ini` elevando el límite de 2 MB por defecto | ✔ Límite efectivo de 200 MB (el configurado en el geoportal) |
 | Asistente después de instalar | ✔ Bloqueado; `config.php` responde 403 |
 | Carpeta de datos | ✔ Fuera de la raíz pública |
+| Estudio SIG: «Instalar GeoLibre» desde el administrador en `/geoportal/` | ✔ 12 s, 1 038 archivos, con `open_basedir` y PHP-FPM |
+| Estudio SIG en la raíz del subdominio sin permiso de escritura | ✔ El administrador explica la instalación manual |
+| Estudio SIG en subcarpeta anidada `/secretarias/ambiente/geoportal/` | ✔ En español, acento institucional, modo oscuro, control desde el visor |
 
 Formatos cargados desde el administrador y comparados con geopandas/rasterio:
 

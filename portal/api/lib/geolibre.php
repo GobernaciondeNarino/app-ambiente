@@ -37,6 +37,8 @@ function gl_ajustes_defecto(): array
         'capacidades' => GL_CAPACIDADES,
         'complementos_activos' => [],
         'complementos_bloqueados' => [],
+        'restringir_complementos' => false, // true: solo cargan los de complementos_permitidos (vacía = ninguno externo)
+        'complementos_permitidos' => [],
         'instalar_complementos' => true, // sideload
         'registro_complementos' => '',
         'panel_inicial' => '',
@@ -92,7 +94,7 @@ function gl_validar_ajustes(array $d): array
         if (mb_strlen($n) < 2 || mb_strlen($n) > 60) falla(422, 'Nombre de la aplicación: entre 2 y 60 caracteres.');
         $a['nombre'] = $n;
     }
-    foreach (['bienvenida', 'bloquear_nivel', 'instalar_complementos', 'mapas_regionales', 'servicios_predeterminados', 'compartir_publico'] as $b) {
+    foreach (['bienvenida', 'bloquear_nivel', 'instalar_complementos', 'mapas_regionales', 'servicios_predeterminados', 'compartir_publico', 'restringir_complementos'] as $b) {
         if (array_key_exists($b, $d)) $a[$b] = (bool) $d[$b];
     }
     if (isset($d['idioma'])) $a['idioma'] = in_array($d['idioma'], GL_IDIOMAS, true) ? $d['idioma'] : falla(422, 'Idioma no disponible en GeoLibre.');
@@ -104,7 +106,7 @@ function gl_validar_ajustes(array $d): array
     if (isset($d['nivel'])) $a['nivel'] = in_array($d['nivel'], GL_NIVELES, true) ? $d['nivel'] : falla(422, 'Nivel de interfaz no válido.');
     if (array_key_exists('menus_ocultos', $d)) $a['menus_ocultos'] = gl_lista($d['menus_ocultos'], GL_MENUS);
     if (array_key_exists('capacidades', $d)) $a['capacidades'] = gl_lista($d['capacidades'], GL_CAPACIDADES);
-    foreach (['elementos_ocultos', 'fuentes_ocultas', 'complementos_ocultos', 'complementos_activos', 'complementos_bloqueados'] as $l) {
+    foreach (['elementos_ocultos', 'fuentes_ocultas', 'complementos_ocultos', 'complementos_activos', 'complementos_bloqueados', 'complementos_permitidos'] as $l) {
         if (array_key_exists($l, $d)) $a[$l] = gl_lista($d[$l]);
     }
     if (array_key_exists('panel_inicial', $d)) {
@@ -168,13 +170,15 @@ function gl_politica(array $a, string $origenPortal): array
     }
     $complementos = ['sideload' => (bool) $a['instalar_complementos']];
     if ($a['complementos_bloqueados']) $complementos['blocked'] = array_values($a['complementos_bloqueados']);
+    // Omitido = cualquier complemento externo; [] = ninguno (los incluidos en GeoLibre no se afectan)
+    if ($a['restringir_complementos']) $complementos['allowed'] = array_values($a['complementos_permitidos']);
     if ($a['complementos_activos']) $complementos['defaultActive'] = array_values($a['complementos_activos']);
     if ($a['registro_complementos'] !== '') $complementos['registryUrl'] = $a['registro_complementos'];
     if ($a['panel_inicial'] !== '') $complementos['openPanel'] = $a['panel_inicial'];
     $compartir = [
         'shareUrl' => $a['url_compartir'] !== '' ? $a['url_compartir'] : ($a['compartir_publico'] ? 'https://share.geolibre.app' : 'off'),
         // El geoportal controla GeoLibre (vista, capas) con su API de incrustación
-        'embedOrigins' => array_values(array_filter([$origenPortal])),
+        'embedOrigins' => gl_origenes_incrustacion($origenPortal),
     ];
     if ($a['url_colaboracion'] !== '') $compartir['collabUrl'] = $a['url_colaboracion'];
     $politica = [
@@ -191,6 +195,34 @@ function gl_politica(array $a, string $origenPortal): array
     ];
     if ($a['overpass_url'] !== '') $politica['osm'] = ['overpassUrl' => $a['overpass_url']];
     return $politica;
+}
+
+/**
+ * Orígenes que pueden controlar el Estudio incrustado: el del portal y sus variantes
+ * http/https y con o sin «www.», para que el visor lo controle se entre como se entre.
+ */
+function gl_origenes_incrustacion(string $origen): array
+{
+    $p = parse_url($origen);
+    if (!$p || empty($p['host']) || empty($p['scheme'])) return [];
+    $host = strtolower($p['host']);
+    $puerto = isset($p['port']) ? ':' . $p['port'] : '';
+    $hosts = [$host];
+    if (!filter_var(trim($host, '[]'), FILTER_VALIDATE_IP) && $host !== 'localhost' && substr_count($host, '.') >= 1) {
+        $hosts[] = str_starts_with($host, 'www.') ? substr($host, 4) : 'www.' . $host;
+    }
+    $out = [$p['scheme'] . '://' . $host . $puerto];
+    foreach (['https', 'http'] as $esquema) {
+        foreach ($hosts as $h) $out[] = "$esquema://$h$puerto";
+    }
+    return array_values(array_unique($out));
+}
+
+/** ¿El deployment.json instalado es el que genera el geoportal? (no el vacío que trae GeoLibre) */
+function gl_politica_vigente(): bool
+{
+    $d = json_decode((string) @file_get_contents(gl_carpeta() . '/deployment.json'), true);
+    return is_array($d) && ($d['version'] ?? null) === 1 && !empty($d['sharing']['embedOrigins']) && is_file(gl_carpeta() . '/geoportal-ajustes.json');
 }
 
 /** Archivo de interfaz para ?settingsUrl= (idioma y color de acento). */
@@ -348,6 +380,10 @@ function gl_config_publica(): array
 {
     $a = gl_ajustes();
     $estado = gl_estado();
+    // GeoLibre copiado a mano (script o FTP) trae un deployment.json vacío: se genera el del geoportal
+    if ($estado['instalado'] && !gl_politica_vigente()) {
+        gl_escribir_archivos($a);
+    }
     $base = gp_url_publica();
     return [
         'instalado' => $estado['instalado'],

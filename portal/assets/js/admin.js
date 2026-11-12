@@ -1327,6 +1327,8 @@
     f.panel_inicial.value = a.panel_inicial;
     f.complementos_activos.value = textoLista(a.complementos_activos);
     f.complementos_bloqueados.value = textoLista(a.complementos_bloqueados);
+    f.restringir_complementos.checked = !!a.restringir_complementos;
+    f.complementos_permitidos.value = textoLista(a.complementos_permitidos);
     f.complementos_ocultos.value = textoLista(a.complementos_ocultos);
     f.servicios_predeterminados.checked = !!a.servicios_predeterminados;
     f.mapas_regionales.checked = !!a.mapas_regionales;
@@ -1393,6 +1395,8 @@
       panel_inicial: f.panel_inicial.value.trim(),
       complementos_activos: f.complementos_activos.value,
       complementos_bloqueados: f.complementos_bloqueados.value,
+      restringir_complementos: f.restringir_complementos.checked,
+      complementos_permitidos: f.complementos_permitidos.value,
       complementos_ocultos: f.complementos_ocultos.value,
       servicios_predeterminados: f.servicios_predeterminados.checked,
       mapas_regionales: f.mapas_regionales.checked,

@@ -2,26 +2,32 @@
 
 Geoportal de la **Secretaría de Ambiente y Desarrollo Sostenible** para publicar,
 consultar y descargar la información geográfica ambiental del departamento.
-Usa [GeoLibre](https://github.com/opengeos/GeoLibre) (SIG libre, MIT) como
-visor de análisis avanzado: cada capa publicada se puede abrir en GeoLibre con
-un clic, y desde ahí usar sus más de mil herramientas de geoprocesamiento en el
-navegador.
+Se construye sobre [GeoLibre](https://github.com/opengeos/GeoLibre) (SIG libre, MIT):
+la versión web oficial de GeoLibre se integra en el propio geoportal como
+**Estudio SIG**, con las capas publicadas ya cargadas, y desde ahí se usan todas
+sus herramientas (edición, estilos, SQL, más de mil herramientas de
+geoprocesamiento, 3D, impresión, complementos) en el navegador, sin que los
+datos salgan de la infraestructura de la Gobernación.
 
 | Componente | Qué hace | Dónde |
 | --- | --- | --- |
-| **Visor público** | Mapa con capas por categoría, transparencia, leyenda, consulta de atributos, mapas base, ficha de metadatos, descarga y enlace a GeoLibre | `portal/index.html` |
+| **Visor público** | Mapa con capas por categoría, transparencia, orden, leyenda, consulta de atributos, tabla de atributos, búsqueda de lugares, coordenadas y entidades, medición, terreno 3D, enlace permanente, imagen PNG, mapas base y ficha de metadatos | `portal/index.html` |
+| **Estudio SIG** | GeoLibre integrado (mismo origen), configurado desde el administrador y controlado desde el visor | `portal/geolibre/` · [guía](docs/estudio-sig.md) |
 | **Catálogo** | Tarjetas de geodatos con búsqueda y filtros | `portal/index.html#catalogo` |
-| **Administrador** | Carga de geodatos, ficha de metadatos, simbología, publicación, categorías, usuarios y bitácora | `portal/admin/` |
-| **API** | FastAPI: ingesta y conversión de formatos, catálogo, datos, proyectos `.geolibre` | `api/` |
-| **GeoLibre** | SIG web para análisis; abre los proyectos que genera la API | servicio `geolibre` (imagen oficial) |
+| **Administrador** | Carga de geodatos, ficha de metadatos, simbología, publicación, categorías, usuarios, bitácora y ajustes del Estudio SIG | `portal/admin/` |
+| **API** | Ingesta y conversión de formatos, catálogo, datos, proyectos `.geolibre` y política de GeoLibre | `api/` (Python) · `portal/api/` (PHP) |
+
+Todo el sitio tiene **modo oscuro** (automático, claro u oscuro) y sigue los manuales de
+identidad visual y de sitios web de la Gobernación.
 
 ```mermaid
 flowchart LR
-  A[Administrador<br>/admin/] -- carga geodatos --> API
-  API[API FastAPI<br>/api/] -- convierte y reproyecta --> D[(Volumen de datos<br>originales · GeoJSON · COG<br>SQLite/PostgreSQL)]
+  A[Administrador<br>/admin/] -- carga geodatos y configura --> API
+  API[API<br>/api/] -- convierte y reproyecta --> D[(Datos<br>originales · GeoJSON · GeoTIFF<br>MySQL/SQLite/PostgreSQL)]
+  API -- deployment.json · ajustes --> G
   V[Visor público<br>MapLibre] -- catálogo y datos --> API
-  V -- «Abrir en GeoLibre» --> G[GeoLibre<br>?url=/api/proyecto.geolibre]
-  G -- proyecto .geolibre, GeoJSON, COG por rangos --> API
+  V -- «Estudio SIG»<br>API de incrustación --> G[GeoLibre integrado<br>/geolibre/?url=/api/proyecto.geolibre]
+  G -- proyecto, GeoJSON, GeoTIFF por rangos --> API
 ```
 
 ## Dos ediciones, la misma interfaz
@@ -34,8 +40,8 @@ flowchart LR
 | Conversión de geodatos | En el navegador del administrador, con validación en el servidor | En el servidor (GDAL) |
 | Guía | [Instalación en Plesk](docs/instalacion-plesk.md) | Ver abajo y [arquitectura](docs/arquitectura.md) |
 
-Ambas exponen la misma API (`/api/...`), así que el visor, el catálogo, el administrador y la
-integración con GeoLibre son idénticos.
+Ambas exponen la misma API (`/api/...`), así que el visor, el catálogo, el administrador y el
+Estudio SIG son idénticos.
 
 ## Instalación en Plesk (subiendo archivos)
 
@@ -43,6 +49,8 @@ integración con GeoLibre son idénticos.
 2. Genere el paquete con `scripts/empaquetar-plesk.sh` o descárguelo de *Releases*.
 3. Súbalo con el Administrador de archivos y elija «Extraer».
 4. Abra `https://su-dominio/geoportal/instalar/` y siga el asistente.
+5. En *Administrador → Estudio SIG* pulse **Instalar GeoLibre** (o use el paquete
+   `-con-geolibre`, que ya lo trae).
 
 Los detalles, la solución de problemas y la verificación realizada están en
 [docs/instalacion-plesk.md](docs/instalacion-plesk.md).
@@ -54,7 +62,7 @@ cp .env.example .env
 ```
 
 Edite `.env`: como mínimo `GEOPORTAL_SECRET_KEY`, `GEOPORTAL_ADMIN_PASSWORD` y,
-en un servidor, `GEOPORTAL_PUBLIC_URL` y `GEOLIBRE_PUBLIC_URL`.
+en un servidor, `GEOPORTAL_PUBLIC_URL`.
 
 ```bash
 docker compose up -d --build
@@ -63,7 +71,7 @@ docker compose up -d --build
 - Geoportal: <http://localhost:8080>
 - Administrador: <http://localhost:8080/admin/>
 - Documentación de la API: <http://localhost:8080/api/docs>
-- GeoLibre: <http://localhost:8081>
+- Estudio SIG: <http://localhost:8080/#estudio> (instálelo antes en *Administrador → Estudio SIG*)
 
 ## Desarrollo sin Docker
 
@@ -107,6 +115,7 @@ metros) el administrador permite indicar el EPSG de origen.
 ## Documentación
 
 - [Manual del administrador](docs/manual-administrador.md): cómo cargar, documentar, simbolizar y publicar geodatos.
+- [Estudio SIG](docs/estudio-sig.md): GeoLibre integrado, instalación, todos sus ajustes, integración con el visor y funciones del visor.
 - [Arquitectura y despliegue](docs/arquitectura.md): componentes, API, integración con GeoLibre, producción y respaldos.
 - [Instalación en Plesk subiendo archivos](docs/instalacion-plesk.md): edición PHP + MySQL con asistente de instalación.
 - [Despliegue en Plesk con Docker o systemd](docs/despliegue-plesk.md): edición Python, en dominio, subdominio o subdirectorio.
@@ -123,5 +132,6 @@ repositorio». Los informes se escriben fuera del repositorio.
 
 La licencia del código del geoportal la define la Gobernación de Nariño.
 GeoLibre es software de terceros con licencia MIT (© Qiusheng Wu y
-colaboradores) y se usa sin modificaciones desde su imagen oficial. Los
+colaboradores) y se usa sin modificaciones: su compilación web oficial (paquete de
+PyPI, verificado con SHA-256) incluye sus licencias en `geolibre/licenses/`. Los
 geodatos publicados conservan la licencia indicada en su ficha.

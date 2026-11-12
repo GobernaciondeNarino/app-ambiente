@@ -50,6 +50,8 @@ def ajustes_defecto() -> dict[str, Any]:
         "capacidades": list(CAPACIDADES),
         "complementos_activos": [],
         "complementos_bloqueados": [],
+        "restringir_complementos": False,  # True: solo cargan los de complementos_permitidos (vacía = ninguno externo)
+        "complementos_permitidos": [],
         "instalar_complementos": True,
         "registro_complementos": "",
         "panel_inicial": "",
@@ -137,7 +139,7 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
         if not 2 <= len(n) <= 60:
             _falla("Nombre de la aplicación: entre 2 y 60 caracteres.")
         a["nombre"] = n
-    for b in ("bienvenida", "bloquear_nivel", "instalar_complementos", "mapas_regionales", "servicios_predeterminados", "compartir_publico"):
+    for b in ("bienvenida", "bloquear_nivel", "instalar_complementos", "mapas_regionales", "servicios_predeterminados", "compartir_publico", "restringir_complementos"):
         if b in d:
             a[b] = bool(d[b])
     if "idioma" in d:
@@ -154,7 +156,7 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
         a["menus_ocultos"] = _lista(d["menus_ocultos"], MENUS)
     if "capacidades" in d:
         a["capacidades"] = _lista(d["capacidades"], CAPACIDADES)
-    for k in ("elementos_ocultos", "fuentes_ocultas", "complementos_ocultos", "complementos_activos", "complementos_bloqueados"):
+    for k in ("elementos_ocultos", "fuentes_ocultas", "complementos_ocultos", "complementos_activos", "complementos_bloqueados", "complementos_permitidos"):
         if k in d:
             a[k] = _lista(d[k])
     if "panel_inicial" in d:
@@ -243,6 +245,9 @@ def politica(a: dict[str, Any], origen_portal: str) -> dict[str, Any]:
     complementos: dict[str, Any] = {"sideload": bool(a["instalar_complementos"])}
     if a["complementos_bloqueados"]:
         complementos["blocked"] = list(a["complementos_bloqueados"])
+    # Omitido = cualquier complemento externo; [] = ninguno (los incluidos en GeoLibre no se afectan)
+    if a["restringir_complementos"]:
+        complementos["allowed"] = list(a["complementos_permitidos"])
     if a["complementos_activos"]:
         complementos["defaultActive"] = list(a["complementos_activos"])
     if a["registro_complementos"]:
@@ -251,7 +256,7 @@ def politica(a: dict[str, Any], origen_portal: str) -> dict[str, Any]:
         complementos["openPanel"] = a["panel_inicial"]
     compartir: dict[str, Any] = {
         "shareUrl": a["url_compartir"] or ("https://share.geolibre.app" if a["compartir_publico"] else "off"),
-        "embedOrigins": [o for o in [origen_portal] if o],
+        "embedOrigins": origenes_incrustacion(origen_portal),
     }
     if a["url_colaboracion"]:
         compartir["collabUrl"] = a["url_colaboracion"]
@@ -273,6 +278,36 @@ def politica(a: dict[str, Any], origen_portal: str) -> dict[str, Any]:
     if a["overpass_url"]:
         out["osm"] = {"overpassUrl": a["overpass_url"]}
     return out
+
+
+def origenes_incrustacion(origen: str) -> list[str]:
+    """El origen del portal y sus variantes http/https y con o sin «www.»: el visor controla
+    el Estudio incrustado se entre como se entre."""
+    p = urlsplit(origen or "")
+    if not p.scheme or not p.hostname:
+        return []
+    host = p.hostname.lower()
+    puerto = f":{p.port}" if p.port else ""
+    es_ip = re.fullmatch(r"[\d.]+", host) is not None or ":" in host
+    if ":" in host:
+        host = f"[{host}]"  # IPv6
+    hosts = [host]
+    if not es_ip and host != "localhost" and "." in host:
+        hosts.append(host[4:] if host.startswith("www.") else "www." + host)
+    out = [f"{p.scheme}://{host}{puerto}"]
+    for esquema in ("https", "http"):
+        out += [f"{esquema}://{h}{puerto}" for h in hosts]
+    return list(dict.fromkeys(out))
+
+
+def politica_vigente(settings: Settings) -> bool:
+    """¿El deployment.json instalado es el que genera el geoportal? (no el vacío que trae GeoLibre)"""
+    dir_ = carpeta_geolibre(settings)
+    try:
+        d = json.loads((dir_ / "deployment.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(d, dict) and d.get("version") == 1 and bool((d.get("sharing") or {}).get("embedOrigins")) and (dir_ / "geoportal-ajustes.json").is_file()
 
 
 def interfaz(a: dict[str, Any]) -> dict[str, Any]:
@@ -363,6 +398,9 @@ def instalar(settings: Settings) -> dict[str, Any]:
 def config_publica(settings: Settings) -> dict[str, Any]:
     a = ajustes(settings)
     e = estado(settings)
+    # GeoLibre copiado a mano (script o volumen) trae un deployment.json vacío: se genera el del geoportal
+    if e["instalado"] and not politica_vigente(settings):
+        escribir_archivos(settings, a)
     base = settings.public_base_url
     return {
         "instalado": e["instalado"],

@@ -29,7 +29,9 @@ def test_estudio_valores_por_defecto(client, auth, tmp_path, monkeypatch):
     assert d["integrado"] is False
     p = d["politica"]
     assert p["version"] == 1
-    assert p["sharing"] == {"shareUrl": "off", "embedOrigins": ["http://portal.test"]}
+    assert p["sharing"]["shareUrl"] == "off"
+    # El origen del portal y sus variantes http/https y con «www.»
+    assert p["sharing"]["embedOrigins"] == ["http://portal.test", "https://portal.test", "https://www.portal.test", "http://www.portal.test"]
     assert p["ai"] == {"enabled": False}
     assert p["branding"]["appName"] == "Geoportal Ambiental"
     assert set(p["capabilities"]) == set(d["opciones"]["capacidades"])
@@ -66,6 +68,11 @@ def test_estudio_validacion(client, auth):
     assert [s["id"] for s in a["servicios"]] == ["ideam", "ideam-2"]
     pol = r.json()["politica"]
     assert pol["interface"]["hiddenMenus"] == ["help"]
+    assert "allowed" not in pol["plugins"]  # omitido: cualquier complemento externo
+    pol = client.put("/api/admin/geolibre", headers=auth, json={"restringir_complementos": True, "complementos_permitidos": ""}).json()["politica"]
+    assert pol["plugins"]["allowed"] == []  # lista vacía: ningún complemento externo
+    pol = client.put("/api/admin/geolibre", headers=auth, json={"complementos_permitidos": "geolens, stac"}).json()["politica"]
+    assert pol["plugins"]["allowed"] == ["geolens", "stac"]
     assert pol["services"]["catalog"][0]["fields"] == {"url": "https://ideam.example/wms", "layers": "a"}
 
 
@@ -86,6 +93,13 @@ def test_estudio_integrado_escribe_politica(client, auth, tmp_path, monkeypatch)
     assert interfaz == {"type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "emerald", "customColor": "#10A13B"}}
     assert client.get("/api/geolibre/deployment.json").json() == dep
     assert client.get("/api/geolibre/ajustes.json").json() == interfaz
+
+    # GeoLibre copiado a mano trae un deployment.json vacío: /api/config lo regenera
+    (carpeta / "deployment.json").write_text("null", encoding="utf-8")
+    (carpeta / "geoportal-ajustes.json").unlink()
+    client.get("/api/config")
+    assert json.loads((carpeta / "deployment.json").read_text(encoding="utf-8")) == dep
+    assert (carpeta / "geoportal-ajustes.json").is_file()
 
     cfg = client.get("/api/config").json()
     assert cfg["estudio"]["activo"] is True

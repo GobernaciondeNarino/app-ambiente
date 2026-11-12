@@ -306,6 +306,9 @@
                   <div class="campo"><label for="est-panel">Panel que se abre al iniciar</label><input id="est-panel" name="panel_inicial" type="text" placeholder="Identificador del complemento (opcional)"></div>
                 </div>
                 <div class="campo"><label for="est-activos">Complementos activos por defecto</label><textarea id="est-activos" name="complementos_activos" rows="2" placeholder="Identificadores separados por coma"></textarea></div>
+                <div class="campo"><span><strong>Complementos externos permitidos</strong></span><label class="check"><input type="checkbox" name="restringir_complementos"> Cargar solo los complementos externos de esta lista</label>
+                  <textarea id="est-permitidos" name="complementos_permitidos" rows="2" aria-label="Complementos externos permitidos" placeholder="Identificadores separados por coma (lista vacía = ningún complemento externo)"></textarea>
+                  <span class="ayuda">Los complementos incluidos en GeoLibre no se ven afectados; los bloqueados nunca se cargan.</span></div>
                 <div class="campo"><label for="est-bloqueados">Complementos bloqueados</label><textarea id="est-bloqueados" name="complementos_bloqueados" rows="2"></textarea></div>
                 <div class="campo"><label for="est-ocultos">Complementos ocultos en el gestor</label><textarea id="est-ocultos" name="complementos_ocultos" rows="2"></textarea></div>
               </div>
