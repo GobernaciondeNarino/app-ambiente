@@ -563,6 +563,8 @@ def _respuesta_estudio(settings: Settings, a: dict) -> dict:
         "estado": estudio.estado(settings),
         "politica": estudio.politica(a, origin_of(settings.public_base_url)),
         "integrado": estudio.integrado(settings),
+        "usar_integrado": estudio.usar_integrado(settings),
+        "url_externa": estudio.url_externa(settings),
         "opciones": {
             "capacidades": estudio.CAPACIDADES,
             "menus": estudio.MENUS,
@@ -585,6 +587,8 @@ def admin_geolibre_guardar(
 ) -> dict:
     a = estudio.validar(settings, datos)
     estudio.guardar(settings, a)
+    if "url_externa" in datos:
+        estudio.guardar_url_externa(settings, str(datos["url_externa"] or ""))
     if "usar_integrado" in datos:
         estudio.guardar_preferencia_url(settings, bool(datos["usar_integrado"]))
     escrito = estudio.escribir_archivos(settings, a)

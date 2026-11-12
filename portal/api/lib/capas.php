@@ -102,8 +102,7 @@ function url_geolibre(string $proyecto, ?bool $visor = null): string
         $base = gp_url_publica() . '/geolibre/';
         $extra = '&settingsUrl=' . rawurlencode($base . 'geoportal-ajustes.json');
     } else {
-        $g = (string) gp_opcion('geolibre_url', 'https://web.geolibre.app');
-        $base = rtrim(in_array($g, ['', 'local'], true) ? 'https://web.geolibre.app' : $g, '/') . '/';
+        $base = rtrim(function_exists('gl_url_externa') ? gl_url_externa() : 'https://web.geolibre.app', '/') . '/';
         $extra = '&welcome=0';
     }
     return $base . '?url=' . rawurlencode($proyecto) . '&locale=' . rawurlencode($ajustes['idioma']) . $extra . ($visor ? '&layout=viewer' : '');

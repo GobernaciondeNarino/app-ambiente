@@ -199,6 +199,7 @@
     bitacora: verBitacora,
     cuenta: () => {},
     configuracion: verConfiguracion,
+    estudio: verEstudio,
   };
 
   function enrutar() {
@@ -1161,7 +1162,6 @@
     const f = $("#form-configuracion");
     f.nombre_portal.value = c.nombre_portal;
     f.url_publica.value = c.url_publica;
-    f.geolibre_url.value = c.geolibre_url;
     f.max_carga_mb.value = c.max_carga_mb;
     f.inline_max_mb.value = c.inline_max_mb;
     f.horas_sesion.value = c.horas_sesion;
@@ -1184,7 +1184,6 @@
         json: {
           nombre_portal: f.nombre_portal.value.trim(),
           url_publica: f.url_publica.value.trim(),
-          geolibre_url: f.geolibre_url.value.trim(),
           max_carga_mb: Number(f.max_carga_mb.value),
           inline_max_mb: Number(f.inline_max_mb.value),
           horas_sesion: Number(f.horas_sesion.value),
@@ -1192,6 +1191,242 @@
       });
       notificar("Configuración guardada.");
       verConfiguracion();
+    } catch (ex) {
+      notificar(ex.message, "error");
+    }
+  });
+
+
+  // ------------------------------------------------------------------ Estudio SIG (GeoLibre integrado)
+
+  const NOMBRES_IDIOMA = {
+    es: "Español", en: "English", pt: "Português", fr: "Français", de: "Deutsch", it: "Italiano", nl: "Nederlands",
+    ar: "العربية", az: "Azərbaycanca", fa: "فارسی", he: "עברית", hi: "हिन्दी", id: "Bahasa Indonesia", ja: "日本語",
+    ka: "ქართული", ko: "한국어", ru: "Русский", th: "ไทย", tr: "Türkçe", vi: "Tiếng Việt", zh: "中文",
+  };
+  const NOMBRES_ACENTO = { blue: "Azul", violet: "Violeta", emerald: "Esmeralda", rose: "Rosa", amber: "Ámbar", custom: "Personalizado (color institucional)" };
+  const NOMBRES_MENU = {
+    project: "Proyecto", edit: "Editar", view: "Ver", addData: "Añadir datos", processing: "Procesamiento",
+    controls: "Controles", plugins: "Complementos", help: "Ayuda",
+  };
+  const NOMBRES_CAPACIDAD = {
+    "project:edit": ["Editar proyectos", "Crear, abrir, cambiar y guardar proyectos y capas."],
+    "data:add": ["Añadir datos", "Cargar archivos propios y conectar servicios y catálogos."],
+    "processing:run": ["Geoprocesamiento", "Ejecutar las herramientas de análisis (WhiteboxTools, GDAL, SQL…)."],
+    "export:data": ["Exportar", "Descargar capas, mapas e imágenes del Estudio."],
+    "plugins:install": ["Instalar complementos", "Agregar complementos desde el gestor de GeoLibre."],
+    "settings:manage": ["Preferencias", "Cambiar las preferencias de la aplicación."],
+  };
+  const NOMBRES_SERVICIO = { wms: "WMS", wfs: "WFS", wmts: "WMTS", xyz: "Teselas XYZ", arcgis: "ArcGIS REST", csw: "Catálogo CSW" };
+
+  function textoLista(v) {
+    return (v || []).join(", ");
+  }
+
+  function pintarEstadoEstudio(r) {
+    const e = r.estado;
+    const req = e.requisitos || {};
+    const ok = (b) => (b ? "Sí" : "No");
+    const desactualizado = e.instalado && e.version_disponible && e.version_instalada !== e.version_disponible;
+    $("#estudio-estado-cuerpo").innerHTML =
+      '<dl class="tecnica">' +
+      "<dt>Instalado</dt><dd>" + (e.instalado ? "Sí · versión " + escapar(e.version_instalada) : "No") + "</dd>" +
+      "<dt>Versión disponible</dt><dd>" + escapar(e.version_disponible || "—") + (e.tamano_descarga_mb ? " · descarga de " + e.tamano_descarga_mb + " MB" : "") + "</dd>" +
+      "<dt>En uso</dt><dd>" + (r.integrado ? "Estudio integrado" : "Instancia externa: " + escapar(r.url_externa)) + "</dd>" +
+      "<dt>Requisitos</dt><dd>ZipArchive: " + ok(req.zip) + " · Descarga: " + ok(req.descarga) + " · Escritura: " + ok(req.escritura) + "</dd>" +
+      "</dl>" +
+      (e.puede_instalar
+        ? '<div class="acciones-formulario"><button class="btn ' + (e.instalado && !desactualizado ? "btn-secundario" : "btn-primario") + '" type="button" id="estudio-instalar">' + icono("descargar") +
+          (e.instalado ? (desactualizado ? "Actualizar a " + escapar(e.version_disponible) : "Reinstalar GeoLibre " + escapar(e.version_disponible)) : "Instalar GeoLibre " + escapar(e.version_disponible || "")) + "</button></div>" +
+          '<p class="ayuda-pie">Se descarga la compilación web oficial publicada en PyPI, se verifica su suma SHA-256 y se copia en <code>geolibre/</code>. Los ajustes de esta página se conservan.</p>'
+        : '<p class="aviso advertencia">Este servidor no puede instalar GeoLibre automáticamente. Ejecute <code>scripts/descargar-geolibre.sh</code> o descargue el paquete «con GeoLibre» y suba la carpeta <code>geolibre/</code> por el Administrador de archivos de Plesk.</p>');
+    const b = $("#estudio-instalar");
+    if (b) b.addEventListener("click", instalarGeoLibre);
+    $("#estudio-abrir").hidden = !r.integrado;
+  }
+
+  async function instalarGeoLibre(ev) {
+    const b = ev.currentTarget;
+    if (!confirm("Se descargará GeoLibre (" + (estado.estudio.estado.tamano_descarga_mb || "≈60") + " MB) y se instalará en la carpeta geolibre/ del geoportal. ¿Continuar?")) return;
+    b.disabled = true;
+    b.textContent = "Descargando e instalando… (puede tardar unos minutos)";
+    try {
+      const r = await api("/admin/geolibre/instalar", { method: "POST" });
+      notificar("GeoLibre " + r.instalado.version + " instalado (" + r.instalado.archivos + " archivos).");
+      verEstudio();
+    } catch (ex) {
+      notificar(ex.message, "error");
+      b.disabled = false;
+      b.textContent = "Reintentar la instalación";
+    }
+  }
+
+  function filaServicio(s) {
+    s = s || { name: "", kind: "wms", fields: { url: "" }, category: "Gobernación de Nariño" };
+    const f = s.fields || {};
+    const capas = f.layers || f.layer || f.typeName || "";
+    return (
+      "<tr>" +
+      '<td><input type="text" data-s="name" value="' + escapar(s.name) + '" aria-label="Nombre del servicio" required></td>' +
+      '<td><select data-s="kind" aria-label="Tipo">' + Object.entries(NOMBRES_SERVICIO).map(([k, n]) => '<option value="' + k + '"' + (k === s.kind ? " selected" : "") + ">" + n + "</option>").join("") + "</select></td>" +
+      '<td><input type="url" data-s="url" value="' + escapar(f.url || "") + '" aria-label="URL" placeholder="https://…" required></td>' +
+      '<td><input type="text" data-s="layers" value="' + escapar(capas) + '" aria-label="Capas" placeholder="Opcional"></td>' +
+      '<td><input type="text" data-s="category" value="' + escapar(s.category || "") + '" aria-label="Categoría"></td>' +
+      '<td class="acciones"><button class="btn-icono" type="button" data-quitar-servicio title="Quitar">' + icono("eliminar") + '<span class="sr-only">Quitar servicio</span></button></td>' +
+      "</tr>"
+    );
+  }
+
+  function leerServicios() {
+    return $$("#est-servicios tr").map((tr) => {
+      const v = (k) => tr.querySelector('[data-s="' + k + '"]').value.trim();
+      const fields = { url: v("url") };
+      if (v("layers")) fields.layers = v("layers");
+      return { name: v("name"), kind: v("kind"), category: v("category") || "Gobernación de Nariño", fields };
+    }).filter((s) => s.name || s.fields.url);
+  }
+
+  function seleccionarPestanaEstudio(nombre) {
+    $$(".pestanas-estudio [data-pe]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.pe === nombre)));
+    $$(".panel-estudio").forEach((p) => (p.hidden = p.dataset.pePanel !== nombre));
+  }
+
+  async function verEstudio() {
+    if (!esAdmin()) return (location.hash = "#resumen");
+    const r = await api("/admin/geolibre");
+    estado.estudio = r;
+    const a = r.ajustes;
+    const o = r.opciones;
+    pintarEstadoEstudio(r);
+
+    const fo = $("#form-estudio-origen");
+    fo.usar_integrado.value = r.usar_integrado ? "1" : "0";
+    fo.url_externa.value = r.url_externa || "";
+
+    const f = $("#form-estudio");
+    f.nombre.value = a.nombre;
+    f.modo.value = a.modo;
+    f.idioma.innerHTML = o.idiomas.map((c) => '<option value="' + c + '">' + escapar(NOMBRES_IDIOMA[c] || c) + " (" + c + ")</option>").join("");
+    f.idioma.value = a.idioma;
+    f.acento.innerHTML = o.acentos.map((c) => '<option value="' + c + '">' + escapar(NOMBRES_ACENTO[c] || c) + "</option>").join("");
+    f.acento.value = a.acento;
+    f.color_acento.value = a.color_acento;
+    $("#est-color-valor").textContent = a.color_acento;
+    f.bienvenida.checked = !!a.bienvenida;
+    f.nivel.value = a.nivel;
+    f.bloquear_nivel.checked = !!a.bloquear_nivel;
+    $("#est-menus").innerHTML = o.menus.map((m) => '<label><input type="checkbox" name="menus_ocultos" value="' + m + '"' + (a.menus_ocultos.includes(m) ? " checked" : "") + "> " + escapar(NOMBRES_MENU[m] || m) + "</label>").join("");
+    f.elementos_ocultos.value = textoLista(a.elementos_ocultos);
+    f.fuentes_ocultas.value = textoLista(a.fuentes_ocultas);
+    $("#est-capacidades").innerHTML = o.capacidades.map((c) => {
+      const [t, d] = NOMBRES_CAPACIDAD[c] || [c, ""];
+      return '<label class="opcion-radio"><input type="checkbox" name="capacidades" value="' + c + '"' + (a.capacidades.includes(c) ? " checked" : "") + "> <span><strong>" + escapar(t) + " <code>" + c + "</code></strong><small>" + escapar(d) + "</small></span></label>";
+    }).join("");
+    f.instalar_complementos.checked = !!a.instalar_complementos;
+    f.registro_complementos.value = a.registro_complementos;
+    f.panel_inicial.value = a.panel_inicial;
+    f.complementos_activos.value = textoLista(a.complementos_activos);
+    f.complementos_bloqueados.value = textoLista(a.complementos_bloqueados);
+    f.complementos_ocultos.value = textoLista(a.complementos_ocultos);
+    f.servicios_predeterminados.checked = !!a.servicios_predeterminados;
+    f.mapas_regionales.checked = !!a.mapas_regionales;
+    $("#est-servicios").innerHTML = a.servicios.map(filaServicio).join("");
+    f.compartir_publico.checked = !!a.compartir_publico;
+    f.url_compartir.value = a.url_compartir;
+    f.url_colaboracion.value = a.url_colaboracion;
+    f.overpass_url.value = a.overpass_url;
+    f.geolens_url.value = a.geolens_url;
+    $("#est-politica").textContent = JSON.stringify(r.politica, null, 2);
+    $("#est-politica-url").href = API + "/geolibre/deployment.json";
+    actualizarAcento();
+    $("#estudio-sin-guardar").hidden = true;
+  }
+
+  function actualizarAcento() {
+    const f = $("#form-estudio");
+    f.color_acento.disabled = f.acento.value !== "custom";
+    $("#est-color-valor").textContent = f.color_acento.value.toUpperCase();
+  }
+
+  $(".pestanas-estudio").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pe]");
+    if (b) seleccionarPestanaEstudio(b.dataset.pe);
+  });
+  $("#form-estudio").addEventListener("input", (e) => {
+    $("#estudio-sin-guardar").hidden = false;
+    if (e.target.name === "acento" || e.target.name === "color_acento") actualizarAcento();
+  });
+  $("#form-estudio").addEventListener("change", (e) => {
+    if (e.target.name === "acento") actualizarAcento();
+  });
+  $("#est-agregar-servicio").addEventListener("click", () => {
+    $("#est-servicios").insertAdjacentHTML("beforeend", filaServicio());
+    $("#est-servicios tr:last-child input").focus();
+    $("#estudio-sin-guardar").hidden = false;
+  });
+  $("#est-servicios").addEventListener("click", (e) => {
+    if (e.target.closest("[data-quitar-servicio]")) {
+      e.target.closest("tr").remove();
+      $("#estudio-sin-guardar").hidden = false;
+    }
+  });
+
+  $("#form-estudio").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget;
+    const marcados = (nombre) => $$('#form-estudio [name="' + nombre + '"]:checked').map((x) => x.value);
+    const datos = {
+      nombre: f.nombre.value.trim(),
+      modo: f.modo.value,
+      idioma: f.idioma.value,
+      acento: f.acento.value,
+      color_acento: f.color_acento.value,
+      bienvenida: f.bienvenida.checked,
+      nivel: f.nivel.value,
+      bloquear_nivel: f.bloquear_nivel.checked,
+      menus_ocultos: marcados("menus_ocultos"),
+      elementos_ocultos: f.elementos_ocultos.value,
+      fuentes_ocultas: f.fuentes_ocultas.value,
+      capacidades: marcados("capacidades"),
+      instalar_complementos: f.instalar_complementos.checked,
+      registro_complementos: f.registro_complementos.value.trim(),
+      panel_inicial: f.panel_inicial.value.trim(),
+      complementos_activos: f.complementos_activos.value,
+      complementos_bloqueados: f.complementos_bloqueados.value,
+      complementos_ocultos: f.complementos_ocultos.value,
+      servicios_predeterminados: f.servicios_predeterminados.checked,
+      mapas_regionales: f.mapas_regionales.checked,
+      servicios: leerServicios(),
+      compartir_publico: f.compartir_publico.checked,
+      url_compartir: f.url_compartir.value.trim(),
+      url_colaboracion: f.url_colaboracion.value.trim(),
+      overpass_url: f.overpass_url.value.trim(),
+      geolens_url: f.geolens_url.value.trim(),
+    };
+    if (datos.nombre.length < 2) return notificar("Indique el nombre de la aplicación.", "error");
+    try {
+      const r = await api("/admin/geolibre", { method: "PUT", json: datos });
+      notificar(r.archivos_escritos === false
+        ? "Ajustes guardados. GeoLibre no está instalado: se aplicarán al instalarlo."
+        : "Ajustes del Estudio SIG guardados. Se aplican la próxima vez que se abra el Estudio.");
+      verEstudio();
+    } catch (ex) {
+      notificar(ex.message, "error");
+    }
+  });
+
+  $("#form-estudio-origen").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget;
+    const integrado = f.usar_integrado.value === "1";
+    if (integrado && !estado.estudio.estado.instalado) {
+      notificar("Primero instale GeoLibre en este servidor.", "error");
+      return;
+    }
+    try {
+      await api("/admin/geolibre", { method: "PUT", json: { usar_integrado: integrado, url_externa: f.url_externa.value.trim() } });
+      notificar(integrado ? "El geoportal usa el Estudio SIG integrado." : "El geoportal abre GeoLibre en la instancia externa.");
+      verEstudio();
     } catch (ex) {
       notificar(ex.message, "error");
     }

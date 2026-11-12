@@ -191,8 +191,13 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
             for k, v in campos_in.items():
                 if k != "url" and re.match(r"^[A-Za-z][A-Za-z0-9_]{0,40}$", str(k)) and isinstance(v, (str, int, float, bool)):
                     campos[k] = v[:500] if isinstance(v, str) else v
+            ident = slugify(str(s.get("id") or nombre), 60) or "servicio"
+            usados = {x["id"] for x in servicios}
+            base_id, n = ident, 2
+            while ident in usados:  # GeoLibre exige ids únicos en el catálogo
+                ident, n = f"{base_id[:56]}-{n}", n + 1
             servicios.append({
-                "id": slugify(str(s.get("id") or nombre), 60),
+                "id": ident,
                 "name": nombre[:120],
                 "kind": tipo,
                 "category": str(s.get("category") or "Gobernación de Nariño").strip()[:80],
@@ -206,8 +211,28 @@ def guardar(settings: Settings, a: dict[str, Any]) -> None:
     _ruta_ajustes(settings).write_text(json.dumps(a, ensure_ascii=False), encoding="utf-8")
 
 
+def url_externa(settings: Settings) -> str:
+    """Instancia externa de GeoLibre que se usa cuando el Estudio integrado está desactivado."""
+    ruta = settings.data_dir / "geolibre-url-externa.txt"
+    if ruta.is_file() and ruta.read_text(encoding="utf-8").strip():
+        return ruta.read_text(encoding="utf-8").strip()
+    pref = preferencia_url(settings)
+    return "https://web.geolibre.app" if pref in ("", "local") else pref
+
+
+def guardar_url_externa(settings: Settings, url: str) -> None:
+    url = (url or "").strip().rstrip("/")
+    if url and (not _url_valida(url, ("https", "http")) or urlsplit(url).query):
+        _falla("GeoLibre externo: use una URL http(s) sin parámetros, p. ej. https://web.geolibre.app")
+    (settings.data_dir / "geolibre-url-externa.txt").write_text(url or "https://web.geolibre.app", encoding="utf-8")
+
+
+def usar_integrado(settings: Settings) -> bool:
+    return preferencia_url(settings) in ("", "local")
+
+
 def guardar_preferencia_url(settings: Settings, usar_integrado: bool) -> None:
-    (settings.data_dir / "geolibre-url.txt").write_text("local" if usar_integrado else "https://web.geolibre.app", encoding="utf-8")
+    (settings.data_dir / "geolibre-url.txt").write_text("local" if usar_integrado else url_externa(settings), encoding="utf-8")
 
 
 def politica(a: dict[str, Any], origen_portal: str) -> dict[str, Any]:
@@ -357,7 +382,6 @@ def url_abrir(settings: Settings, proyecto: str, visor: bool | None = None) -> s
         base = f"{settings.public_base_url}/geolibre/"
         extra = "&settingsUrl=" + quote(base + "geoportal-ajustes.json", safe="")
     else:
-        pref = preferencia_url(settings)
-        base = (pref if pref not in ("", "local") else "https://web.geolibre.app").rstrip("/") + "/"
+        base = url_externa(settings).rstrip("/") + "/"
         extra = "&welcome=0"
     return f"{base}?url={quote(proyecto, safe='')}&locale={a['idioma']}{extra}" + ("&layout=viewer" if visor else "")

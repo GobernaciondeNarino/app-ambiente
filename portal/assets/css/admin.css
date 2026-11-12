@@ -725,3 +725,109 @@ dl.tecnica dd {
     display: none;
   }
 }
+
+/* Estudio SIG (GeoLibre integrado) */
+.estudio-columnas {
+  margin-bottom: 18px;
+}
+
+#form-estudio .panel-estudio {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px 4px;
+}
+
+#form-estudio > .acciones-formulario {
+  padding: 4px 22px 20px;
+}
+
+#form-estudio-origen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.opcion-radio {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.opcion-radio:has(input:checked) {
+  border-color: var(--verde);
+  background: var(--verde-claro);
+}
+
+.opcion-radio input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--verde-oscuro);
+}
+
+.opcion-radio strong {
+  display: block;
+  color: var(--gris-titulo);
+}
+
+.opcion-radio small {
+  display: block;
+  color: var(--gris-suave);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.opcion-radio code {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--gris-suave);
+}
+
+.lista-permisos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+
+.tabla-servicios input,
+.tabla-servicios select {
+  width: 100%;
+  min-width: 110px;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+.tabla-servicios td {
+  padding: 6px;
+  vertical-align: middle;
+}
+
+pre.codigo {
+  margin: 0;
+  max-height: 460px;
+  overflow: auto;
+  padding: 14px 16px;
+  border-radius: 6px;
+  background: var(--superficie-3);
+  border: 1px solid var(--borde);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--gris-titulo);
+}
+
+.color-campo code {
+  font-size: 13px;
+  color: var(--gris-suave);
+}
+
+#est-agregar-servicio {
+  align-self: flex-start;
+}

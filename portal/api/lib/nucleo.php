@@ -79,7 +79,8 @@ function gp_iso(?string $fecha): ?string
 
 // ---------------------------------------------------------------- opciones
 
-function gp_opcion(string $clave, mixed $defecto = null): mixed
+/** Opciones del sitio (tabla «opciones»), leídas una vez por petición. */
+function &gp_opciones(): array
 {
     static $cache = null;
     if ($cache === null) {
@@ -89,16 +90,25 @@ function gp_opcion(string $clave, mixed $defecto = null): mixed
                 $cache[$fila['clave']] = $fila['valor'];
             }
         } catch (Throwable) {
-            $cache = [];
+            $cache = null; // la tabla aún no existe (instalación): se reintenta en la próxima lectura
+            $vacio = [];
+            return $vacio;
         }
     }
-    return $cache[$clave] ?? $defecto;
+    return $cache;
+}
+
+function gp_opcion(string $clave, mixed $defecto = null): mixed
+{
+    return gp_opciones()[$clave] ?? $defecto;
 }
 
 function gp_guardar_opcion(string $clave, string $valor): void
 {
     $st = gp_db()->prepare('INSERT INTO ' . t('opciones') . ' (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)');
     $st->execute([$clave, $valor]);
+    $opciones = &gp_opciones();
+    $opciones[$clave] = $valor; // lo guardado se ve en el resto de la petición
 }
 
 function gp_instalado(): bool

@@ -58,7 +58,9 @@ def sitio(tmp_path_factory):
     except Exception as exc:  # pragma: no cover - depende del entorno
         pytest.skip(f"MySQL no disponible: {exc}")
     raiz_web = tmp_path_factory.mktemp("www")
-    shutil.copytree(RAIZ_REPO / "portal", raiz_web / "geoportal")
+    # Sin la compilación de GeoLibre (≈200 MB) si se descargó localmente: las pruebas la simulan
+    portal = RAIZ_REPO / "portal"
+    shutil.copytree(portal, raiz_web / "geoportal", ignore=lambda d, n: ["geolibre", "config.php"] if Path(d) == portal else [])
     puerto = _puerto_libre()
     proceso = subprocess.Popen(
         ["php", "-d", "upload_max_filesize=64M", "-d", "post_max_size=64M", "-S", f"127.0.0.1:{puerto}", "-t", str(raiz_web), str(Path(__file__).with_name("router.php"))],

@@ -141,8 +141,13 @@ function gl_validar_ajustes(array $d): array
                     $campos[$k] = is_string($v) ? mb_substr($v, 0, 500) : $v;
                 }
             }
+            $id = slugify((string) ($s['id'] ?? $nombre), 60) ?: 'servicio';
+            $usados = array_column($servicios, 'id');
+            for ($base = $id, $n = 2; in_array($id, $usados, true); $n++) {
+                $id = substr($base, 0, 56) . '-' . $n; // GeoLibre exige ids únicos en el catálogo
+            }
             $servicios[] = [
-                'id' => slugify((string) ($s['id'] ?? $nombre), 60),
+                'id' => $id,
                 'name' => mb_substr($nombre, 0, 120),
                 'kind' => $tipo,
                 'category' => mb_substr(trim((string) ($s['category'] ?? 'Gobernación de Nariño')), 0, 80),
@@ -197,6 +202,14 @@ function gl_interfaz(array $a): array
         'language' => $a['idioma'],
         'theme' => ['scheme' => $a['acento'], 'customColor' => $a['color_acento']],
     ];
+}
+
+/** Instancia externa de GeoLibre que se usa cuando el Estudio integrado está desactivado. */
+function gl_url_externa(): string
+{
+    $g = (string) gp_opcion('geolibre_url', 'local');
+    $guardada = (string) gp_opcion('geolibre_url_externa', '');
+    return $guardada !== '' ? $guardada : (in_array($g, ['', 'local'], true) ? 'https://web.geolibre.app' : $g);
 }
 
 function gl_carpeta(): string

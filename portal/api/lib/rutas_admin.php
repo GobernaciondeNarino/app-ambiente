@@ -450,15 +450,23 @@ function rutas_admin(string $metodo, string $ruta): void
             $d = cuerpo_json();
             $ajustes = gl_validar_ajustes($d);
             gp_guardar_opcion('geolibre', json_encode($ajustes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            if (array_key_exists('url_externa', $d)) {
+                $ext = rtrim(trim((string) $d['url_externa']), '/');
+                if ($ext !== '' && (!gl_url_valida($ext, ['https', 'http']) || isset(parse_url($ext)['query']))) {
+                    falla(422, 'GeoLibre externo: use una URL http(s) sin parámetros, p. ej. https://web.geolibre.app');
+                }
+                gp_guardar_opcion('geolibre_url_externa', $ext ?: 'https://web.geolibre.app');
+            }
             if (array_key_exists('usar_integrado', $d)) {
-                gp_guardar_opcion('geolibre_url', $d['usar_integrado'] ? 'local' : 'https://web.geolibre.app');
+                gp_guardar_opcion('geolibre_url', $d['usar_integrado'] ? 'local' : gl_url_externa());
             }
             $escrito = gl_escribir_archivos($ajustes);
             bitacora($yo['username'], 'geolibre_configuracion', 'estudio', implode(', ', array_keys($d)));
-            json_respuesta(['ajustes' => $ajustes, 'estado' => gl_estado(), 'archivos_escritos' => $escrito, 'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())), 'integrado' => geolibre_local()]);
+            json_respuesta(['ajustes' => $ajustes, 'estado' => gl_estado(), 'archivos_escritos' => $escrito, 'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())), 'integrado' => geolibre_local(), 'usar_integrado' => in_array((string) gp_opcion('geolibre_url', 'local'), ['', 'local'], true), 'url_externa' => gl_url_externa()]);
         }
         $ajustes = gl_ajustes();
         json_respuesta(['ajustes' => $ajustes, 'estado' => gl_estado(), 'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())), 'integrado' => geolibre_local(),
+            'usar_integrado' => in_array((string) gp_opcion('geolibre_url', 'local'), ['', 'local'], true), 'url_externa' => gl_url_externa(),
             'opciones' => ['capacidades' => GL_CAPACIDADES, 'menus' => GL_MENUS, 'niveles' => GL_NIVELES, 'acentos' => GL_ACENTOS, 'idiomas' => GL_IDIOMAS, 'tipos_servicio' => GL_TIPOS_SERVICIO]]);
     }
     if ($ruta === 'admin/geolibre/instalar' && $metodo === 'POST') {

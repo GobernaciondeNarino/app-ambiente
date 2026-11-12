@@ -7,8 +7,12 @@ services:
     env_file: .env
     environment:
       GEOPORTAL_DATA_DIR: /datos
+      # Estudio SIG: el administrador instala aquí la compilación web oficial de GeoLibre
+      GEOPORTAL_GEOLIBRE_DIR: /geolibre
     volumes:
       - geodatos:/datos
+      - geolibre:/geolibre
+      - ./portal/api/geolibre-version.json:/app/geolibre-version.json:ro
     networks: [interna]
 
   web:
@@ -20,11 +24,15 @@ services:
     volumes:
       - ./portal:/usr/share/nginx/html:ro
       - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - geolibre:/srv/geolibre:ro      # Estudio SIG, servido en /geolibre/
     networks: [interna]
 
-  # GeoLibre (https://github.com/opengeos/GeoLibre): SIG web para análisis avanzado.
-  # Abre los proyectos .geolibre que genera la API (?url=…/api/proyecto.geolibre).
+  # Opcional: GeoLibre (https://github.com/opengeos/GeoLibre) en su propio origen.
+  # El Estudio SIG integrado (/geolibre/) lo reemplaza; este servicio solo se levanta con
+  #   docker compose --profile geolibre-separado up -d
+  # y GEOLIBRE_PUBLIC_URL apuntando a su URL pública.
   geolibre:
+    profiles: ["geolibre-separado"]
     image: ghcr.io/opengeos/geolibre:${GEOLIBRE_VERSION:-latest}
     restart: unless-stopped
     ports:
@@ -41,6 +49,7 @@ services:
 
 volumes:
   geodatos:
+  geolibre:
 
 networks:
   interna:

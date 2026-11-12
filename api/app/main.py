@@ -18,6 +18,23 @@ from .security import hash_password
 
 log = logging.getLogger("geoportal")
 
+
+class CORSGeoLibre(CORSMiddleware):
+    """CORS para la instancia externa de GeoLibre, que el administrador puede cambiar en caliente.
+
+    El Estudio SIG integrado comparte origen con el geoportal y no necesita CORS; la instancia
+    externa (respaldo si el Estudio no está instalado) descarga el proyecto y los datos desde
+    otro origen. CORS compara orígenes (esquema + dominio + puerto), nunca rutas.
+    """
+
+    def is_allowed_origin(self, origin: str) -> bool:
+        if super().is_allowed_origin(origin):
+            return True
+        from .services import estudio
+
+        s = get_settings()
+        return bool(origin) and origin in {origin_of(estudio.url_externa(s)), origin_of(s.public_base_url)}
+
 # Categorías temáticas iniciales de la Secretaría de Ambiente y Desarrollo Sostenible
 DEFAULT_CATEGORIES = [
     ("Recurso hídrico", "Cuencas, drenajes, cuerpos de agua y POMCA.", "#0E7FC0", "agua"),
@@ -87,14 +104,10 @@ def create_app() -> FastAPI:
             # «openapi.json» relativo a /…/api/docs: vale en la raíz y en cualquier subdirectorio
             return get_swagger_ui_html(openapi_url="openapi.json", title="API · Geoportal Ambiental")
 
-    # GeoLibre se sirve desde otro origen y descarga proyectos y datos desde la API.
-    # CORS compara orígenes (esquema + dominio + puerto), nunca rutas.
-    origins = settings.cors_origins or [
-        o for o in {origin_of(settings.geolibre_url), origin_of(settings.public_base_url)} if o
-    ]
+    # Orígenes fijos (GEOPORTAL_CORS_ORIGINS); la instancia externa de GeoLibre se evalúa en cada petición
     app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
+        CORSGeoLibre,
+        allow_origins=settings.cors_origins,
         allow_methods=["GET", "HEAD", "OPTIONS"] if not settings.cors_origins else ["*"],
         allow_headers=["*"],
         expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],

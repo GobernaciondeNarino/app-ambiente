@@ -36,12 +36,11 @@ function rutas_publicas(string $metodo, string $ruta): void
     if ($ruta === 'config') {
         $proyecto = gp_url_publica() . '/api/proyecto.geolibre';
         $estudio = gl_config_publica();
-        $externo = (string) gp_opcion('geolibre_url', 'local');
         json_respuesta([
             'nombre' => gp_opcion('nombre_portal', 'Geoportal Ambiental — Gobernación de Nariño'),
             'centro' => [-77.8, 1.45],
             'zoom' => 7.4,
-            'geolibre_url' => geolibre_local() ? rtrim($estudio['url'], '/') : rtrim(in_array($externo, ['', 'local'], true) ? 'https://web.geolibre.app' : $externo, '/'),
+            'geolibre_url' => geolibre_local() ? rtrim($estudio['url'], '/') : rtrim(gl_url_externa(), '/'),
             'geolibre_local' => geolibre_local(),
             'estudio' => $estudio + ['activo' => geolibre_local()],
             'proyecto_url' => $proyecto,

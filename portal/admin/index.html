@@ -69,6 +69,7 @@
           <a href="#categorias" data-vista="categorias" data-icono="etiqueta">Categorías</a>
           <a href="#usuarios" data-vista="usuarios" data-icono="usuarios" data-solo-admin>Usuarios</a>
           <a href="#bitacora" data-vista="bitacora" data-icono="historial" data-solo-admin>Bitácora</a>
+          <a href="#estudio" data-vista="estudio" data-icono="estudio" data-solo-admin>Estudio SIG</a>
           <a href="#configuracion" data-vista="configuracion" data-icono="tablero" data-solo-php hidden>Configuración</a>
           <a href="#cuenta" data-vista="cuenta" data-icono="usuario">Mi cuenta</a>
         </nav>
@@ -233,7 +234,7 @@
               <form class="tarjeta formulario" id="form-configuracion" novalidate>
                 <div class="campo"><label for="cfg-nombre">Nombre del geoportal</label><input id="cfg-nombre" name="nombre_portal" type="text" required></div>
                 <div class="campo"><label for="cfg-url">URL pública</label><input id="cfg-url" name="url_publica" type="url"><span class="ayuda">Vacía = se detecta en cada visita (ahora: <span id="config-detectada"></span>). GeoLibre usa esta URL para descargar los datos.</span></div>
-                <div class="campo"><label for="cfg-geolibre">GeoLibre</label><input id="cfg-geolibre" name="geolibre_url" type="url" required><span class="ayuda">https://web.geolibre.app o la URL de su propio GeoLibre.</span></div>
+                <p class="ayuda">GeoLibre (integrado o externo) se configura en <a href="#estudio">Estudio SIG</a>.</p>
                 <div class="rejilla-campos">
                   <div class="campo"><label for="cfg-max">Tamaño máximo de carga (MB)</label><input id="cfg-max" name="max_carga_mb" type="number" min="1" max="4096"></div>
                   <div class="campo"><label for="cfg-inline">Embeber en GeoLibre hasta (MB)</label><input id="cfg-inline" name="inline_max_mb" type="number" min="0" max="200"></div>
@@ -244,6 +245,96 @@
               <section class="tarjeta bloque"><h2>Servidor</h2><dl class="tecnica" id="config-servidor"></dl>
                 <p class="ayuda-pie">El límite real de carga es el menor entre este valor y los de PHP (upload_max_filesize y post_max_size).</p></section>
             </div>
+          </section>
+
+          <!-- ESTUDIO SIG (GeoLibre integrado) -->
+          <section class="vista" id="vista-estudio" hidden>
+            <div class="titulo-vista"><h1>Estudio SIG</h1>
+              <a class="btn btn-secundario btn-chico" id="estudio-abrir" href="../#estudio" target="_blank" rel="noopener" data-icono="abrir">Abrir el Estudio SIG</a>
+            </div>
+            <p class="introduccion">El Estudio SIG es <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a> —SIG libre que corre en el navegador— integrado en el geoportal con las capas publicadas. Aquí se instala y se configura con la política de despliegue oficial de GeoLibre (<code>deployment.json</code>): marca, idioma, color, menús y herramientas disponibles, complementos, servicios y opciones para compartir.</p>
+            <div class="dos-columnas estudio-columnas">
+              <section class="tarjeta bloque" id="estudio-estado"><h2>GeoLibre en este servidor</h2><div id="estudio-estado-cuerpo">Cargando…</div></section>
+              <section class="tarjeta bloque"><h2>¿Qué GeoLibre se usa?</h2>
+                <form id="form-estudio-origen" novalidate>
+                  <label class="opcion-radio"><input type="radio" name="usar_integrado" value="1"> <span><strong>Estudio integrado</strong><small>GeoLibre instalado en la carpeta <code>geolibre/</code> del geoportal: mismo dominio, configuración de esta página y control desde el visor.</small></span></label>
+                  <label class="opcion-radio"><input type="radio" name="usar_integrado" value="0"> <span><strong>Instancia externa</strong><small>Los botones «Abrir en GeoLibre» llevan a otro servidor de GeoLibre en una pestaña nueva.</small></span></label>
+                  <div class="campo"><label for="est-externa">URL de la instancia externa</label><input id="est-externa" name="url_externa" type="url" placeholder="https://web.geolibre.app"></div>
+                  <div class="acciones-formulario"><button class="btn btn-primario" type="submit">Guardar</button></div>
+                </form>
+              </section>
+            </div>
+
+            <form class="tarjeta editor-formulario" id="form-estudio" novalidate>
+              <div class="pestanas pestanas-estudio" role="tablist" aria-label="Ajustes del Estudio SIG">
+                <button role="tab" type="button" aria-selected="true" data-pe="apariencia">Apariencia e idioma</button>
+                <button role="tab" type="button" aria-selected="false" data-pe="interfaz">Interfaz y menús</button>
+                <button role="tab" type="button" aria-selected="false" data-pe="permisos">Permisos</button>
+                <button role="tab" type="button" aria-selected="false" data-pe="complementos">Complementos</button>
+                <button role="tab" type="button" aria-selected="false" data-pe="servicios">Servicios y mapas base</button>
+                <button role="tab" type="button" aria-selected="false" data-pe="compartir">Compartir y conexiones</button>
+                <button role="tab" type="button" aria-selected="false" data-pe="politica">deployment.json</button>
+              </div>
+              <div class="panel-estudio" data-pe-panel="apariencia">
+                <div class="rejilla-campos">
+                  <div class="campo"><label for="est-nombre">Nombre de la aplicación</label><input id="est-nombre" name="nombre" type="text" maxlength="60" required><span class="ayuda">Aparece en la barra superior y el título de la pestaña de GeoLibre.</span></div>
+                  <div class="campo"><label for="est-modo">Modo</label><select id="est-modo" name="modo"><option value="completo">Completo: edición, análisis y geoprocesamiento</option><option value="visor">Visor: solo consulta (layout=viewer)</option></select></div>
+                  <div class="campo"><label for="est-idioma">Idioma</label><select id="est-idioma" name="idioma"></select></div>
+                  <div class="campo"><label for="est-acento">Color de acento</label><select id="est-acento" name="acento"></select></div>
+                  <div class="campo"><label for="est-color">Color personalizado</label><div class="color-campo"><input type="color" id="est-color" name="color_acento"><code id="est-color-valor"></code></div><span class="ayuda">Verde institucional: #10A13B.</span></div>
+                  <div class="campo"><span><strong>Bienvenida</strong></span><label class="check"><input type="checkbox" name="bienvenida"> Mostrar la pantalla de bienvenida de GeoLibre</label></div>
+                </div>
+                <p class="ayuda-pie">El tema claro u oscuro del Estudio sigue al del geoportal (botón de tema en la barra superior); cada usuario puede cambiarlo también desde el menú de GeoLibre.</p>
+              </div>
+              <div class="panel-estudio" data-pe-panel="interfaz" hidden>
+                <div class="rejilla-campos">
+                  <div class="campo"><label for="est-nivel">Nivel de la interfaz</label><select id="est-nivel" name="nivel"><option value="beginner">Principiante: lo esencial</option><option value="intermediate">Intermedio</option><option value="advanced">Avanzado: todas las herramientas</option></select></div>
+                  <div class="campo"><span><strong>Bloqueo</strong></span><label class="check"><input type="checkbox" name="bloquear_nivel"> Impedir que el usuario cambie el nivel</label></div>
+                </div>
+                <div class="campo"><span><strong>Menús ocultos</strong></span><div class="lista-campos" id="est-menus"></div></div>
+                <div class="campo"><label for="est-elementos">Elementos de menú ocultos</label><textarea id="est-elementos" name="elementos_ocultos" rows="2" placeholder="p. ej. help.diagnostics, project.recent"></textarea><span class="ayuda">Identificadores de GeoLibre separados por coma o salto de línea.</span></div>
+                <div class="campo"><label for="est-fuentes">Fuentes de datos ocultas en «Añadir datos»</label><textarea id="est-fuentes" name="fuentes_ocultas" rows="2" placeholder="p. ej. earth-engine, planetary-computer"></textarea></div>
+              </div>
+              <div class="panel-estudio" data-pe-panel="permisos" hidden>
+                <p class="ayuda-pie">Capacidades que GeoLibre concede a quien abra el Estudio. Al quitar una, GeoLibre oculta o bloquea las herramientas correspondientes.</p>
+                <div class="lista-permisos" id="est-capacidades"></div>
+              </div>
+              <div class="panel-estudio" data-pe-panel="complementos" hidden>
+                <div class="campo"><span><strong>Instalación</strong></span><label class="check"><input type="checkbox" name="instalar_complementos"> Permitir instalar complementos desde un archivo o URL</label></div>
+                <div class="rejilla-campos">
+                  <div class="campo"><label for="est-registro">Registro de complementos</label><input id="est-registro" name="registro_complementos" type="url" placeholder="Vacío = registro oficial de GeoLibre"></div>
+                  <div class="campo"><label for="est-panel">Panel que se abre al iniciar</label><input id="est-panel" name="panel_inicial" type="text" placeholder="Identificador del complemento (opcional)"></div>
+                </div>
+                <div class="campo"><label for="est-activos">Complementos activos por defecto</label><textarea id="est-activos" name="complementos_activos" rows="2" placeholder="Identificadores separados por coma"></textarea></div>
+                <div class="campo"><label for="est-bloqueados">Complementos bloqueados</label><textarea id="est-bloqueados" name="complementos_bloqueados" rows="2"></textarea></div>
+                <div class="campo"><label for="est-ocultos">Complementos ocultos en el gestor</label><textarea id="est-ocultos" name="complementos_ocultos" rows="2"></textarea></div>
+              </div>
+              <div class="panel-estudio" data-pe-panel="servicios" hidden>
+                <div class="rejilla-campos">
+                  <div class="campo"><span><strong>Catálogo de GeoLibre</strong></span><label class="check"><input type="checkbox" name="servicios_predeterminados"> Incluir los servicios predeterminados de GeoLibre</label></div>
+                  <div class="campo"><span><strong>Mapas base regionales</strong></span><label class="check"><input type="checkbox" name="mapas_regionales"> Ofrecer mapas base servidos desde China continental</label></div>
+                </div>
+                <h3 class="grupo-titulo">Servicios institucionales</h3>
+                <p class="ayuda-pie">Servicios WMS, WFS, WMTS, XYZ, ArcGIS o CSW que aparecen en «Añadir datos» del Estudio (p. ej. IDEAM, IGAC, SIAC, Parques Nacionales o el geoservidor de la Gobernación).</p>
+                <div class="tabla-contenedor"><table class="tabla tabla-servicios"><thead><tr><th>Nombre</th><th>Tipo</th><th>URL</th><th>Capa(s)</th><th>Categoría</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody id="est-servicios"></tbody></table></div>
+                <button class="btn btn-secundario btn-chico" type="button" id="est-agregar-servicio">+ Agregar servicio</button>
+              </div>
+              <div class="panel-estudio" data-pe-panel="compartir" hidden>
+                <div class="campo"><span><strong>Compartir en línea</strong></span><label class="check"><input type="checkbox" name="compartir_publico"> Permitir «Compartir» y «Galería» con el servicio público de GeoLibre (share.geolibre.app)</label><span class="ayuda">Desactivado por defecto: los proyectos compartidos se publican fuera de la infraestructura de la Gobernación.</span></div>
+                <div class="rejilla-campos">
+                  <div class="campo"><label for="est-compartir">Servidor propio para compartir</label><input id="est-compartir" name="url_compartir" type="url" placeholder="https://…"><span class="ayuda">Reemplaza al servicio público (contrato v1 de GeoLibre).</span></div>
+                  <div class="campo"><label for="est-colab">Relé de colaboración en tiempo real</label><input id="est-colab" name="url_colaboracion" type="text" placeholder="wss://…"></div>
+                  <div class="campo"><label for="est-overpass">Servidor Overpass (OpenStreetMap)</label><input id="est-overpass" name="overpass_url" type="url" placeholder="Vacío = servidor por defecto de GeoLibre"></div>
+                  <div class="campo"><label for="est-geolens">GeoLens</label><input id="est-geolens" name="geolens_url" type="text" placeholder="off, same-origin o https://…"><span class="ayuda">Catálogo GeoLens: «off» lo desactiva.</span></div>
+                </div>
+                <p class="ayuda-pie">El asistente de IA de GeoLibre queda desactivado: requiere claves de proveedores externos que no se publican en el navegador.</p>
+              </div>
+              <div class="panel-estudio" data-pe-panel="politica" hidden>
+                <p class="ayuda-pie">Política que lee GeoLibre al iniciar (<code>geolibre/deployment.json</code>), generada a partir de estos ajustes. También se publica en <a id="est-politica-url" href="#" target="_blank" rel="noopener">la API</a>.</p>
+                <pre class="codigo" id="est-politica"></pre>
+              </div>
+              <div class="acciones-formulario"><span class="sin-guardar" id="estudio-sin-guardar" hidden>Cambios sin guardar</span><button class="btn btn-primario" type="submit" data-icono="check">Guardar ajustes del Estudio</button></div>
+            </form>
           </section>
 
           <!-- CUENTA -->

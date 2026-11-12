@@ -234,6 +234,16 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    // Tema antes de pintar: el mismo que el geoportal (automático, claro u oscuro)
+    (function (d) {
+      var p = "auto";
+      try { p = localStorage.getItem("geoportal.tema") || "auto"; } catch (e) {}
+      var oscuro = p === "oscuro" || (p !== "claro" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+      d.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+    })(document);
+  </script>
   <title>Instalación · Geoportal Ambiental · Gobernación de Nariño</title>
   <link rel="icon" href="../assets/img/escudo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -241,6 +251,9 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
   <link rel="stylesheet" href="../assets/css/institucional.css">
   <style>
     body { background: linear-gradient(160deg, rgba(16,161,59,.08), rgba(255,213,0,.10)), var(--fondo); }
+    :root[data-tema="oscuro"] body { background: linear-gradient(160deg, rgba(16,161,59,.10), rgba(255,213,0,.04)), var(--fondo); }
+    .instalador .tarjeta { position: relative; }
+    .instalador .boton-tema { position: absolute; top: 16px; right: 16px; }
     .instalador { max-width: 760px; margin: 32px auto 48px; padding: 0 16px; }
     .instalador .tarjeta { padding: 28px 32px 32px; border-top: 5px solid var(--verde); }
     .logo { height: 56px; margin-bottom: 8px; }
@@ -248,22 +261,23 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
     .subtitulo { margin: 0 0 18px; color: var(--gris-suave); }
     .pasos { display: flex; gap: 6px; list-style: none; padding: 0; margin: 0 0 22px; counter-reset: p; flex-wrap: wrap; }
     .pasos li { flex: 1; min-width: 120px; font-family: var(--fuente-titulos); font-weight: 600; font-size: 13px; color: var(--gris-suave);
-      border-top: 4px solid #dfe3df; padding-top: 6px; counter-increment: p; }
+      border-top: 4px solid var(--borde-control); padding-top: 6px; counter-increment: p; }
     .pasos li::before { content: counter(p) ". "; }
     .pasos li.hecho { border-color: var(--verde); color: var(--verde-oscuro); }
     .pasos li.actual { border-color: var(--amarillo); color: var(--gris-titulo); }
     form { display: flex; flex-direction: column; gap: 16px; }
     .rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
     .rejilla .ancho { grid-column: 1 / -1; }
-    .grupo { font-family: var(--fuente-titulos); font-weight: 700; color: var(--gris-titulo); margin: 6px 0 -4px; padding-top: 12px; border-top: 1px solid #eef0ee; grid-column: 1 / -1; }
+    .grupo { font-family: var(--fuente-titulos); font-weight: 700; color: var(--gris-titulo); margin: 6px 0 -4px; padding-top: 12px; border-top: 1px solid var(--borde-suave); grid-column: 1 / -1; }
     table.req { width: 100%; border-collapse: collapse; font-size: 14.5px; }
-    table.req td { padding: 8px 10px; border-bottom: 1px solid #eef0ee; vertical-align: top; }
+    table.req td { padding: 8px 10px; border-bottom: 1px solid var(--borde-suave); vertical-align: top; }
     table.req td:first-child { width: 34px; font-size: 18px; }
     .ok { color: var(--verde-oscuro); } .no { color: var(--peligro); } .op { color: #8a6d00; }
+    :root[data-tema="oscuro"] .op { color: #f2c94c; }
     .acciones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
     textarea.codigo { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; min-height: 260px; }
     ul.hechas { padding-left: 20px; }
-    .medidor { height: 6px; border-radius: 3px; background: #e5e9e5; overflow: hidden; margin-top: 4px; }
+    .medidor { height: 6px; border-radius: 3px; background: var(--superficie-3); overflow: hidden; margin-top: 4px; }
     .medidor span { display: block; height: 100%; width: 0; transition: width .2s; }
     @media (max-width: 640px) { .rejilla { grid-template-columns: 1fr; } .instalador .tarjeta { padding: 22px 18px; } }
   </style>
@@ -271,6 +285,7 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
 <body>
 <main class="instalador">
   <div class="tarjeta">
+    <button type="button" class="boton-tema" id="boton-tema" aria-live="polite"></button>
     <img class="logo" src="../assets/img/logo-gobernacion-narino.png" alt="Gobernación de Nariño">
     <h1>Instalación del Geoportal Ambiental</h1>
     <p class="subtitulo">Secretaría de Ambiente y Desarrollo Sostenible · versión <?= h(GP_VERSION) ?></p>
@@ -306,7 +321,7 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
           <td><strong><?= h($n) ?></strong><br><span class="ayuda"><?= h($det) ?></span></td></tr>
       <?php endforeach; ?>
       <tr><td class="<?= $esHttps ? 'ok' : 'op' ?>"><?= $esHttps ? '✔' : '!' ?></td>
-        <td><strong>Conexión segura (HTTPS)</strong><br><span class="ayuda"><?= $esHttps ? 'El sitio usa HTTPS.' : 'El sitio no usa HTTPS. Actívelo en Plesk (SSL/TLS, Let\'s Encrypt): GeoLibre solo abre proyectos de sitios https.' ?></span></td></tr>
+        <td><strong>Conexión segura (HTTPS)</strong><br><span class="ayuda"><?= $esHttps ? 'El sitio usa HTTPS.' : 'El sitio no usa HTTPS. Actívelo en Plesk (SSL/TLS, Let\'s Encrypt): Se recomienda: las instancias externas de GeoLibre (https) solo abren proyectos de sitios https; el Estudio SIG integrado funciona en ambos casos.' ?></span></td></tr>
       <tr id="chk-reescritura"><td class="op">…</td><td><strong>Rutas amigables de la API (reescritura de URL)</strong><br><span class="ayuda">Comprobando…</span></td></tr>
       <tr id="chk-autorizacion"><td class="op">…</td><td><strong>Cabecera de autorización</strong><br><span class="ayuda">Comprobando…</span></td></tr>
     </table>
@@ -420,5 +435,32 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
 <?php endif; ?>
   </div>
 </main>
+<script>
+  // Botón de tema (automático → claro → oscuro), compartido con el geoportal
+  (function () {
+    var b = document.getElementById("boton-tema");
+    var nombres = { auto: "Automático", claro: "Claro", oscuro: "Oscuro" };
+    var iconos = {
+      auto: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18a9 9 0 0 0 0-18Z" fill="currentColor"/></svg>',
+      claro: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+      oscuro: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>'
+    };
+    function pref() { try { return localStorage.getItem("geoportal.tema") || "auto"; } catch (e) { return "auto"; } }
+    function aplicar(p) {
+      var oscuro = p === "oscuro" || (p === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+      b.innerHTML = iconos[p] + "<span>" + nombres[p] + "</span>";
+      b.title = "Tema: " + nombres[p].toLowerCase() + " (clic para cambiar)";
+    }
+    b.addEventListener("click", function () {
+      var orden = ["auto", "claro", "oscuro"];
+      var p = orden[(orden.indexOf(pref()) + 1) % 3];
+      try { localStorage.setItem("geoportal.tema", p); } catch (e) {}
+      aplicar(p);
+    });
+    if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { if (pref() === "auto") aplicar("auto"); });
+    aplicar(pref());
+  })();
+</script>
 </body>
 </html>

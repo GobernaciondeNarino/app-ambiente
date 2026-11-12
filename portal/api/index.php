@@ -38,9 +38,10 @@ try {
         json_respuesta(['detail' => 'El geoportal todavía no está instalado.', 'instalar' => 'instalar/'], 503);
     }
 
-    // CORS: GeoLibre descarga el proyecto y los datos desde su propio origen
+    // CORS: una instancia externa de GeoLibre descarga el proyecto y los datos desde su propio
+    // origen (el Estudio SIG integrado comparte origen con el geoportal y no lo necesita)
     $origen = $_SERVER['HTTP_ORIGIN'] ?? '';
-    $permitidos = array_filter([gp_origen((string) gp_opcion('geolibre_url', 'https://web.geolibre.app')), gp_origen(gp_url_publica())]);
+    $permitidos = array_filter([gp_origen(gl_url_externa()), gp_origen(gp_url_publica())]);
     if ($origen !== '' && in_array($origen, $permitidos, true)) {
         header('Access-Control-Allow-Origin: ' . $origen);
         header('Vary: Origin', false);

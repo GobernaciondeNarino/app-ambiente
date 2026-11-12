@@ -14,7 +14,7 @@ RUN pip install -r requirements.txt
 COPY app ./app
 
 RUN useradd --system --uid 1000 --home /app geoportal \
-    && mkdir -p /datos && chown geoportal /datos
+    && mkdir -p /datos /geolibre && chown geoportal /datos /geolibre
 USER geoportal
 VOLUME ["/datos"]
 EXPOSE 8000

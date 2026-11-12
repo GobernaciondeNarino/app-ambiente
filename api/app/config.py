@@ -39,8 +39,10 @@ class Settings:
     # URLs públicas
     # Vacío = se detecta en cada petición (dominio, esquema y prefijo de subdirectorio)
     public_base_url: str = field(default_factory=lambda: os.getenv("GEOPORTAL_PUBLIC_URL", "").strip().rstrip("/"))
+    # «local» = Estudio SIG integrado (GeoLibre servido en /geolibre/ del geoportal);
+    # o la URL de una instancia externa, p. ej. https://web.geolibre.app
     geolibre_url: str = field(
-        default_factory=lambda: os.getenv("GEOLIBRE_PUBLIC_URL", "http://localhost:8081").rstrip("/")
+        default_factory=lambda: os.getenv("GEOLIBRE_PUBLIC_URL", "local").strip().rstrip("/") or "local"
     )
     cors_origins: list[str] = field(default_factory=lambda: _env_list("GEOPORTAL_CORS_ORIGINS"))
 

@@ -59,9 +59,7 @@ def portal_config(settings: Settings = Depends(_settings)) -> dict:
         "nombre": settings.project_name,
         "centro": list(settings.map_center),
         "zoom": settings.map_zoom,
-        "geolibre_url": cfg_estudio["url"].rstrip("/") if cfg_estudio["activo"] else (
-            estudio.preferencia_url(settings) if estudio.preferencia_url(settings) not in ("", "local") else "https://web.geolibre.app"
-        ),
+        "geolibre_url": (cfg_estudio["url"] if cfg_estudio["activo"] else estudio.url_externa(settings)).rstrip("/"),
         "geolibre_local": cfg_estudio["activo"],
         "estudio": cfg_estudio,
         "proyecto_url": project_url,
