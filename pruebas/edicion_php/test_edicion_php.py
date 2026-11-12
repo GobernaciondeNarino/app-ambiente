@@ -14,7 +14,11 @@ import httpx
 
 CLAVE = "Admin-Geoportal-2026"
 PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
-TIFF_MINIMO = b"II*\x00" + bytes(252)
+TIFF_MINIMO = b"II*\x00" + bytes(252)  # sin etiquetas de teselas (GeoTIFF por franjas)
+# Primer IFD con la etiqueta TileWidth (322): GeoLibre lo puede leer por rangos
+TIFF_TESELADO = (b"II*\x00" + (8).to_bytes(4, "little") + (1).to_bytes(2, "little")
+                 + (322).to_bytes(2, "little") + (3).to_bytes(2, "little") + (1).to_bytes(4, "little") + (256).to_bytes(4, "little")
+                 + bytes(4)).ljust(256, b"\x00")
 ESTADO: dict = {}
 
 
@@ -158,14 +162,15 @@ def test_carga_raster_y_rangos(sitio):
     }
     with httpx.Client(timeout=60) as c:
         r = _cargar(c, url + "api/admin/capas", tk, PNG_1X1, info, {"title": "DEM de prueba", "published": True}, nombre="dem.tif",
-                    extra={"geotiff": ("datos_4326.tif", TIFF_MINIMO)})
+                    extra={"geotiff": ("datos_4326.tif", TIFF_TESELADO)})
         assert r.status_code == 201, r.text
         capa = r.json()["capa"]
         ESTADO["raster"] = capa
         assert capa["kind"] == "raster" and capa["bbox"] == [-76.68, 1.28, -76.41, 1.55]
         # El GeoTIFF publicado es la copia teselada en 4326; el original se conserva
         rango = c.get(url + f"api/capas/{capa['slug']}/datos.tif", headers={"Range": "bytes=0-9"})
-        assert rango.status_code == 206 and rango.headers["content-range"] == f"bytes 0-9/{len(TIFF_MINIMO)}"
+        assert rango.status_code == 206 and rango.headers["content-range"] == f"bytes 0-9/{len(TIFF_TESELADO)}"
+        assert rango.content == TIFF_TESELADO[:10]
         assert c.get(url + f"api/capas/{capa['slug']}/datos.tif", headers={"Range": "bytes=999999-"}).status_code == 416
         original = c.get(url + f"api/admin/capas/{capa['id']}/original", headers=h)
         assert original.status_code == 200 and original.content == TIFF_MINIMO
@@ -265,6 +270,17 @@ def test_estudio_sig(sitio):
         assert acao not in c.get(url + "api/capas", headers={"Origin": "https://web.geolibre.app"}).headers
         r = c.put(url + "api/admin/geolibre", headers=h, json={"usar_integrado": True, "nombre": "Geoportal Ambiental", "menus_ocultos": [], "servicios": []})
         assert r.json()["integrado"] is True
+
+        # Un ráster cuyo GeoTIFF publicado no está teselado se incluye como imagen georreferenciada
+        info = {"kind": "raster", "source_format": "GeoTIFF", "source_crs": "EPSG:4326", "raster_info": {
+            "width": 10, "height": 10, "bands": 1, "corners": [[-77.0, 1.2], [-76.9, 1.2], [-76.9, 1.1], [-77.0, 1.1]]}}
+        r = _cargar(c, url + "api/admin/capas", ESTADO["token"], PNG_1X1, info, {"title": "Ráster por franjas", "published": True}, nombre="franjas.tif")
+        assert r.status_code == 201, r.text
+        franjas = r.json()["capa"]
+        capa_gl = next(l for l in c.get(url + "api/proyecto.geolibre").json()["layers"] if l["name"] == "Ráster por franjas")
+        assert capa_gl["type"] == "image" and capa_gl["source"]["coordinates"] == info["raster_info"]["corners"]
+        assert capa_gl["source"]["url"].endswith(f"api/capas/{franjas['slug']}/vista-previa.png")
+        assert c.delete(url + f"api/admin/capas/{franjas['id']}", headers=h).status_code == 204
 
         # Proyecto con el mapa base del visor e identificadores estables para la API de incrustación
         assert c.get(url + "api/proyecto.geolibre?base=oscuro").json()["basemapStyleUrl"] == "https://tiles.openfreemap.org/styles/dark"

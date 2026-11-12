@@ -90,7 +90,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Geoportal Ambiental — Gobernación de Nariño",
         description="API de catálogo, consulta y administración de geodatos de la Secretaría de Ambiente y Desarrollo Sostenible.",
-        version=os.getenv("GEOPORTAL_VERSION", "1.0.0"),
+        version=os.getenv("GEOPORTAL_VERSION", "1.2.0"),
         lifespan=lifespan,
         docs_url=None,  # se sirve abajo con una URL relativa (funciona en subdirectorios)
         redoc_url=None,

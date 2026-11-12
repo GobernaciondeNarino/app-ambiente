@@ -42,6 +42,8 @@ jobs:
           python-version: "3.12"
       - name: Sintaxis PHP
         run: find portal -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Sintaxis JavaScript
+        run: for f in portal/assets/js/*.js; do node --check "$f"; done
       - run: pip install pytest==8.3.5 httpx==0.28.1
       - name: Instalación con el asistente y API
         env:

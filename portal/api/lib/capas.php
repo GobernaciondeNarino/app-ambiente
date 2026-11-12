@@ -297,6 +297,51 @@ function uuid5(string $nombre): string
     return sprintf('%s-%s-%s-%s-%s', substr($h, 0, 8), substr($h, 8, 4), '5' . substr($h, 13, 3), dechex((hexdec(substr($h, 16, 2)) & 0x3f) | 0x80) . substr($h, 18, 2), substr($h, 20, 12));
 }
 
+/** ¿GeoLibre puede transmitir por rangos el GeoTIFF publicado? (teselado y en EPSG:4326 o 3857) */
+function raster_apto_geolibre(array $c): bool
+{
+    // Con copia generada al cargar, el publicado está en EPSG:4326; si no, es el original
+    $copia = ($c['processed_path'] ?? '') !== ($c['original_path'] ?? '');
+    if (!$copia && !preg_match('/\bEPSG:(4326|3857)\b/', (string) ($c['source_crs'] ?? ''))) {
+        return false;
+    }
+    return tiff_teselado(gp_ruta_datos((string) $c['processed_path']));
+}
+
+/** Lee el primer directorio del TIFF (clásico o BigTIFF) y busca la etiqueta TileWidth (322). */
+function tiff_teselado(string $ruta): bool
+{
+    $f = @fopen($ruta, 'rb');
+    if (!$f) return false;
+    try {
+        $cab = (string) fread($f, 16);
+        $le = str_starts_with($cab, 'II');
+        if (!$le && !str_starts_with($cab, 'MM')) return false;
+        $u16 = static fn (string $b) => unpack($le ? 'v' : 'n', $b)[1];
+        $u32 = static fn (string $b) => unpack($le ? 'V' : 'N', $b)[1];
+        $u64 = static fn (string $b) => unpack($le ? 'P' : 'J', $b)[1];
+        $version = $u16(substr($cab, 2, 2));
+        if ($version === 42) {
+            fseek($f, $u32(substr($cab, 4, 4)));
+            $n = $u16((string) fread($f, 2));
+            $tam = 12;
+        } elseif ($version === 43) {
+            fseek($f, $u64(substr($cab, 8, 8)));
+            $n = $u64((string) fread($f, 8));
+            $tam = 20;
+        } else {
+            return false;
+        }
+        $entradas = (string) fread($f, min($n, 4096) * $tam);
+        for ($i = 0; $i + 2 <= strlen($entradas); $i += $tam) {
+            if ($u16(substr($entradas, $i, 2)) === 322) return true;
+        }
+        return false;
+    } finally {
+        fclose($f);
+    }
+}
+
 function capa_geolibre(array $c, ?string $grupo): array
 {
     $estilo = ESTILO_BASE_GEOLIBRE;
@@ -330,6 +375,18 @@ function capa_geolibre(array $c, ?string $grupo): array
     ];
     if ($grupo) {
         $out['groupId'] = $grupo;
+    }
+    if ($c['kind'] === 'raster' && !raster_apto_geolibre($c) && !empty($c['raster_info']['corners']) && isset($urls['vista_previa'])) {
+        // GeoLibre solo transmite GeoTIFF teselados en EPSG:4326/3857: si el publicado no lo es (ráster
+        // demasiado grande para convertirlo en el navegador o cargado con una versión anterior),
+        // se incluye su vista previa como imagen georreferenciada en lugar de una capa que no abriría.
+        $b = $c['bbox'] ?? null;
+        $out['type'] = 'image';
+        $out['source'] = ['type' => 'image', 'url' => $urls['vista_previa'], 'coordinates' => $c['raster_info']['corners']];
+        $out['metadata'] = ['sourceKind' => 'image'] + (is_array($b) && count($b) === 4 ? ['bounds' => [[$b[0], $b[1]], [$b[2], $b[3]]]] : []);
+        $out['descriptiveMetadata']['abstract'] = trim(($c['description'] ?? '') . ' Vista previa: para analizar los valores descargue el GeoTIFF original.');
+        $out['capabilities']['query'] = false;
+        return $out;
     }
     if ($c['kind'] === 'raster') {
         $info = $c['raster_info'] ?? [];

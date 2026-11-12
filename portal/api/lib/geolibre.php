@@ -270,6 +270,7 @@ function gl_instalar(): array
         falla(409, 'El servidor no permite instalar GeoLibre automáticamente (se necesitan la extensión zip, descargas salientes y permiso de escritura). Súbalo a mano: ver docs/instalacion-plesk.md.');
     }
     @set_time_limit(900);
+    ignore_user_abort(true); // si el navegador o un proxy cortan la espera, la instalación termina igual
     $tmp = gp_ruta_datos('tmp/geolibre-' . bin2hex(random_bytes(6)));
     mkdir($tmp, 0750, true);
     $whl = "$tmp/geolibre.whl";
@@ -319,7 +320,9 @@ function gl_instalar(): array
         $dir = gl_carpeta();
         $viejo = is_dir($dir) ? "$tmp/anterior" : null;
         if ($viejo) rename($dir, $viejo);
-        if (!@rename($nuevo, $dir)) {
+        // rename() falla si los datos y la web están en sistemas de archivos distintos: se copia
+        if (!@rename($nuevo, $dir) && !gl_copiar_carpeta($nuevo, $dir)) {
+            eliminar_carpeta($dir);
             if ($viejo) rename($viejo, $dir);
             falla(500, 'No se pudo mover GeoLibre a su carpeta. Revise los permisos de la instalación.');
         }
@@ -328,6 +331,16 @@ function gl_instalar(): array
     } finally {
         eliminar_carpeta($tmp);
     }
+}
+
+function gl_copiar_carpeta(string $desde, string $hacia): bool
+{
+    if (!is_dir($hacia) && !@mkdir($hacia, 0755, true)) return false;
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($desde, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST) as $f) {
+        $destino = $hacia . substr($f->getPathname(), strlen($desde));
+        if ($f->isDir() ? !is_dir($destino) && !@mkdir($destino, 0755) : !@copy($f->getPathname(), $destino)) return false;
+    }
+    return true;
 }
 
 /** Información del Estudio SIG para /api/config. */

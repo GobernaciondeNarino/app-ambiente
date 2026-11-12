@@ -522,7 +522,7 @@ function rutas_admin(string $metodo, string $ruta): void
             'horas_sesion' => (int) ($op['horas_sesion'] ?? 8),
             'limite_php_mb' => (int) floor(limite_carga_bytes() / 1048576),
             'datos_dir' => $op['datos_dir'] ?? '',
-            'version' => $op['version_instalada'] ?? '',
+            'version' => GP_VERSION . (($op['version_instalada'] ?? GP_VERSION) !== GP_VERSION ? ' (instalada como ' . $op['version_instalada'] . ')' : ''),
             'php' => PHP_VERSION,
             'mysql' => (string) $db->query('SELECT VERSION()')->fetchColumn(),
         ]);

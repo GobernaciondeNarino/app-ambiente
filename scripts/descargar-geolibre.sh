@@ -2,12 +2,14 @@
 # Descarga la compilación web oficial de GeoLibre (versión fijada en portal/api/geolibre-version.json),
 # verifica su SHA-256 y la instala en portal/geolibre/ («Estudio SIG» del geoportal).
 # No ejecuta código del paquete: solo descarga, verifica y descomprime archivos estáticos.
-# Uso: scripts/descargar-geolibre.sh
+# Uso: scripts/descargar-geolibre.sh [carpeta de destino, por defecto portal/geolibre]
 set -euo pipefail
+ORIGEN="$PWD"
 cd "$(dirname "$0")/.."
+DESTINO="${1:-$PWD/portal/geolibre}"
+case "$DESTINO" in /*) ;; *) DESTINO="$ORIGEN/$DESTINO" ;; esac
 leer() { python3 -I -c "import json,sys; print(json.load(open('portal/api/geolibre-version.json'))[sys.argv[1]])" "$1"; }
 VERSION="$(leer version)"; URL="$(leer paquete)"; SHA="$(leer sha256)"; DENTRO="$(leer carpeta_en_paquete)"
-DESTINO="portal/geolibre"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 echo "Descargando GeoLibre ${VERSION}…"
 curl -fsSL -o "$TMP/geolibre.whl" "$URL"

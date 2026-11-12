@@ -6,7 +6,7 @@
 
 declare(strict_types=1);
 
-const GP_VERSION = '1.1.0';
+const GP_VERSION = '1.2.0';
 const GP_PHP_MINIMO = '8.1.0';
 
 /** Carpeta raíz de la instalación (la que contiene index.html, admin/, api/, instalar/). */
