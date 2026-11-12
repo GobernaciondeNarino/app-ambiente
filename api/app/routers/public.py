@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session, selectinload
 from ..config import Settings, request_settings
 from ..db import get_session
 from ..models import Category, Layer
-from ..services.geolibre import build_project, geolibre_open_url
+from ..services import estudio
+from ..services.geolibre import build_project
 from ..services.layers import category_out, public_layer_dict
 
 
@@ -53,19 +54,37 @@ def health() -> dict:
 def portal_config(settings: Settings = Depends(_settings)) -> dict:
     """Parámetros que el visor necesita (centro, URLs de GeoLibre)."""
     project_url = f"{settings.public_base_url}/api/proyecto.geolibre"
+    cfg_estudio = estudio.config_publica(settings)
     return {
         "nombre": settings.project_name,
         "centro": list(settings.map_center),
         "zoom": settings.map_zoom,
-        "geolibre_url": settings.geolibre_url,
+        "geolibre_url": cfg_estudio["url"].rstrip("/") if cfg_estudio["activo"] else (
+            estudio.preferencia_url(settings) if estudio.preferencia_url(settings) not in ("", "local") else "https://web.geolibre.app"
+        ),
+        "geolibre_local": cfg_estudio["activo"],
+        "estudio": cfg_estudio,
         "proyecto_url": project_url,
-        "geolibre_proyecto_url": geolibre_open_url(settings, project_url),
-        "geolibre_editor_url": geolibre_open_url(settings, project_url, viewer=False),
+        "geolibre_proyecto_url": estudio.url_abrir(settings, project_url),
+        "geolibre_editor_url": estudio.url_abrir(settings, project_url, visor=False),
         # La edición Docker procesa los geodatos en el servidor (GDAL); la de Plesk, en el navegador
         "edicion": "docker",
         "ingesta": "servidor",
         "max_carga_mb": settings.max_upload_mb,
     }
+
+
+@router.get("/geolibre/deployment.json")
+def geolibre_deployment(settings: Settings = Depends(_settings)) -> JSONResponse:
+    a = estudio.ajustes(settings)
+    from ..config import origin_of
+
+    return JSONResponse(estudio.politica(a, origin_of(settings.public_base_url)), headers={"Cache-Control": "no-cache"})
+
+
+@router.get("/geolibre/ajustes.json")
+def geolibre_ajustes(settings: Settings = Depends(_settings)) -> JSONResponse:
+    return JSONResponse(estudio.interfaz(estudio.ajustes(settings)), headers={"Cache-Control": "no-cache"})
 
 
 @router.get("/categorias")
@@ -152,9 +171,14 @@ def layer_download(
 
 
 @router.get("/capas/{slug}/proyecto.geolibre")
-def layer_project(slug: str, session: Session = Depends(get_session), settings: Settings = Depends(_settings)) -> Response:
+def layer_project(
+    slug: str,
+    base: str | None = Query(default=None, description="Mapa base: calles, claro, oscuro, fiord o brillante"),
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(_settings),
+) -> Response:
     layer = _published(session, slug)
-    project = build_project([layer], settings, name=layer.title, categories=[layer.category] if layer.category else [])
+    project = build_project([layer], settings, name=layer.title, categories=[layer.category] if layer.category else [], base=base)
     return _project_response(project, f"{layer.slug}.geolibre")
 
 
@@ -162,6 +186,7 @@ def layer_project(slug: str, session: Session = Depends(get_session), settings: 
 def full_project(
     categoria: str | None = None,
     capas: str | None = Query(default=None, description="Slugs separados por coma"),
+    base: str | None = Query(default=None, description="Mapa base: calles, claro, oscuro, fiord o brillante"),
     session: Session = Depends(get_session),
     settings: Settings = Depends(_settings),
 ) -> Response:
@@ -174,7 +199,7 @@ def full_project(
         query = query.where(Layer.slug.in_(slugs))
     layers = list(session.scalars(query.order_by(Layer.position, Layer.title)).all())
     cats = list(session.scalars(select(Category).order_by(Category.position, Category.name)).all())
-    project = build_project(layers, settings, categories=cats)
+    project = build_project(layers, settings, categories=cats, base=base)
     return _project_response(project, "geoportal-ambiental-narino.geolibre")
 
 

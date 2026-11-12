@@ -11,6 +11,7 @@ require __DIR__ . '/lib/autenticacion.php';
 require __DIR__ . '/lib/esquema.php';
 require __DIR__ . '/lib/geodatos.php';
 require __DIR__ . '/lib/capas.php';
+require __DIR__ . '/lib/geolibre.php';
 require __DIR__ . '/lib/rutas_publicas.php';
 require __DIR__ . '/lib/rutas_admin.php';
 

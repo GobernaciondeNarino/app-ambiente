@@ -1,0 +1,9 @@
+{
+  "version": "3.7.0",
+  "paquete": "https://files.pythonhosted.org/packages/57/c0/73576f85199f741aeda51056a3f9d4ef2069f96af66caf10464d0808b9bb/geolibre-3.7.0-py3-none-any.whl",
+  "pypi": "https://pypi.org/pypi/geolibre/3.7.0/json",
+  "sha256": "fcc354f39b1687fd819d807c17a49875b10e2b86c71dc8bef57bee47fadb3765",
+  "carpeta_en_paquete": "geolibre/static/app/",
+  "nota": "Compilación web oficial de GeoLibre con rutas relativas (la misma que usa su paquete de Python). Se instala en portal/geolibre/.",
+  "tamano_bytes": 58217494
+}

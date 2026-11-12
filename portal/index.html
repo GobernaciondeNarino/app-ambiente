@@ -9,6 +9,16 @@
       })(location);
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script>
+      // Tema antes de pintar (evita el destello claro en modo oscuro)
+      (function (d) {
+        var p = "auto";
+        try { p = localStorage.getItem("geoportal.tema") || "auto"; } catch (e) {}
+        var oscuro = p === "oscuro" || (p !== "claro" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+        d.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+      })(document);
+    </script>
     <title>Geoportal Ambiental · Gobernación de Nariño</title>
     <meta name="description" content="Geoportal de la Secretaría de Ambiente y Desarrollo Sostenible de la Gobernación de Nariño: consulta, visualización y descarga de información geográfica ambiental.">
     <link rel="icon" href="assets/img/escudo.png">
@@ -35,6 +45,7 @@
       <nav class="navegacion" id="navegacion" aria-label="Navegación principal">
         <a href="#visor" data-ruta="visor">Visor</a>
         <a href="#catalogo" data-ruta="catalogo">Catálogo</a>
+        <a href="#estudio" data-ruta="estudio" id="nav-estudio" hidden>Estudio SIG</a>
         <a href="#acerca" data-ruta="acerca">Acerca del geoportal</a>
         <a class="btn btn-acento btn-chico" id="abrir-geolibre" href="#" target="_blank" rel="noopener" data-icono="abrir">Abrir en GeoLibre</a>
       </nav>
@@ -67,6 +78,22 @@
         <div class="mapa-contenedor">
           <div id="mapa" role="region" aria-label="Mapa"></div>
 
+          <div class="buscador-mapa" role="search">
+            <label class="buscador">
+              <span class="sr-only">Buscar lugares, coordenadas o entidades de las capas activas</span>
+              <span data-icono="buscar"></span>
+              <input type="search" id="buscar-mapa" placeholder="Buscar lugar, coordenada o entidad (Ctrl+K)" autocomplete="off" aria-controls="resultados-busqueda" aria-autocomplete="list">
+            </label>
+            <ul class="resultados-busqueda" id="resultados-busqueda" role="listbox" aria-label="Resultados de búsqueda" hidden></ul>
+          </div>
+
+          <section class="panel-medicion" id="panel-medicion" aria-live="polite" hidden>
+            <header><h2>Medir distancia</h2>
+              <button class="btn-icono" type="button" data-borrar title="Borrar medición"><span data-icono="cerrar"></span><span class="sr-only">Borrar medición</span></button>
+            </header>
+            <p class="resultado"></p>
+          </section>
+
           <div class="control-mapa control-base" id="control-base">
             <button type="button" class="btn-icono" id="boton-base" aria-expanded="false" title="Mapa base"><span data-icono="base"></span><span class="sr-only">Mapa base</span></button>
             <div class="menu-base" id="menu-base" hidden></div>
@@ -79,8 +106,48 @@
             <ul id="leyenda-items"></ul>
           </section>
 
-          <div class="coordenadas" id="coordenadas" aria-live="off">Lon —, Lat —</div>
+          <div class="barra-estado" id="barra-estado">
+            <button type="button" class="coordenadas" id="boton-coordenadas" aria-live="off">Lat —  Lon —</button>
+            <span class="info-vista" id="info-vista"></span>
+          </div>
         </div>
+
+        <section class="panel-atributos" id="tabla-atributos" aria-label="Tabla de atributos" hidden>
+          <header class="tabla-barra">
+            <span data-icono="tabla"></span>
+            <label><span class="sr-only">Capa</span><select id="tabla-capa"></select></label>
+            <label class="buscador"><span class="sr-only">Filtrar filas</span><span data-icono="buscar"></span><input type="search" id="tabla-filtro" placeholder="Filtrar filas" autocomplete="off"></label>
+            <span class="tabla-conteo" id="tabla-conteo"></span>
+            <span class="separador"></span>
+            <button class="btn-icono" type="button" data-anterior title="Página anterior">‹<span class="sr-only">Página anterior</span></button>
+            <span class="tabla-pagina" id="tabla-pagina"></span>
+            <button class="btn-icono" type="button" data-siguiente title="Página siguiente">›<span class="sr-only">Página siguiente</span></button>
+            <button class="btn btn-secundario btn-chico" type="button" data-csv data-icono="descargar">CSV</button>
+            <button class="btn-icono" type="button" data-cerrar-tabla title="Cerrar tabla"><span data-icono="cerrar"></span><span class="sr-only">Cerrar tabla</span></button>
+          </header>
+          <div class="tabla-cuerpo"></div>
+        </section>
+      </section>
+
+      <!-- ============================ ESTUDIO SIG (GeoLibre integrado) ============================ -->
+      <section class="vista estudio" id="vista-estudio" aria-label="Estudio SIG" hidden>
+        <div class="estudio-barra">
+          <div class="estudio-titulo">
+            <span data-icono="estudio"></span>
+            <h1>Estudio SIG</h1>
+            <span class="estudio-detalle">Análisis, edición y geoprocesamiento con <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a> sobre las capas del geoportal. Los datos se procesan en su navegador.</span>
+          </div>
+          <div class="estudio-acciones">
+            <button class="btn btn-secundario btn-chico" type="button" id="estudio-sincronizar" data-icono="mapa">Traer vista del visor</button>
+            <button class="btn btn-secundario btn-chico" type="button" id="estudio-recargar" data-icono="historial">Recargar</button>
+            <a class="btn btn-secundario btn-chico" id="estudio-nueva-ventana" href="#" target="_blank" rel="noopener" data-icono="abrir">Nueva ventana</a>
+          </div>
+        </div>
+        <div class="aviso estudio-aviso" id="estudio-aviso-tema" hidden>
+          <span></span>
+          <button class="btn btn-primario btn-chico" type="button" id="estudio-aplicar-tema">Recargar ahora</button>
+        </div>
+        <iframe class="marco-estudio" id="marco-estudio" title="Estudio SIG (GeoLibre)" allow="fullscreen; clipboard-read; clipboard-write; geolocation"></iframe>
       </section>
 
       <!-- ============================ CATÁLOGO ============================ -->
@@ -113,7 +180,8 @@
             <li><strong>Visualizar</strong> las capas publicadas sobre distintos mapas base, consultar sus atributos haciendo clic sobre el mapa y combinar capas con control de transparencia.</li>
             <li><strong>Consultar la ficha de metadatos</strong> de cada geodato: fuente, fecha, escala, sistema de referencia original y licencia de uso.</li>
             <li><strong>Descargar</strong> los geodatos en formatos abiertos: GeoJSON (vector, EPSG:4326) y GeoTIFF optimizado para la nube — COG (ráster).</li>
-            <li><strong>Analizar en GeoLibre</strong>: el botón «Abrir en GeoLibre» carga las capas en <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un SIG libre y de código abierto que corre en el navegador, con más de mil herramientas de geoprocesamiento, sin instalar nada y sin que los datos salgan de su equipo.</li>
+            <li><strong>Buscar y medir</strong>: localizar lugares, coordenadas (decimales o sexagesimales) y entidades de las capas activas; medir distancias y áreas; ver el relieve en 3D; consultar la tabla de atributos y exportarla a CSV; copiar un enlace con la vista actual o descargar el mapa como imagen.</li>
+            <li><strong>Analizar en el Estudio SIG</strong>: la sección «Estudio SIG» integra <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un SIG libre y de código abierto que corre en el navegador, con las capas del geoportal ya cargadas: edición, estilos, geoprocesamiento, consultas SQL, impresión de mapas, vista 3D y exportación, sin instalar nada y sin que los datos salgan de su equipo.</li>
           </ul>
           <h2>Sistema de referencia</h2>
           <p>Los geodatos se publican en WGS 84 (EPSG:4326) para su visualización web. La ficha de cada capa indica el sistema de referencia en el que fue producida (p. ej. MAGNA-SIRGAS Origen Nacional, EPSG:9377).</p>
@@ -137,11 +205,37 @@
       <div class="dialogo-cuerpo" id="ficha-cuerpo"></div>
     </dialog>
 
+    <!-- Atajos de teclado -->
+    <dialog class="dialogo dialogo-chico" id="atajos" aria-labelledby="atajos-titulo">
+      <div class="dialogo-encabezado">
+        <h2 id="atajos-titulo" style="flex:1">Atajos de teclado</h2>
+        <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
+      </div>
+      <div class="dialogo-cuerpo">
+        <dl class="lista-atajos">
+          <dt><kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Buscar lugar, coordenada o entidad</dd>
+          <dt><kbd>L</kbd></dt><dd>Mostrar u ocultar el panel de capas</dd>
+          <dt><kbd>M</kbd></dt><dd>Medir distancia</dd>
+          <dt><kbd>A</kbd></dt><dd>Medir área</dd>
+          <dt><kbd>T</kbd></dt><dd>Activar o desactivar el terreno 3D</dd>
+          <dt><kbd>N</kbd></dt><dd>Orientar el mapa al norte</dd>
+          <dt><kbd>U</kbd></dt><dd>Quitar la inclinación</dd>
+          <dt><kbd>R</kbd></dt><dd>Volver a la vista de Nariño</dd>
+          <dt><kbd>Enter</kbd> · doble clic</dt><dd>Terminar la medición</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Cancelar la medición o cerrar la tabla</dd>
+          <dt><kbd>?</kbd></dt><dd>Mostrar esta ayuda</dd>
+          <dt>Clic derecho + arrastre</dt><dd>Girar e inclinar el mapa</dd>
+        </dl>
+        <p class="nota">En el Estudio SIG rigen los atajos propios de GeoLibre (por ejemplo, <kbd>Ctrl</kbd> + <kbd>K</kbd> abre su paleta de comandos).</p>
+      </div>
+    </dialog>
+
     <div data-pie></div>
 
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script src="assets/js/config-institucional.js"></script>
     <script src="assets/js/institucional.js"></script>
+    <script src="assets/js/visor-herramientas.js"></script>
     <script src="assets/js/visor.js"></script>
   </body>
 </html>

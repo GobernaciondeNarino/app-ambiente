@@ -12,3 +12,4 @@ node_modules/
 dist/
 portal/config.php
 portal/datos-*/
+portal/geolibre/

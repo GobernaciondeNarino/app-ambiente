@@ -209,6 +209,7 @@ class LayerOut(BaseModel):
     updated_by: str
     urls: dict[str, str] = {}
     geolibre_url: str = ""
+    geolibre_id: str = ""
 
 
 class AuditOut(BaseModel):

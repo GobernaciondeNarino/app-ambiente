@@ -20,6 +20,17 @@
   --fondo: #f5f7f5;
   --superficie: #ffffff;
   --govco: #3366cc;
+  /* Tokens de tema (claro) */
+  --superficie-2: #f7f9f7;
+  --superficie-3: #f0f2f0;
+  --borde-suave: #eef0ee;
+  --borde-control: #c9cfc9;
+  --fondo-mapa: #e9ece9;
+  --vidrio: rgba(255, 255, 255, 0.96);
+  --enlace: #0b7a2c;
+  --boton-primario: #0b7a2c;
+  --notificacion: #383838;
+  --placa-logo: transparent;
   --peligro: #b3261e;
   --peligro-claro: #fdecea;
   --info: #0e6ba8;
@@ -67,7 +78,7 @@ h4 {
 }
 
 a {
-  color: var(--verde-oscuro);
+  color: var(--enlace);
 }
 
 a:hover {
@@ -84,7 +95,7 @@ a:hover {
   left: -9999px;
   top: 0;
   z-index: 1000;
-  background: var(--gris-titulo);
+  background: var(--notificacion);
   color: #fff;
   padding: 8px 16px;
 }
@@ -108,7 +119,7 @@ a:hover {
 
 .barra-govco {
   height: var(--alto-govco);
-  background: #fff;
+  background: var(--superficie);
   border-bottom: 2px solid var(--amarillo);
   display: flex;
   align-items: center;
@@ -139,6 +150,12 @@ a:hover {
   background: var(--govco);
 }
 
+.barra-govco .govco-derecha {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .barra-govco .govco-enlaces {
   display: flex;
   gap: 16px;
@@ -160,7 +177,7 @@ a:hover {
 
 .encabezado {
   min-height: var(--alto-encabezado);
-  background: #fff;
+  background: var(--superficie);
   display: flex;
   align-items: center;
   gap: 20px;
@@ -260,7 +277,7 @@ a:hover {
   display: none;
   margin-left: auto;
   border: 1px solid var(--borde);
-  background: #fff;
+  background: var(--superficie);
   border-radius: 6px;
   padding: 8px 10px;
   cursor: pointer;
@@ -295,7 +312,7 @@ a:hover {
 }
 
 .btn-primario {
-  background: var(--verde-oscuro);
+  background: var(--boton-primario);
   color: #fff;
 }
 
@@ -315,7 +332,7 @@ a:hover {
 }
 
 .btn-secundario {
-  background: #fff;
+  background: var(--superficie);
   color: var(--gris-titulo);
   border-color: var(--borde);
 }
@@ -326,7 +343,7 @@ a:hover {
 }
 
 .btn-peligro {
-  background: #fff;
+  background: var(--superficie);
   color: var(--peligro);
   border-color: #f0c4c0;
 }
@@ -388,8 +405,8 @@ textarea {
   font: inherit;
   font-size: 15px;
   color: var(--gris-titulo);
-  background: #fff;
-  border: 1px solid #c9cfc9;
+  background: var(--superficie);
+  border: 1px solid var(--borde-control);
   border-radius: 6px;
   padding: 9px 11px;
 }
@@ -429,7 +446,7 @@ textarea {
   font-family: var(--fuente-titulos);
   padding: 3px 8px;
   border-radius: 999px;
-  background: #eef0ee;
+  background: var(--borde-suave);
   color: var(--gris-texto);
   white-space: nowrap;
 }
@@ -503,7 +520,7 @@ textarea {
 }
 
 .notificacion {
-  background: var(--gris-titulo);
+  background: var(--notificacion);
   color: #fff;
   border-radius: 8px;
   padding: 12px 16px;
@@ -547,7 +564,7 @@ dialog.dialogo::backdrop {
   border-bottom: 1px solid var(--borde);
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--superficie);
   z-index: 1;
 }
 
@@ -566,7 +583,7 @@ dialog.dialogo::backdrop {
 /* ------------------------------------------------------------------ */
 
 .pie {
-  background: #fff;
+  background: var(--superficie);
   border-top: 4px solid var(--verde);
   padding: 32px 24px 16px;
   font-size: 14px;
@@ -750,4 +767,95 @@ dialog.dialogo::backdrop {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Modo oscuro                                                         */
+/* data-tema="oscuro" en <html> lo pone el script de arranque según la */
+/* preferencia del usuario (automático, claro u oscuro).               */
+/* ------------------------------------------------------------------ */
+
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+  --fondo: #0f1411;
+  --superficie: #161c18;
+  --superficie-2: #1b221e;
+  --superficie-3: #232c26;
+  --borde: #2e3932;
+  --borde-suave: #252f29;
+  --borde-control: #3d4a42;
+  --gris-titulo: #eef2ef;
+  --gris-texto: #c9d1cb;
+  --gris-suave: #9aa59d;
+  --verde-claro: rgba(16, 161, 59, 0.18);
+  --verde-oscuro: #5fd08a; /* acentos de texto: contraste AA sobre fondo oscuro */
+  --amarillo-claro: rgba(255, 213, 0, 0.14);
+  --peligro: #ff8a80;
+  --peligro-claro: rgba(179, 38, 30, 0.22);
+  --info: #6ab4e8;
+  --fondo-mapa: #0b0f0c;
+  --vidrio: rgba(22, 28, 24, 0.95);
+  --enlace: #6fd896;
+  --boton-primario: #0b7a2c;
+  --notificacion: #2b352f;
+  --placa-logo: #ffffff;
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-tema="oscuro"] .insignia.amarilla { color: #f3d75b; }
+:root[data-tema="oscuro"] .aviso { background: rgba(14, 107, 168, 0.18); color: #cfe6f7; }
+:root[data-tema="oscuro"] .aviso.error { background: var(--peligro-claro); color: #ffd6d2; }
+:root[data-tema="oscuro"] .aviso.exito { background: var(--verde-claro); color: #c9f2d6; }
+:root[data-tema="oscuro"] .aviso.advertencia { background: var(--amarillo-claro); color: #fbeaa6; }
+:root[data-tema="oscuro"] .barra-govco .govco-logo { color: #8fb0ff; }
+:root[data-tema="oscuro"] .barra-govco .govco-separador { background: #8fb0ff; }
+:root[data-tema="oscuro"] .btn-acento,
+:root[data-tema="oscuro"] .navegacion a.btn-acento { color: #1f1f1f; }
+:root[data-tema="oscuro"] .notificacion { border: 1px solid var(--borde); }
+
+/* El manual pide el logo sobre fondo claro: en oscuro va sobre una placa blanca */
+:root[data-tema="oscuro"] .marca img,
+:root[data-tema="oscuro"] .logo-pie,
+:root[data-tema="oscuro"] .ingreso-tarjeta img,
+:root[data-tema="oscuro"] .instalador .logo {
+  background: var(--placa-logo);
+  border-radius: 8px;
+  padding: 4px 8px;
+  box-sizing: content-box;
+}
+
+/* Botón de tema */
+.boton-tema {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--gris-titulo);
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font: 600 13px var(--fuente-titulos);
+}
+
+.boton-tema:hover {
+  border-color: var(--verde);
+}
+
+.boton-tema svg {
+  width: 17px;
+  height: 17px;
+}
+
+.barra-govco .boton-tema {
+  padding: 3px 9px;
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .barra-govco .boton-tema span.texto-tema { display: none; }
+}
+
+@media print {
+  :root[data-tema="oscuro"] { color-scheme: light; }
 }

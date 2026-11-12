@@ -24,6 +24,8 @@
   const MAPAS_BASE = [
     { id: "calles", nombre: "Calles (OpenFreeMap)", color: "#e8efe4", estilo: "https://tiles.openfreemap.org/styles/liberty" },
     { id: "claro", nombre: "Claro (Positron)", color: "#f3f3f1", estilo: "https://tiles.openfreemap.org/styles/positron" },
+    { id: "oscuro", nombre: "Oscuro (OpenFreeMap Dark)", color: "#1d2321", estilo: "https://tiles.openfreemap.org/styles/dark", oscuro: true },
+    { id: "fiord", nombre: "Nocturno azul (Fiord)", color: "#2b3b4d", estilo: "https://tiles.openfreemap.org/styles/fiord", oscuro: true },
     {
       id: "satelite",
       nombre: "Imagen satelital (Esri)",
@@ -67,7 +69,9 @@
     categorias: [],
     activas: [], // slugs en orden de activación (la última queda encima)
     opacidad: {},
-    base: "calles",
+    base: window.Institucional.tema.actual() === "oscuro" ? "oscuro" : "calles",
+    baseElegida: false, // si el usuario elige un mapa base, el tema ya no lo cambia
+    datos: {}, // GeoJSON de las capas vectoriales cargadas (búsqueda y tabla de atributos)
     mapa: null,
   };
 
@@ -125,7 +129,9 @@
   function iniciarMapa() {
     const mapa = new maplibregl.Map({
       container: "mapa",
-      style: MAPAS_BASE[0].estilo,
+      style: baseActual().estilo,
+      preserveDrawingBuffer: true, // permite exportar el mapa como imagen
+      maxPitch: 85,
       center: estado.config ? estado.config.centro : NARINO.centro,
       zoom: estado.config ? estado.config.zoom : NARINO.zoom,
       attributionControl: { compact: true },
@@ -145,10 +151,16 @@
     mapa.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-right");
     mapa.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
-    mapa.on("style.load", () => estado.activas.forEach((slug) => agregarAlMapa(capaPorSlug(slug))));
+    mapa.on("style.load", () => {
+      estado.estiloListo = true;
+      estado.activas.forEach((slug) => agregarAlMapa(capaPorSlug(slug)));
+      document.dispatchEvent(new CustomEvent("visor:estilo"));
+    });
     mapa.on("mousemove", (ev) => {
-      $("#coordenadas").textContent =
-        "Lon " + ev.lngLat.lng.toFixed(5).replace(".", ",") + ", Lat " + ev.lngLat.lat.toFixed(5).replace(".", ",");
+      if (window.VisorHerramientas) {
+        window.VisorHerramientas.coordenadas(ev.lngLat);
+        if (window.VisorHerramientas.ocupado()) return; // midiendo: cursor en cruz
+      }
       const ids = idsInteractivos();
       const hay = ids.length && mapa.queryRenderedFeatures(ev.point, { layers: ids }).length;
       mapa.getCanvas().style.cursor = hay ? "pointer" : "";
@@ -175,7 +187,8 @@
 
   function agregarAlMapa(capa) {
     const m = estado.mapa;
-    if (!capa || !m || !m.isStyleLoaded()) return;
+    // isStyleLoaded() es falso mientras cargan teselas; basta con que el estilo esté listo
+    if (!capa || !m || !estado.estiloListo) return;
     const src = "gp-" + capa.slug;
     if (m.getSource(src)) return;
     const e = estiloDe(capa);
@@ -189,7 +202,23 @@
       return;
     }
 
-    m.addSource(src, { type: "geojson", data: rutaCapa(capa, "datos.geojson"), attribution: capa.source || "Gobernación de Nariño" });
+    if (!estado.datos[capa.slug]) {
+      // Los datos se descargan una vez y se reutilizan en la búsqueda y la tabla de atributos
+      if (!estado.cargando) estado.cargando = {};
+      if (!estado.cargando[capa.slug]) {
+        estado.cargando[capa.slug] = fetch(rutaCapa(capa, "datos.geojson"))
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+          .then((fc) => {
+            estado.datos[capa.slug] = fc;
+            if (estado.activas.includes(capa.slug)) agregarAlMapa(capa);
+            document.dispatchEvent(new CustomEvent("visor:datos", { detail: { slug: capa.slug } }));
+          })
+          .catch((e) => notificar("No se pudieron cargar los datos de «" + capa.title + "»: " + e.message, "error"))
+          .finally(() => delete estado.cargando[capa.slug]);
+      }
+      return;
+    }
+    m.addSource(src, { type: "geojson", data: estado.datos[capa.slug], attribution: capa.source || "Gobernación de Nariño", generateId: true });
     const tipo = capa.geometry_type;
     if (tipo === "Polígono" || tipo === "Mixta" || !tipo) {
       m.addLayer({
@@ -246,9 +275,45 @@
           "text-offset": tipo === "Punto" ? [0, 1.2] : [0, 0],
           "text-max-width": 10,
         },
-        paint: { "text-color": "#383838", "text-halo-color": "#ffffff", "text-halo-width": 1.6, "text-opacity": op },
+        paint: Object.assign(coloresEtiqueta(), { "text-halo-width": 1.6, "text-opacity": op }),
       });
     }
+  }
+
+  function coloresEtiqueta() {
+    const oscuro = !!baseActual().oscuro || (baseActual().id === "satelite");
+    return { "text-color": oscuro ? "#f2f5f3" : "#383838", "text-halo-color": oscuro ? "#111611" : "#ffffff" };
+  }
+
+  function baseActual() {
+    return MAPAS_BASE.find((b) => b.id === estado.base) || MAPAS_BASE[0];
+  }
+
+  function cambiarBase(id, elegida) {
+    const base = MAPAS_BASE.find((x) => x.id === id);
+    if (!base || !estado.mapa) return;
+    estado.base = base.id;
+    if (elegida) estado.baseElegida = true;
+    estado.estiloListo = false;
+    estado.mapa.setStyle(base.estilo, { diff: false }); // recarga completa: «style.load» vuelve a agregar las capas
+    pintarMenuBase();
+    actualizarEnlaces();
+  }
+
+  /** Orden de dibujo: la última capa de estado.activas queda encima. */
+  function moverCapa(slug, paso) {
+    const i = estado.activas.indexOf(slug);
+    const j = i + paso;
+    if (i < 0 || j < 0 || j >= estado.activas.length) return;
+    estado.activas.splice(j, 0, estado.activas.splice(i, 1)[0]);
+    const m = estado.mapa;
+    estado.activas.forEach((s) => {
+      const c = capaPorSlug(s);
+      if (c) idsDe(c).forEach((id) => m.getLayer(id) && m.moveLayer(id));
+    });
+    document.dispatchEvent(new CustomEvent("visor:orden"));
+    pintarLeyenda();
+    actualizarEnlaces();
   }
 
   function quitarDelMapa(capa) {
@@ -305,6 +370,7 @@
     }
     pintarLeyenda();
     actualizarEnlaces();
+    document.dispatchEvent(new CustomEvent("visor:capas"));
   }
 
   // ------------------------------------------------------------------ popup
@@ -337,6 +403,7 @@
   }
 
   function mostrarPopup(ev) {
+    if (window.VisorHerramientas && window.VisorHerramientas.ocupado()) return;
     const m = estado.mapa;
     const ids = idsInteractivos();
     if (!ids.length) return;
@@ -427,7 +494,11 @@
                 '<button class="btn-icono" data-accion="zoom" title="Acercar a la capa">' + icono("zoom") + '<span class="sr-only">Acercar</span></button>' +
                 '<button class="btn-icono" data-accion="info" title="Ficha de metadatos">' + icono("info") + '<span class="sr-only">Ficha</span></button>' +
                 "</div>" +
-                '<div class="capa-opciones"><span>Opacidad</span><input type="range" min="0" max="1" step="0.05" value="' + op + '" aria-label="Opacidad de ' + escapar(c.title) + '"></div>' +
+                '<div class="capa-opciones"><span>Opacidad</span><input type="range" min="0" max="1" step="0.05" value="' + op + '" aria-label="Opacidad de ' + escapar(c.title) + '">' +
+                '<button class="btn-icono" data-accion="subir" title="Dibujar encima">' + icono("subirCapa") + '<span class="sr-only">Subir</span></button>' +
+                '<button class="btn-icono" data-accion="bajar" title="Dibujar debajo">' + icono("bajarCapa") + '<span class="sr-only">Bajar</span></button>' +
+                (c.kind === "vector" ? '<button class="btn-icono" data-accion="tabla" title="Tabla de atributos">' + icono("tabla") + '<span class="sr-only">Tabla de atributos</span></button>' : "") +
+                "</div>" +
                 "</li>"
               );
             })
@@ -457,10 +528,14 @@
       const b = e.target.closest("[data-accion]");
       if (!b) return;
       const capa = capaPorSlug(b.closest(".capa").dataset.slug);
-      if (b.dataset.accion === "zoom") {
+      const accion = b.dataset.accion;
+      if (accion === "zoom") {
         if (!estado.activas.includes(capa.slug)) alternarCapa(capa.slug, true, false);
         acercarA(capa);
-      } else abrirFicha(capa);
+      } else if (accion === "subir") moverCapa(capa.slug, 1);
+      else if (accion === "bajar") moverCapa(capa.slug, -1);
+      else if (accion === "tabla") window.VisorHerramientas && window.VisorHerramientas.abrirTabla(capa.slug);
+      else abrirFicha(capa);
     });
     $("#buscar").addEventListener("input", pintarPanel);
     $("#plegar-leyenda").addEventListener("click", () => {
@@ -525,10 +600,7 @@
     menu.addEventListener("click", (e) => {
       const b = e.target.closest("[data-base]");
       if (!b) return;
-      const base = MAPAS_BASE.find((x) => x.id === b.dataset.base);
-      estado.base = base.id;
-      estado.mapa.setStyle(base.estilo);
-      pintarMenuBase();
+      cambiarBase(b.dataset.base, true);
       menu.hidden = true;
       boton.setAttribute("aria-expanded", "false");
     });
@@ -542,19 +614,47 @@
 
   // ------------------------------------------------------------------ GeoLibre
 
-  function urlGeoLibre(slugs) {
+  /** Proyecto GeoLibre con las capas indicadas (o todas las publicadas). */
+  function urlProyecto(slugs, base) {
+    const p = new URLSearchParams();
+    if (slugs && slugs.length) p.set("capas", slugs.join(","));
+    if (base) p.set("base", base);
+    const q = p.toString().replace(/%2C/g, ",");
+    return estado.config.proyecto_url + (q ? "?" + q : "");
+  }
+
+  /**
+   * Enlace a GeoLibre: el integrado en el geoportal (Estudio SIG), con idioma, acento
+   * y tema del portal, o una instancia externa (https://web.geolibre.app).
+   */
+  function urlGeoLibre(slugs, opciones) {
     const cfg = estado.config;
     if (!cfg) return "#";
-    let proyecto = cfg.proyecto_url;
-    if (slugs && slugs.length) proyecto += "?capas=" + slugs.map(encodeURIComponent).join(",");
-    return cfg.geolibre_url + "/?url=" + encodeURIComponent(proyecto) + "&layout=viewer";
+    const o = Object.assign({ tema: window.Institucional.tema.actual() }, opciones || {});
+    const e = cfg.estudio || {};
+    const visor = o.visor != null ? o.visor : e.modo === "visor";
+    let url;
+    if (e.activo) {
+      url = e.url + "?url=" + encodeURIComponent(urlProyecto(slugs, o.base)) + "&settingsUrl=" + encodeURIComponent(e.ajustes_url);
+    } else {
+      url = cfg.geolibre_url + "/?url=" + encodeURIComponent(urlProyecto(slugs, o.base)) + "&welcome=0";
+    }
+    url += "&locale=" + encodeURIComponent(e.idioma || "es") + "&theme=" + (o.tema === "oscuro" ? "dark" : "light");
+    if (o.vista) url += "&lat=" + o.vista.lat.toFixed(5) + "&lon=" + o.vista.lon.toFixed(5) + "&zoom=" + o.vista.zoom.toFixed(2);
+    return url + (visor ? "&layout=viewer" : "");
   }
 
   function actualizarEnlaces() {
     const slugs = estado.activas.slice();
     const g = $("#abrir-geolibre");
-    g.href = urlGeoLibre(slugs);
-    g.title = slugs.length ? "Abrir las " + slugs.length + " capas activas en GeoLibre" : "Abrir todas las capas publicadas en GeoLibre";
+    const local = estado.config && estado.config.estudio && estado.config.estudio.activo;
+    g.hidden = !!local; // con GeoLibre integrado el menú muestra «Estudio SIG»
+    if (!local) {
+      g.href = urlGeoLibre(slugs);
+      g.target = "_blank";
+      g.title = slugs.length ? "Abrir las " + slugs.length + " capas activas en GeoLibre" : "Abrir todas las capas publicadas en GeoLibre";
+    }
+    if (window.VisorHerramientas) window.VisorHerramientas.actualizarEnlacePermanente();
     const d = $("#descargar-proyecto");
     d.href = API + "/proyecto.geolibre" + (slugs.length ? "?capas=" + slugs.map(encodeURIComponent).join(",") : "");
     d.setAttribute("download", "geoportal-ambiental-narino.geolibre");
@@ -603,7 +703,10 @@
     $("#ficha-cuerpo").innerHTML =
       '<div class="ficha-acciones">' +
       '<button class="btn btn-primario" type="button" data-ver>' + icono("mapa") + "Ver en el mapa</button>" +
-      '<a class="btn btn-acento" href="' + escapar(urlGeoLibre([capa.slug])) + '" target="_blank" rel="noopener">' + icono("abrir") + "Abrir en GeoLibre</a>" +
+      (estado.config.estudio && estado.config.estudio.activo
+        ? '<button class="btn btn-acento" type="button" data-estudio>' + icono("estudio") + "Ver en Estudio SIG</button>"
+        : '<a class="btn btn-acento" href="' + escapar(urlGeoLibre([capa.slug])) + '" target="_blank" rel="noopener">' + icono("abrir") + "Abrir en GeoLibre</a>") +
+      (capa.kind === "vector" ? '<button class="btn btn-secundario" type="button" data-tabla>' + icono("tabla") + "Tabla de atributos</button>" : "") +
       (capa.downloadable
         ? '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga")) + '">' + icono("descargar") + (capa.kind === "raster" ? "Descargar COG" : "Descargar GeoJSON") + "</a>" +
           '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga?original=1")) + '">' + icono("archivo") + "Archivo original</a>"
@@ -617,6 +720,15 @@
       '<h3 class="ficha-seccion">Servicio de datos</h3>' +
       '<div class="url-servicio"><input type="text" readonly value="' + escapar(servicio) + '" aria-label="URL del servicio">' +
       '<button class="btn btn-secundario btn-chico" type="button" data-copiar>' + icono("copiar") + "Copiar</button></div>";
+    const botonEstudio = $("#ficha-cuerpo [data-estudio]");
+    if (botonEstudio) botonEstudio.addEventListener("click", () => { d.close(); window.VisorHerramientas.verEnEstudio(capa); });
+    const botonTabla = $("#ficha-cuerpo [data-tabla]");
+    if (botonTabla) botonTabla.addEventListener("click", () => {
+      d.close();
+      irA("visor");
+      if (!estado.activas.includes(capa.slug)) alternarCapa(capa.slug, true, true);
+      window.VisorHerramientas.abrirTabla(capa.slug);
+    });
     $("#ficha-cuerpo [data-ver]").addEventListener("click", () => {
       d.close();
       irA("visor");
@@ -695,7 +807,8 @@
   }
 
   function mostrarRuta(ruta) {
-    const valida = ["visor", "catalogo", "acerca"].includes(ruta) ? ruta : "visor";
+    const rutas = ["visor", "catalogo", "acerca"].concat(estado.config && estado.config.estudio && estado.config.estudio.activo ? ["estudio"] : []);
+    const valida = rutas.includes(ruta) ? ruta : "visor";
     document.querySelectorAll(".vista").forEach((v) => (v.hidden = v.id !== "vista-" + valida));
     document.querySelectorAll("[data-ruta]").forEach((a) => {
       if (a.dataset.ruta === valida) a.setAttribute("aria-current", "page");
@@ -703,6 +816,8 @@
     });
     $(".navegacion").classList.remove("abierta");
     if (valida === "visor" && estado.mapa) setTimeout(() => estado.mapa.resize(), 0);
+    document.body.classList.toggle("en-estudio", valida === "estudio");
+    document.dispatchEvent(new CustomEvent("visor:ruta", { detail: { ruta: valida } }));
   }
 
   // ------------------------------------------------------------------ inicio
@@ -745,6 +860,14 @@
       notificar("No fue posible cargar el catálogo de capas. Intente de nuevo más tarde.", "error");
     }
     iniciarMapa();
+    window.Visor = {
+      estado, $, capaPorSlug, alternarCapa, acercarA, abrirFicha, rutaCapa, moverCapa, cambiarBase, baseActual,
+      urlGeoLibre, urlProyecto, irA, mostrarRuta, idsDe, MAPAS_BASE, NARINO,
+    };
+    document.dispatchEvent(new CustomEvent("visor:listo"));
+    const enEstudio = estado.config && estado.config.estudio && estado.config.estudio.activo;
+    $("#nav-estudio").hidden = !enEstudio;
+    if (location.hash === "#estudio") mostrarRuta("estudio");
     const n = estado.capas.length;
     const nc = estado.categorias.length;
     $("#resumen-capas").textContent = n
@@ -764,12 +887,19 @@
     const iniciales = pedidas.length ? pedidas : estado.capas.filter((c) => c.visible_by_default).map((c) => c.slug);
     estado.mapa.once("load", () => {
       iniciales.forEach((s) => alternarCapa(s, true, false));
+      if (params.get("mapa")) return; // la vista viene en el enlace permanente
       if (pedidas.length === 1 && capaPorSlug(pedidas[0])) {
         acercarA(capaPorSlug(pedidas[0]));
         abrirFicha(capaPorSlug(pedidas[0]));
       }
     });
   }
+
+  document.addEventListener("geoportal:tema", (e) => {
+    if (!estado.mapa || estado.baseElegida) return;
+    const oscuro = e.detail.tema === "oscuro";
+    if (oscuro !== !!baseActual().oscuro) cambiarBase(oscuro ? "oscuro" : "calles", false);
+  });
 
   iniciar();
 })();

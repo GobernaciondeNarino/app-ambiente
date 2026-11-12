@@ -5,7 +5,7 @@
   display: flex;
   height: calc(100vh - var(--alto-govco) - var(--alto-encabezado));
   min-height: 520px;
-  background: #e9ece9;
+  background: var(--fondo-mapa);
 }
 
 /* Panel de capas */
@@ -14,7 +14,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--superficie);
   border-right: 1px solid var(--borde);
   z-index: 5;
   transition: margin-left 0.2s ease;
@@ -73,11 +73,11 @@
   justify-content: space-between;
   padding: 10px 14px;
   border-top: 1px solid var(--borde);
-  background: #fafbfa;
+  background: var(--superficie-2);
 }
 
 .categoria {
-  border-bottom: 1px solid #eef0ee;
+  border-bottom: 1px solid var(--borde-suave);
 }
 
 .categoria > button {
@@ -97,7 +97,7 @@
 }
 
 .categoria > button:hover {
-  background: #f7f9f7;
+  background: var(--superficie-2);
 }
 
 .categoria > button .franja {
@@ -112,7 +112,7 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--gris-suave);
-  background: #f0f2f0;
+  background: var(--superficie-3);
   border-radius: 999px;
   padding: 2px 8px;
 }
@@ -222,7 +222,7 @@
   left: 360px;
   top: 12px;
   z-index: 6;
-  background: #fff;
+  background: var(--superficie);
   border: 1px solid var(--borde);
   border-left: 0;
   border-radius: 0 6px 6px 0;
@@ -258,7 +258,7 @@
 .control-mapa {
   position: absolute;
   z-index: 3;
-  background: #fff;
+  background: var(--superficie);
   border-radius: 6px;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
@@ -276,7 +276,7 @@
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
-  background: #fff;
+  background: var(--superficie);
   border-radius: 8px;
   box-shadow: var(--sombra);
   padding: 6px;
@@ -326,7 +326,7 @@
   max-height: 45%;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--vidrio);
   border-radius: 8px;
   box-shadow: var(--sombra);
 }
@@ -390,19 +390,410 @@
   display: none;
 }
 
-.coordenadas {
+/* Barra de estado: coordenadas (clic para cambiar el formato), zoom y escala */
+.barra-estado {
   position: absolute;
   z-index: 3;
   left: 50%;
   transform: translateX(-50%);
   bottom: 8px;
-  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: calc(100% - 330px);
+  background: var(--vidrio);
   border-radius: 4px;
-  padding: 2px 10px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--gris-titulo);
-  pointer-events: none;
+  white-space: nowrap;
+}
+
+.barra-estado .coordenadas {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  padding: 2px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.barra-estado .coordenadas:hover,
+.barra-estado .coordenadas:focus-visible {
+  background: var(--verde-claro);
+}
+
+.barra-estado .info-vista {
+  padding: 2px 10px 2px 8px;
+  border-left: 1px solid var(--borde);
+  color: var(--gris-suave);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Buscador del mapa: lugares (OpenStreetMap), coordenadas y entidades de las capas activas */
+.buscador-mapa {
+  position: absolute;
+  z-index: 4;
+  top: 10px;
+  left: 56px;
+  width: min(380px, calc(100% - 130px));
+}
+
+.buscador-mapa .buscador input {
+  box-shadow: var(--sombra);
+  border-color: transparent;
+  background: var(--superficie);
+}
+
+.resultados-busqueda {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px;
+  background: var(--superficie);
+  border-radius: 8px;
+  box-shadow: var(--sombra);
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+}
+
+.resultados-busqueda li {
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.resultados-busqueda li[role="option"] {
+  cursor: pointer;
+}
+
+.resultados-busqueda li[role="option"]:hover,
+.resultados-busqueda li[role="option"]:focus {
+  background: var(--verde-claro);
+  outline: none;
+}
+
+.resultados-busqueda li strong {
+  display: block;
+  color: var(--gris-titulo);
+  font-weight: 600;
+}
+
+.resultados-busqueda li small {
+  display: block;
+  color: var(--gris-suave);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultados-busqueda li.grupo {
+  padding: 8px 10px 2px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--verde-oscuro);
+}
+
+.resultados-busqueda li.vacio {
+  color: var(--gris-suave);
+}
+
+/* Herramientas del mapa */
+.control-herramientas button svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  margin: auto;
+  color: var(--gris-titulo);
+}
+
+.control-herramientas button.activo {
+  background: var(--verde-claro);
+}
+
+.control-herramientas button.activo svg {
+  color: var(--verde-oscuro);
+}
+
+.panel-medicion {
+  position: absolute;
+  z-index: 3;
+  top: 60px;
+  left: 56px;
+  width: 260px;
+  background: var(--vidrio);
+  border-radius: 8px;
+  box-shadow: var(--sombra);
+  border-top: 3px solid var(--amarillo);
+}
+
+.panel-medicion header {
+  display: flex;
+  align-items: center;
+  padding: 6px 6px 0 12px;
+}
+
+.panel-medicion h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+}
+
+.panel-medicion .resultado {
+  margin: 0;
+  padding: 4px 12px 10px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-medicion .resultado small {
+  color: var(--gris-suave);
+}
+
+/* Tabla de atributos */
+.visor.con-tabla .mapa-contenedor {
+  align-self: flex-start;
+  height: 60%;
+}
+
+.panel-atributos {
+  position: absolute;
+  z-index: 4;
+  left: 360px;
+  right: 0;
+  bottom: 0;
+  height: 40%;
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  border-top: 3px solid var(--verde);
+  transition: left 0.2s ease;
+}
+
+.visor.panel-oculto .panel-atributos {
+  left: 0;
+}
+
+.tabla-barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie-2);
+}
+
+.tabla-barra > span[data-icono] svg {
+  width: 18px;
+  height: 18px;
+  color: var(--verde-oscuro);
+}
+
+.tabla-barra select,
+.tabla-barra input {
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: 14px;
+}
+
+.tabla-barra select {
+  max-width: 260px;
+}
+
+.tabla-barra .buscador {
+  width: 220px;
+}
+
+.tabla-conteo,
+.tabla-pagina {
+  font-size: 13px;
+  color: var(--gris-suave);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla-barra .separador {
+  flex: 1;
+}
+
+.tabla-cuerpo {
+  flex: 1;
+  overflow: auto;
+}
+
+.tabla-cuerpo .vacio {
+  padding: 16px;
+  color: var(--gris-suave);
+}
+
+.tabla-datos-mapa {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 100%;
+}
+
+.tabla-datos-mapa th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--superficie-3);
+  border-bottom: 1px solid var(--borde);
+  padding: 0;
+  text-align: left;
+}
+
+.tabla-datos-mapa th button {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--gris-titulo);
+  padding: 7px 10px;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tabla-datos-mapa td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--borde-suave);
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabla-datos-mapa tbody tr {
+  cursor: pointer;
+}
+
+.tabla-datos-mapa tbody tr:hover,
+.tabla-datos-mapa tbody tr:focus {
+  background: var(--verde-claro);
+  outline: none;
+}
+
+.tabla-datos-mapa tbody tr.seleccionada {
+  background: var(--amarillo-claro);
+}
+
+/* Estudio SIG (GeoLibre integrado) */
+.estudio {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--alto-govco) - var(--alto-encabezado));
+  min-height: 560px;
+  background: var(--superficie);
+}
+
+.estudio[hidden] {
+  display: none;
+}
+
+.estudio-barra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--superficie-2);
+}
+
+.estudio-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.estudio-titulo > span[data-icono] svg {
+  width: 22px;
+  height: 22px;
+  color: var(--verde-oscuro);
+}
+
+.estudio-titulo h1 {
+  margin: 0;
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.estudio-detalle {
+  font-size: 13.5px;
+  color: var(--gris-suave);
+}
+
+.estudio-acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.estudio-aviso {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  border-radius: 0;
+}
+
+.estudio-aviso span {
+  flex: 1;
+}
+
+.marco-estudio {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--fondo-mapa);
+}
+
+/* Atajos de teclado */
+dialog.dialogo-chico {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.lista-atajos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 18px;
+  margin: 0;
+}
+
+.lista-atajos dt {
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--gris-suave);
+}
+
+.lista-atajos dd {
+  margin: 0;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border: 1px solid var(--borde-control);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--superficie-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--gris-titulo);
+}
+
+.nota {
+  font-size: 13.5px;
+  color: var(--gris-suave);
 }
 
 /* Ventana emergente de entidades */
@@ -454,7 +845,7 @@
   text-align: left;
   padding: 4px 12px;
   vertical-align: top;
-  border-bottom: 1px solid #f0f2f0;
+  border-bottom: 1px solid var(--superficie-3);
 }
 
 .popup th {
@@ -475,7 +866,7 @@
   justify-content: space-between;
   padding: 6px 12px;
   font-size: 12px;
-  background: #fafbfa;
+  background: var(--superficie-2);
   border-radius: 0 0 8px 8px;
 }
 
@@ -544,7 +935,7 @@
 .ficha-tarjeta {
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--superficie);
   border: 1px solid var(--borde);
   border-radius: var(--radio);
   overflow: hidden;
@@ -593,8 +984,8 @@
   gap: 8px;
   flex-wrap: wrap;
   padding: 12px 18px;
-  border-top: 1px solid #eef0ee;
-  background: #fafbfa;
+  border-top: 1px solid var(--borde-suave);
+  background: var(--superficie-2);
 }
 
 /* Ficha de metadatos */
@@ -638,7 +1029,7 @@ dl.metadatos dd {
 }
 
 dl.metadatos dt {
-  background: #f7f9f7;
+  background: var(--superficie-2);
   font-family: var(--fuente-titulos);
   font-weight: 600;
   color: var(--gris-titulo);
@@ -671,7 +1062,7 @@ dl.metadatos > :nth-last-child(-n + 2) {
 }
 
 .tabla-atributos th {
-  background: #f7f9f7;
+  background: var(--superficie-2);
   font-family: var(--fuente-titulos);
   color: var(--gris-titulo);
 }
@@ -711,6 +1102,33 @@ dl.metadatos > :nth-last-child(-n + 2) {
     bottom: 30px;
   }
 
+  .panel-atributos {
+    left: 0;
+    z-index: 6;
+  }
+
+  .barra-estado {
+    max-width: calc(100% - 20px);
+    bottom: 34px;
+  }
+
+  .barra-estado .info-vista {
+    display: none;
+  }
+
+  .buscador-mapa {
+    left: 50px;
+    width: calc(100% - 110px);
+  }
+
+  .estudio {
+    height: calc(100vh - var(--alto-govco) - 58px);
+  }
+
+  .estudio-detalle {
+    display: none;
+  }
+
   .filtros {
     grid-template-columns: 1fr;
   }
@@ -728,3 +1146,18 @@ dl.metadatos > :nth-last-child(-n + 2) {
     padding: 24px 16px 40px;
   }
 }
+
+/* Controles de MapLibre y ventanas emergentes en modo oscuro */
+:root[data-tema="oscuro"] .maplibregl-ctrl-group,
+:root[data-tema="oscuro"] .maplibregl-ctrl-attrib,
+:root[data-tema="oscuro"] .maplibregl-ctrl-scale {
+  background: var(--vidrio);
+  color: var(--gris-texto);
+  border-color: var(--borde);
+}
+:root[data-tema="oscuro"] .maplibregl-ctrl-group button + button { border-top-color: var(--borde); }
+:root[data-tema="oscuro"] .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(0.9); }
+:root[data-tema="oscuro"] .maplibregl-ctrl-attrib a { color: var(--gris-texto); }
+:root[data-tema="oscuro"] .maplibregl-popup-content { background: var(--superficie); color: var(--gris-texto); }
+:root[data-tema="oscuro"] .maplibregl-popup-tip { border-top-color: var(--superficie); border-bottom-color: var(--superficie); }
+:root[data-tema="oscuro"] .maplibregl-popup-close-button { color: var(--gris-texto); }

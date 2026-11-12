@@ -443,6 +443,32 @@ function rutas_admin(string $metodo, string $ruta): void
         json_respuesta(array_map('bitacora_salida', $db->query('SELECT * FROM ' . t('bitacora') . " ORDER BY at DESC, id DESC LIMIT $lim")->fetchAll()));
     }
 
+    // Estudio SIG (GeoLibre integrado)
+    if ($ruta === 'admin/geolibre') {
+        exigir_admin($yo);
+        if ($metodo === 'PUT') {
+            $d = cuerpo_json();
+            $ajustes = gl_validar_ajustes($d);
+            gp_guardar_opcion('geolibre', json_encode($ajustes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            if (array_key_exists('usar_integrado', $d)) {
+                gp_guardar_opcion('geolibre_url', $d['usar_integrado'] ? 'local' : 'https://web.geolibre.app');
+            }
+            $escrito = gl_escribir_archivos($ajustes);
+            bitacora($yo['username'], 'geolibre_configuracion', 'estudio', implode(', ', array_keys($d)));
+            json_respuesta(['ajustes' => $ajustes, 'estado' => gl_estado(), 'archivos_escritos' => $escrito, 'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())), 'integrado' => geolibre_local()]);
+        }
+        $ajustes = gl_ajustes();
+        json_respuesta(['ajustes' => $ajustes, 'estado' => gl_estado(), 'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())), 'integrado' => geolibre_local(),
+            'opciones' => ['capacidades' => GL_CAPACIDADES, 'menus' => GL_MENUS, 'niveles' => GL_NIVELES, 'acentos' => GL_ACENTOS, 'idiomas' => GL_IDIOMAS, 'tipos_servicio' => GL_TIPOS_SERVICIO]]);
+    }
+    if ($ruta === 'admin/geolibre/instalar' && $metodo === 'POST') {
+        exigir_admin($yo);
+        $r = gl_instalar();
+        gp_guardar_opcion('geolibre_url', 'local');
+        bitacora($yo['username'], 'geolibre_instalacion', 'estudio', 'GeoLibre ' . $r['version'] . ' · ' . $r['archivos'] . ' archivos');
+        json_respuesta(['instalado' => $r, 'estado' => gl_estado(), 'integrado' => geolibre_local()]);
+    }
+
     // Configuración del sitio (equivalente a «Ajustes» de WordPress)
     if ($ruta === 'admin/configuracion') {
         exigir_admin($yo);
@@ -452,8 +478,8 @@ function rutas_admin(string $metodo, string $ruta): void
             foreach ($urls as $k => $vacioPermitido) {
                 if (!array_key_exists($k, $d)) continue;
                 $v = rtrim(trim((string) $d[$k]), '/');
-                if ($v === '' && $vacioPermitido) {
-                    gp_guardar_opcion($k, '');
+                if (($v === '' && $vacioPermitido) || ($k === 'geolibre_url' && in_array($v, ['', 'local'], true))) {
+                    gp_guardar_opcion($k, $k === 'geolibre_url' ? 'local' : '');
                     continue;
                 }
                 $p = parse_url($v);

@@ -35,11 +35,15 @@ function rutas_publicas(string $metodo, string $ruta): void
     }
     if ($ruta === 'config') {
         $proyecto = gp_url_publica() . '/api/proyecto.geolibre';
+        $estudio = gl_config_publica();
+        $externo = (string) gp_opcion('geolibre_url', 'local');
         json_respuesta([
             'nombre' => gp_opcion('nombre_portal', 'Geoportal Ambiental — Gobernación de Nariño'),
             'centro' => [-77.8, 1.45],
             'zoom' => 7.4,
-            'geolibre_url' => rtrim((string) gp_opcion('geolibre_url', 'https://web.geolibre.app'), '/'),
+            'geolibre_url' => geolibre_local() ? rtrim($estudio['url'], '/') : rtrim(in_array($externo, ['', 'local'], true) ? 'https://web.geolibre.app' : $externo, '/'),
+            'geolibre_local' => geolibre_local(),
+            'estudio' => $estudio + ['activo' => geolibre_local()],
             'proyecto_url' => $proyecto,
             'geolibre_proyecto_url' => url_geolibre($proyecto),
             'geolibre_editor_url' => url_geolibre($proyecto, false),
@@ -47,6 +51,12 @@ function rutas_publicas(string $metodo, string $ruta): void
             'ingesta' => 'navegador',
             'max_carga_mb' => (int) floor(limite_carga_bytes() / 1048576),
         ]);
+    }
+    if ($ruta === 'geolibre/deployment.json') {
+        json_respuesta(gl_politica(gl_ajustes(), gp_origen(gp_url_publica())), 200, ['Cache-Control' => 'no-cache']);
+    }
+    if ($ruta === 'geolibre/ajustes.json') {
+        json_respuesta(gl_interfaz(gl_ajustes()), 200, ['Cache-Control' => 'no-cache']);
     }
     if ($ruta === 'categorias') {
         $sql = 'SELECT c.*, COUNT(l.id) AS n FROM ' . t('categorias') . ' c JOIN ' . t('capas') . ' l ON l.category_id = c.id AND l.published = 1 GROUP BY c.id ORDER BY c.position, c.name';

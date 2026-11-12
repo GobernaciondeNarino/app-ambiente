@@ -262,11 +262,22 @@ def _view_for(bboxes: list[list[float]], settings: Settings) -> dict[str, Any]:
     return view
 
 
+# Mapas base vectoriales que el proyecto acepta en ?base= (los del visor que GeoLibre abre como estilo)
+BASES_PROYECTO = {
+    "calles": "https://tiles.openfreemap.org/styles/liberty",
+    "claro": "https://tiles.openfreemap.org/styles/positron",
+    "oscuro": "https://tiles.openfreemap.org/styles/dark",
+    "fiord": "https://tiles.openfreemap.org/styles/fiord",
+    "brillante": "https://tiles.openfreemap.org/styles/bright",
+}
+
+
 def build_project(
     layers: list[Layer],
     settings: Settings,
     name: str | None = None,
     categories: list[Category] | None = None,
+    base: str | None = None,
 ) -> dict[str, Any]:
     """Arma un proyecto GeoLibre con las capas dadas, agrupadas por categoría."""
     groups: list[dict[str, Any]] = []
@@ -303,7 +314,7 @@ def build_project(
         "version": PROJECT_VERSION,
         "name": name or settings.project_name,
         "mapView": _view_for([layer.bbox for layer in layers if layer.bbox], settings),
-        "basemapStyleUrl": settings.basemap_url,
+        "basemapStyleUrl": BASES_PROYECTO.get(base or "", settings.basemap_url),
         "basemapVisible": True,
         "basemapOpacity": 1,
         "layers": built,

@@ -36,6 +36,19 @@
     retirar: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
     archivo: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z"/><path d="M14 3v5h5"/>',
     check: '<path d="m5 12 5 5 9-10"/>',
+    sol: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    luna: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+    auto: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/>',
+    estudio: '<path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/>',
+    regla: '<path d="M3 17 17 3l4 4L7 21H3v-4Z"/><path d="m7 13 2 2m1-5 2 2m1-5 2 2"/>',
+    compartir: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
+    imagen: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+    tabla: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 15h18M9 4v16"/>',
+    montana: '<path d="m3 20 6-10 4 6 3-4 5 8H3Z"/>',
+    subirCapa: '<path d="m6 15 6-6 6 6"/>',
+    bajarCapa: '<path d="m6 9 6 6 6-6"/>',
+    teclado: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+    ubicacion: '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
     facebook: '<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v2H7v4h3v7h4v-7h3l1-4h-4V8Z" fill="currentColor" stroke="none"/>',
     x: '<path d="M4 4l16 16M20 4 4 20" />',
     youtube: '<path d="M21.6 7.2a2.6 2.6 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.6 2.6 0 0 0 2.4 7.2 27 27 0 0 0 2 12a27 27 0 0 0 .4 4.8 2.6 2.6 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.6 2.6 0 0 0 1.8-1.8A27 27 0 0 0 22 12a27 27 0 0 0-.4-4.8ZM10 15V9l5.2 3L10 15Z" fill="currentColor" stroke="none"/>',
@@ -68,10 +81,13 @@
       '<a class="govco-logo" href="https://www.gov.co" target="_blank" rel="noopener" title="Ir al portal GOV.CO">' +
       '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm0 4.2 1.4 2.9 3.2.5-2.3 2.2.5 3.2L12 13.5 9.2 15l.5-3.2-2.3-2.2 3.2-.5L12 6.2Z"/></svg>' +
       '<span class="govco-separador" aria-hidden="true"></span><span>GOV.CO</span></a>' +
+      '<div class="govco-derecha">' +
       '<nav class="govco-enlaces" aria-label="Enlaces de la entidad">' +
       '<a href="' + escapar(I.sitioWeb || "https://narino.gov.co") + '" target="_blank" rel="noopener">narino.gov.co</a>' +
       '<a href="#contacto">Contacto</a>' +
-      "</nav></div>"
+      "</nav>" +
+      '<button type="button" class="boton-tema" data-boton-tema aria-live="polite"></button>' +
+      "</div></div>"
     );
   }
 
@@ -165,6 +181,57 @@
     }).format(d);
   }
 
+  // ---------------------------------------------------------------- tema claro / oscuro
+
+  const CLAVE_TEMA = "geoportal.tema";
+  const ETIQUETAS_TEMA = { auto: "Automático", claro: "Claro", oscuro: "Oscuro" };
+  const ICONO_TEMA = { auto: "auto", claro: "sol", oscuro: "luna" };
+  const consultaOscuro = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+  function preferenciaTema() {
+    try {
+      const p = localStorage.getItem(CLAVE_TEMA);
+      return p === "claro" || p === "oscuro" ? p : "auto";
+    } catch (_) {
+      return "auto";
+    }
+  }
+
+  function temaEfectivo(pref) {
+    const p = pref || preferenciaTema();
+    if (p === "auto") return consultaOscuro && consultaOscuro.matches ? "oscuro" : "claro";
+    return p;
+  }
+
+  function aplicarTema(pref) {
+    const anterior = document.documentElement.dataset.tema;
+    const tema = temaEfectivo(pref);
+    document.documentElement.dataset.tema = tema;
+    document.querySelectorAll("[data-boton-tema]").forEach((b) => {
+      const p = pref || preferenciaTema();
+      b.innerHTML = icono(ICONO_TEMA[p]) + '<span class="texto-tema">' + ETIQUETAS_TEMA[p] + "</span>";
+      b.title = "Tema: " + ETIQUETAS_TEMA[p] + " (clic para cambiar)";
+      b.setAttribute("aria-label", "Tema de la página: " + ETIQUETAS_TEMA[p] + ". Cambiar tema");
+    });
+    if (anterior !== tema) document.dispatchEvent(new CustomEvent("geoportal:tema", { detail: { tema } }));
+  }
+
+  function alternarTema() {
+    const orden = ["auto", "claro", "oscuro"];
+    const siguiente = orden[(orden.indexOf(preferenciaTema()) + 1) % orden.length];
+    try {
+      localStorage.setItem(CLAVE_TEMA, siguiente);
+    } catch (_) {
+      /* sin almacenamiento: el cambio dura mientras la página esté abierta */
+    }
+    aplicarTema(siguiente);
+    notificar("Tema " + ETIQUETAS_TEMA[siguiente].toLowerCase() + (siguiente === "auto" ? " (sigue la configuración del sistema)" : "") + ".");
+  }
+
+  if (consultaOscuro && consultaOscuro.addEventListener) {
+    consultaOscuro.addEventListener("change", () => preferenciaTema() === "auto" && aplicarTema("auto"));
+  }
+
   function montar(base) {
     document.querySelectorAll("[data-govco]").forEach((el) => (el.outerHTML = barraGovco()));
     document.querySelectorAll("[data-pie]").forEach((el) => (el.outerHTML = pie(base || "")));
@@ -179,8 +246,15 @@
         boton.setAttribute("aria-expanded", String(abierto));
       });
     }
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("[data-boton-tema]")) alternarTema();
+    });
+    aplicarTema();
     iniciarReloj();
   }
 
-  window.Institucional = { icono, escapar, montar, notificar, formatoBytes, formatoNumero, formatoFecha, datos: I };
+  window.Institucional = {
+    icono, escapar, montar, notificar, formatoBytes, formatoNumero, formatoFecha, datos: I,
+    tema: { actual: () => temaEfectivo(), preferencia: preferenciaTema, aplicar: aplicarTema, alternar: alternarTema },
+  };
 })();

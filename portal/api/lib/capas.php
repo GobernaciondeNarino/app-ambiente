@@ -82,10 +82,31 @@ function urls_capa(array $capa): array
     return $urls;
 }
 
-function url_geolibre(string $proyecto, bool $visor = true): string
+/** ¿Se usa el GeoLibre integrado en la instalación (Estudio SIG)? */
+function geolibre_local(): bool
 {
-    $g = rtrim((string) gp_opcion('geolibre_url', 'https://web.geolibre.app'), '/');
-    return $g . '/?url=' . rawurlencode($proyecto) . ($visor ? '&layout=viewer' : '');
+    $g = (string) gp_opcion('geolibre_url', 'local');
+    return ($g === '' || $g === 'local') && is_file(gp_raiz() . '/geolibre/index.html');
+}
+
+/**
+ * Enlace que abre un proyecto en GeoLibre: el integrado (con idioma y acento del
+ * geoportal) o una instancia externa como https://web.geolibre.app.
+ * $visor = null usa el modo configurado en el administrador.
+ */
+function url_geolibre(string $proyecto, ?bool $visor = null): string
+{
+    $ajustes = function_exists('gl_ajustes') ? gl_ajustes() : ['modo' => 'visor', 'idioma' => 'es'];
+    $visor ??= $ajustes['modo'] === 'visor';
+    if (geolibre_local()) {
+        $base = gp_url_publica() . '/geolibre/';
+        $extra = '&settingsUrl=' . rawurlencode($base . 'geoportal-ajustes.json');
+    } else {
+        $g = (string) gp_opcion('geolibre_url', 'https://web.geolibre.app');
+        $base = rtrim(in_array($g, ['', 'local'], true) ? 'https://web.geolibre.app' : $g, '/') . '/';
+        $extra = '&welcome=0';
+    }
+    return $base . '?url=' . rawurlencode($proyecto) . '&locale=' . rawurlencode($ajustes['idioma']) . $extra . ($visor ? '&layout=viewer' : '');
 }
 
 /** Representación de la capa con la misma forma que la edición Python (LayerOut). */
@@ -101,6 +122,7 @@ function capa_salida(array $c, ?array $categorias = null): array
     $out['category'] = ($c['category_id'] && isset($categorias[$c['category_id']])) ? categoria_salida($categorias[$c['category_id']]) : null;
     $out['urls'] = urls_capa($c);
     $out['geolibre_url'] = url_geolibre($out['urls']['proyecto']);
+    $out['geolibre_id'] = uuid5('capa:' . $c['slug']);
     return $out;
 }
 
@@ -360,6 +382,15 @@ function capa_geolibre(array $c, ?string $grupo): array
     return $out;
 }
 
+/** Mapas base vectoriales que el proyecto acepta en ?base= (los del visor que GeoLibre abre como estilo). */
+const GP_BASES_PROYECTO = [
+    'calles' => 'https://tiles.openfreemap.org/styles/liberty',
+    'claro' => 'https://tiles.openfreemap.org/styles/positron',
+    'oscuro' => 'https://tiles.openfreemap.org/styles/dark',
+    'fiord' => 'https://tiles.openfreemap.org/styles/fiord',
+    'brillante' => 'https://tiles.openfreemap.org/styles/bright',
+];
+
 function proyecto_geolibre(array $capas, ?string $nombre = null): array
 {
     $cats = categorias_por_id();
@@ -397,7 +428,7 @@ function proyecto_geolibre(array $capas, ?string $nombre = null): array
         'version' => '0.2.0',
         'name' => $nombre ?? (string) gp_opcion('nombre_portal', 'Geoportal Ambiental — Gobernación de Nariño'),
         'mapView' => $vista,
-        'basemapStyleUrl' => (string) gp_opcion('mapa_base', 'https://tiles.openfreemap.org/styles/liberty'),
+        'basemapStyleUrl' => GP_BASES_PROYECTO[(string) ($_GET['base'] ?? '')] ?? (string) gp_opcion('mapa_base', 'https://tiles.openfreemap.org/styles/liberty'),
         'basemapVisible' => true,
         'basemapOpacity' => 1,
         'layers' => $capasGL,

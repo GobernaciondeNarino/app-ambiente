@@ -9,6 +9,16 @@
       })(location);
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script>
+      // Tema antes de pintar (evita el destello claro en modo oscuro)
+      (function (d) {
+        var p = "auto";
+        try { p = localStorage.getItem("geoportal.tema") || "auto"; } catch (e) {}
+        var oscuro = p === "oscuro" || (p !== "claro" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+        d.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+      })(document);
+    </script>
     <meta name="robots" content="noindex, nofollow">
     <title>Administrador · Geoportal Ambiental · Gobernación de Nariño</title>
     <link rel="icon" href="../assets/img/escudo.png">

@@ -46,6 +46,7 @@ from ..security import (
     verify_password,
 )
 from ..services.ingest import ACCEPTED_EXTENSIONS, IngestError, IngestOptions, ingest_file, read_geojson_head, render_raster_preview
+from ..services import estudio
 from ..services.layers import (
     audit,
     category_out,
@@ -547,6 +548,60 @@ def admin_update_user(
     audit(session, user.username, "usuario_editado", target.username, ", ".join(data.model_dump(exclude_unset=True)))
     session.commit()
     return target
+
+
+# --------------------------------------------------------------------------
+# Estudio SIG (GeoLibre integrado)
+# --------------------------------------------------------------------------
+
+
+def _respuesta_estudio(settings: Settings, a: dict) -> dict:
+    from ..config import origin_of
+
+    return {
+        "ajustes": a,
+        "estado": estudio.estado(settings),
+        "politica": estudio.politica(a, origin_of(settings.public_base_url)),
+        "integrado": estudio.integrado(settings),
+        "opciones": {
+            "capacidades": estudio.CAPACIDADES,
+            "menus": estudio.MENUS,
+            "niveles": estudio.NIVELES,
+            "acentos": estudio.ACENTOS,
+            "idiomas": estudio.IDIOMAS,
+            "tipos_servicio": estudio.TIPOS_SERVICIO,
+        },
+    }
+
+
+@router.get("/geolibre")
+def admin_geolibre(user: User = Depends(require_admin), settings: Settings = Depends(_settings)) -> dict:
+    return _respuesta_estudio(settings, estudio.ajustes(settings))
+
+
+@router.put("/geolibre")
+def admin_geolibre_guardar(
+    datos: dict, user: User = Depends(require_admin), session: Session = Depends(get_session), settings: Settings = Depends(_settings)
+) -> dict:
+    a = estudio.validar(settings, datos)
+    estudio.guardar(settings, a)
+    if "usar_integrado" in datos:
+        estudio.guardar_preferencia_url(settings, bool(datos["usar_integrado"]))
+    escrito = estudio.escribir_archivos(settings, a)
+    audit(session, user.username, "geolibre_configuracion", "estudio", ", ".join(datos))
+    session.commit()
+    return _respuesta_estudio(settings, a) | {"archivos_escritos": escrito}
+
+
+@router.post("/geolibre/instalar")
+async def admin_geolibre_instalar(
+    user: User = Depends(require_admin), session: Session = Depends(get_session), settings: Settings = Depends(_settings)
+) -> dict:
+    r = await run_in_threadpool(estudio.instalar, settings)
+    estudio.guardar_preferencia_url(settings, True)
+    audit(session, user.username, "geolibre_instalacion", "estudio", f"GeoLibre {r['version']} · {r['archivos']} archivos")
+    session.commit()
+    return {"instalado": r, "estado": estudio.estado(settings), "integrado": estudio.integrado(settings)}
 
 
 # --------------------------------------------------------------------------

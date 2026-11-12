@@ -14,7 +14,8 @@ from sqlalchemy.orm import Session
 from ..config import Settings
 from ..models import AuditLog, Category, Layer
 from ..schemas import CategoryOut, LayerOut
-from .geolibre import geolibre_open_url, layer_urls
+from . import estudio
+from .geolibre import _stable_uuid, layer_urls
 
 CHUNK = 1024 * 1024
 
@@ -81,7 +82,8 @@ def layer_out(layer: Layer, settings: Settings) -> LayerOut:
     if layer.category is not None:
         out.category = CategoryOut.model_validate(layer.category)
     out.urls = layer_urls(settings, layer)
-    out.geolibre_url = geolibre_open_url(settings, out.urls["proyecto"])
+    out.geolibre_url = estudio.url_abrir(settings, out.urls["proyecto"])
+    out.geolibre_id = _stable_uuid("capa", layer.slug)
     return out
 
 

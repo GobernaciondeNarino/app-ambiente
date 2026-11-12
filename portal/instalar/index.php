@@ -10,6 +10,8 @@ declare(strict_types=1);
 require __DIR__ . '/../api/lib/nucleo.php';
 require __DIR__ . '/../api/lib/esquema.php';
 require __DIR__ . '/../api/lib/autenticacion.php';
+require __DIR__ . '/../api/lib/capas.php';
+require __DIR__ . '/../api/lib/geolibre.php';
 
 ini_set('display_errors', '0');
 header('X-Frame-Options: DENY');
@@ -171,8 +173,8 @@ if ($paso === 'sitio' && $configExiste && $_SERVER['REQUEST_METHOD'] === 'POST' 
         'password' => (string) ($_POST['admin_clave'] ?? ''),
     ];
     if (mb_strlen($nombrePortal) < 3 || mb_strlen($nombrePortal) > 120) $errores[] = 'Nombre del geoportal: entre 3 y 120 caracteres.';
-    foreach (['URL pública' => [$urlPublica, true], 'URL de GeoLibre' => [$geolibre, false]] as $etq => [$u, $vacia]) {
-        if ($u === '' && $vacia) continue;
+    foreach (['URL pública' => [$urlPublica, true], 'URL de GeoLibre' => [$geolibre, true]] as $etq => [$u, $vacia]) {
+        if (($u === '' && $vacia) || $u === 'local') continue;
         $p = parse_url($u);
         if (!$p || !in_array($p['scheme'] ?? '', ['http', 'https'], true) || empty($p['host']) || isset($p['query']) || isset($p['user'])) {
             $errores[] = "$etq no válida.";
@@ -204,12 +206,14 @@ if ($paso === 'sitio' && $configExiste && $_SERVER['REQUEST_METHOD'] === 'POST' 
             $hechas = gp_crear_instalacion(gp_db(), (string) gp_config()['db_prefijo'], $admin, [
                 'nombre_portal' => $nombrePortal,
                 'url_publica' => $urlPublica,
-                'geolibre_url' => $geolibre !== '' ? $geolibre : 'https://web.geolibre.app',
+                // «local» = GeoLibre integrado en la carpeta geolibre/ (Estudio SIG)
+                'geolibre_url' => $geolibre === '' ? 'local' : $geolibre,
                 'datos_dir' => $datosDir,
                 'max_carga_mb' => '200',
                 'inline_max_mb' => '15',
                 'horas_sesion' => '8',
             ]);
+            gl_escribir_archivos(); // configura el GeoLibre integrado, si viene en el paquete
             $paso = 'listo';
         } catch (Throwable $e) {
             $errores[] = 'Error al crear las tablas: ' . $e->getMessage();
@@ -363,7 +367,10 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
         <p class="grupo">Sitio</p>
         <div class="campo ancho"><label for="nombre_portal">Nombre del geoportal</label><input id="nombre_portal" name="nombre_portal" required value="<?= h(campo('nombre_portal', 'Geoportal Ambiental — Gobernación de Nariño')) ?>"></div>
         <div class="campo ancho"><label for="url_publica">URL pública del geoportal</label><input id="url_publica" name="url_publica" type="url" value="<?= h(campo('url_publica', $urlDetectada)) ?>"><span class="ayuda">Detectada: <?= h($urlDetectada) ?>. Déjela vacía para detectarla en cada visita (útil si el sitio responde en varios dominios).</span></div>
-        <div class="campo ancho"><label for="geolibre_url">GeoLibre</label><input id="geolibre_url" name="geolibre_url" type="url" value="<?= h(campo('geolibre_url', 'https://web.geolibre.app')) ?>"><span class="ayuda">Instancia oficial (no requiere instalación) o la URL de su propio GeoLibre.</span></div>
+        <?php $glLocal = is_file(gp_raiz() . '/geolibre/index.html'); ?>
+        <div class="campo ancho"><label for="geolibre_url">GeoLibre (Estudio SIG)</label><input id="geolibre_url" name="geolibre_url" value="<?= h(campo('geolibre_url', $glLocal ? 'local' : '')) ?>" placeholder="local"><span class="ayuda"><?= $glLocal
+            ? 'El paquete incluye GeoLibre: «local» lo usa integrado en el geoportal (recomendado).'
+            : 'Vacío o «local»: podrá instalar GeoLibre integrado desde el administrador con un clic. Mientras tanto se usa https://web.geolibre.app. También puede indicar la URL de su propio GeoLibre.' ?></span></div>
         <p class="grupo">Administrador</p>
         <div class="campo"><label for="admin_usuario">Usuario</label><input id="admin_usuario" name="admin_usuario" required pattern="[a-zA-Z0-9._-]{3,80}" value="<?= h(campo('admin_usuario', 'admin')) ?>" autocomplete="username"></div>
         <div class="campo"><label for="admin_nombre">Nombre completo</label><input id="admin_nombre" name="admin_nombre" value="<?= h(campo('admin_nombre')) ?>"></div>

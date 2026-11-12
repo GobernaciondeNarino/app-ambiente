@@ -75,7 +75,7 @@ body {
 .menu-lateral {
   width: 230px;
   flex: none;
-  background: #fff;
+  background: var(--superficie);
   border-right: 1px solid var(--borde);
   padding: 16px 10px;
   display: flex;
@@ -198,7 +198,7 @@ body {
 
 .actividad li {
   padding: 8px 0;
-  border-bottom: 1px solid #eef0ee;
+  border-bottom: 1px solid var(--borde-suave);
   display: flex;
   gap: 10px;
   justify-content: space-between;
@@ -261,7 +261,7 @@ body {
   font-size: 15px;
   margin: 8px 0 -6px;
   padding-top: 12px;
-  border-top: 1px solid #eef0ee;
+  border-top: 1px solid var(--borde-suave);
 }
 
 .grupo-titulo:first-child {
@@ -329,9 +329,9 @@ body {
   width: 46px;
   height: 40px;
   padding: 2px;
-  border: 1px solid #c9cfc9;
+  border: 1px solid var(--borde-control);
   border-radius: 6px;
-  background: #fff;
+  background: var(--superficie);
   cursor: pointer;
 }
 
@@ -412,7 +412,7 @@ body {
 
 /* Zona de carga */
 .zona-carga {
-  border: 2px dashed #b8c2b8;
+  border: 2px dashed var(--borde-control);
   border-radius: 10px;
   padding: 30px 20px;
   display: flex;
@@ -421,7 +421,7 @@ body {
   gap: 6px;
   text-align: center;
   cursor: pointer;
-  background: #fbfcfb;
+  background: var(--superficie-2);
   transition: border-color 0.15s, background 0.15s;
 }
 
@@ -467,7 +467,7 @@ body {
   flex: 1;
   height: 10px;
   border-radius: 5px;
-  background: #e5e9e5;
+  background: var(--superficie-3);
   overflow: hidden;
 }
 
@@ -513,7 +513,7 @@ body {
   font-family: var(--fuente-titulos);
   font-weight: 700;
   color: var(--gris-titulo);
-  background: #f7f9f7;
+  background: var(--superficie-2);
   padding: 10px 14px;
   border-bottom: 1px solid var(--borde);
   white-space: nowrap;
@@ -521,12 +521,12 @@ body {
 
 .tabla td {
   padding: 10px 14px;
-  border-bottom: 1px solid #eef0ee;
+  border-bottom: 1px solid var(--borde-suave);
   vertical-align: middle;
 }
 
 .tabla tbody tr:hover {
-  background: #fafcfa;
+  background: var(--superficie-2);
 }
 
 .tabla td.acciones {
