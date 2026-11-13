@@ -7,6 +7,43 @@ declare(strict_types=1);
 
 const GP_CLAVE_MINIMA = 10;
 
+// Límite de intentos de ingreso: mismos valores y mensaje que la edición Python (security.py)
+const GP_VENTANA_INGRESO_S = 900;      // ventana en la que cuentan los fallos (15 minutos)
+const GP_MAX_FALLOS_USUARIO_IP = 5;    // fallos de un usuario desde una IP
+const GP_MAX_FALLOS_IP = 20;           // fallos desde una IP con cualquier usuario (rociado de usuarios)
+const GP_MENSAJE_BLOQUEO = 'Demasiados intentos fallidos. Espere unos minutos e inténtelo de nuevo.';
+
+/** IP del cliente: REMOTE_ADDR (en Plesk, mod_remoteip ya restaura la IP real; X-Forwarded-For no es de fiar). */
+function ip_cliente(): string
+{
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    return $ip !== '' ? $ip : 'desconocida';
+}
+
+/**
+ * 0 si se puede intentar el ingreso; si no, segundos hasta que caduque el fallo que mantiene el bloqueo.
+ * Cuenta las entradas «ingreso_fallido» de la bitácora (su «detail» es la IP) de la ventana: por usuario + IP
+ * y por IP sola. Nunca por usuario solo: así nadie puede dejar fuera al administrador desde otra IP.
+ */
+function segundos_bloqueo_ingreso(string $usuario, string $ip): int
+{
+    $ahora = time();
+    $sql = 'SELECT at FROM ' . t('bitacora') . " WHERE action = 'ingreso_fallido' AND detail = ? AND at >= ?";
+    $args = [$ip, gmdate('Y-m-d H:i:s', $ahora - GP_VENTANA_INGRESO_S)];
+    $espera = 0;
+    foreach ([[$sql . ' AND username = ?', [...$args, $usuario], GP_MAX_FALLOS_USUARIO_IP], [$sql, $args, GP_MAX_FALLOS_IP]] as [$consulta, $valores, $maximo]) {
+        $st = gp_db()->prepare($consulta . ' ORDER BY at, id');
+        $st->execute($valores);
+        $fechas = $st->fetchAll(PDO::FETCH_COLUMN);
+        if (count($fechas) >= $maximo) {
+            // Al caducar este fallo (el más antiguo de la ventana) el recuento baja del umbral
+            $caduca = strtotime($fechas[count($fechas) - $maximo] . ' UTC') + GP_VENTANA_INGRESO_S;
+            $espera = max($espera, $caduca - $ahora, 1);
+        }
+    }
+    return $espera;
+}
+
 function b64url(string $datos): string
 {
     return rtrim(strtr(base64_encode($datos), '+/', '-_'), '=');

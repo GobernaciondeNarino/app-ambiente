@@ -160,3 +160,63 @@ def test_correos_de_contacto_y_de_usuario(api):
     assert r.status_code == 422 and r.json()["detail"] == "email: " + CORREO_NO_VALIDO
     assert api.put(f"/admin/usuarios/{uid}", json={"email": None}).json()["email"] == "editora@narino.gov.co"
     assert api.put(f"/admin/usuarios/{uid}", json={"email": ""}).json()["email"] == ""
+
+
+# ---------------------------------------------------------------- límite de intentos de ingreso
+BLOQUEO = {"detail": "Demasiados intentos fallidos. Espere unos minutos e inténtelo de nuevo."}
+
+
+def _desde(sitio, ip: str) -> httpx.Client:
+    """Cliente que se conecta desde otra dirección de loopback: el servidor embebido la ve en REMOTE_ADDR."""
+    return httpx.Client(base_url=sitio["url"] + "api", timeout=30, transport=httpx.HTTPTransport(local_address=ip))
+
+
+def _mover_fallos(sitio, minutos: int) -> None:
+    from conftest import _mysql
+
+    _mysql(f"UPDATE `{sitio['bd']}`.`gp_bitacora` SET at = UTC_TIMESTAMP() - INTERVAL {minutos} MINUTE WHERE action = 'ingreso_fallido'")
+
+
+def test_bloqueo_por_usuario_e_ip_sin_dejar_fuera_a_otra_ip(api, sitio):
+    buena, mala = {"username": "admin", "password": CLAVE}, {"username": "admin", "password": "mala"}
+    with _desde(sitio, "127.0.0.5") as a, _desde(sitio, "127.0.0.6") as b:
+        for _ in range(5):
+            assert a.post("/auth/ingresar", json=mala).status_code == 401
+        # Bloqueado: ni la contraseña correcta entra, y lleva Retry-After
+        r = a.post("/auth/ingresar", json=buena)
+        assert r.status_code == 429 and r.json() == BLOQUEO and 890 <= int(r.headers["retry-after"]) <= 900
+        assert a.post("/auth/ingresar", json=mala).status_code == 429
+        # Otra IP sigue entrando con la clave correcta; otro usuario desde la IP bloqueada no está bloqueado
+        assert b.post("/auth/ingresar", json=buena).status_code == 200
+        assert a.post("/auth/ingresar", json={"username": "otra", "password": "x"}).status_code == 401
+        # Bitácora: la IP en «detail»; los intentos bloqueados no cuentan como fallos nuevos
+        log = api.get("/admin/bitacora").json()
+        fallos = [e for e in log if e["action"] == "ingreso_fallido" and e["username"] == "admin" and e["detail"] == "127.0.0.5"]
+        bloqueados = [e for e in log if e["action"] == "ingreso_bloqueado"]
+        assert len(fallos) == 5
+        assert len(bloqueados) == 2 and {(e["username"], e["detail"]) for e in bloqueados} == {("admin", "127.0.0.5")}
+        # Retry-After: segundos hasta que caduque el fallo más antiguo de la ventana; después se vuelve a entrar
+        _mover_fallos(sitio, 14)
+        assert 55 <= int(a.post("/auth/ingresar", json=buena).headers["retry-after"]) <= 61
+        _mover_fallos(sitio, 16)
+        assert a.post("/auth/ingresar", json=buena).status_code == 200
+
+
+def test_ingreso_correcto_no_borra_los_fallos(api, sitio):
+    buena, mala = {"username": "admin", "password": CLAVE}, {"username": "admin", "password": "mala"}
+    with _desde(sitio, "127.0.0.7") as c:
+        for _ in range(4):
+            assert c.post("/auth/ingresar", json=mala).status_code == 401
+        assert c.post("/auth/ingresar", json=buena).status_code == 200
+        assert c.post("/auth/ingresar", json=mala).status_code == 401  # quinto fallo de la ventana
+        assert c.post("/auth/ingresar", json=buena).status_code == 429
+
+
+def test_bloqueo_por_ip_frena_el_rociado_de_usuarios(api, sitio):
+    buena = {"username": "admin", "password": CLAVE}
+    with _desde(sitio, "127.0.0.8") as c, _desde(sitio, "127.0.0.9") as otra:
+        for i in range(20):
+            assert c.post("/auth/ingresar", json={"username": f"usuario{i}", "password": "x"}).status_code == 401
+        r = c.post("/auth/ingresar", json=buena)
+        assert r.status_code == 429 and r.json() == BLOQUEO and int(r.headers["retry-after"]) > 0
+        assert otra.post("/auth/ingresar", json=buena).status_code == 200

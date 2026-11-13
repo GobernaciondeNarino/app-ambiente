@@ -42,10 +42,13 @@ from ..schemas import (
     UserUpdate,
 )
 from ..security import (
+    MENSAJE_BLOQUEO,
     create_token,
     current_user,
     hash_password,
+    ip_cliente,
     require_admin,
+    segundos_bloqueo_ingreso,
     validate_password_strength,
     verify_password,
 )
@@ -92,10 +95,18 @@ PALETTE = ["#10A13B", "#0E7FC0", "#F2A900", "#2E7D32", "#00897B", "#6D8B1E", "#8
 
 
 @auth_router.post("/ingresar", response_model=TokenOut)
-def login(data: LoginIn, session: Session = Depends(get_session)) -> TokenOut:
-    user = session.scalar(select(User).where(User.username == data.username.strip()))
+def login(data: LoginIn, request: Request, session: Session = Depends(get_session)) -> TokenOut:
+    usuario = data.username.strip()
+    ip = ip_cliente(request)
+    espera = segundos_bloqueo_ingreso(session, usuario, ip)
+    if espera:
+        # Bloqueado: no se verifica la contraseña (ni la correcta) y el intento no cuenta como fallo nuevo
+        audit(session, usuario, "ingreso_bloqueado", detail=ip)
+        session.commit()
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, MENSAJE_BLOQUEO, headers={"Retry-After": str(espera)})
+    user = session.scalar(select(User).where(User.username == usuario))
     if user is None or not user.active or not verify_password(data.password, user.password_hash):
-        audit(session, data.username[:80], "ingreso_fallido")
+        audit(session, usuario, "ingreso_fallido", detail=ip)  # la IP alimenta el límite de intentos
         session.commit()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Usuario o contraseña incorrectos.")
     user.last_login = datetime.now(timezone.utc)

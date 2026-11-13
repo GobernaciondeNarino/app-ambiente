@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -13,10 +14,16 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .db import get_session
-from .models import User
+from .models import AuditLog, User
 
 _bearer = HTTPBearer(auto_error=False)
 MIN_PASSWORD_LENGTH = 10
+
+# Límite de intentos de ingreso: mismos valores y mensaje que la edición PHP (autenticacion.php)
+VENTANA_INGRESO_S = 15 * 60  # ventana en la que cuentan los fallos
+MAX_FALLOS_USUARIO_IP = 5  # fallos de un usuario desde una IP
+MAX_FALLOS_IP = 20  # fallos desde una IP con cualquier usuario (rociado de usuarios)
+MENSAJE_BLOQUEO = "Demasiados intentos fallidos. Espere unos minutos e inténtelo de nuevo."
 
 
 def hash_password(password: str) -> str:
@@ -41,6 +48,37 @@ def validate_password_strength(password: str) -> None:
             422,
             "La contraseña debe combinar letras y números o símbolos.",
         )
+
+
+def ip_cliente(request) -> str:
+    """IP del cliente según el servidor ASGI. Detrás de nginx, uvicorn la toma de X-Forwarded-For
+    (--proxy-headers): debe confiar solo en el proxy (--forwarded-allow-ips) o el cliente podría falsearla."""
+    return request.client.host if request.client and request.client.host else "desconocida"
+
+
+def segundos_bloqueo_ingreso(session: Session, usuario: str, ip: str) -> int:
+    """0 si se puede intentar el ingreso; si no, segundos hasta que caduque el fallo que mantiene el bloqueo.
+
+    Cuenta las entradas «ingreso_fallido» de la bitácora (su «detail» es la IP) de la ventana: por usuario + IP
+    y por IP sola. Nunca por usuario solo: así nadie puede dejar fuera al administrador desde otra IP.
+    """
+    ahora = datetime.now(timezone.utc)
+    ventana = timedelta(seconds=VENTANA_INGRESO_S)
+    fallos = (
+        select(AuditLog.at)
+        .where(AuditLog.action == "ingreso_fallido", AuditLog.detail == ip, AuditLog.at >= ahora - ventana)
+        .order_by(AuditLog.at, AuditLog.id)
+    )
+    espera = 0
+    for consulta, maximo in ((fallos.where(AuditLog.username == usuario), MAX_FALLOS_USUARIO_IP), (fallos, MAX_FALLOS_IP)):
+        fechas = session.scalars(consulta).all()
+        if len(fechas) >= maximo:
+            # Al caducar este fallo (el más antiguo de la ventana) el recuento baja del umbral
+            clave = fechas[len(fechas) - maximo]
+            if clave.tzinfo is None:  # SQLite devuelve la hora sin zona (se guarda en UTC)
+                clave = clave.replace(tzinfo=timezone.utc)
+            espera = max(espera, math.ceil((clave + ventana - ahora).total_seconds()), 1)
+    return espera
 
 
 def create_token(user: User) -> str:

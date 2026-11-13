@@ -191,11 +191,18 @@ function rutas_admin(string $metodo, string $ruta): void
             falla(422, 'Indique el usuario (hasta 80 caracteres) y la contraseña.');
         }
         $usuario = trim($usuario);
+        $ip = ip_cliente();
+        if (($espera = segundos_bloqueo_ingreso($usuario, $ip)) > 0) {
+            // Bloqueado: no se verifica la contraseña (ni la correcta) y el intento no cuenta como fallo nuevo
+            bitacora($usuario, 'ingreso_bloqueado', '', $ip);
+            header('Retry-After: ' . $espera);
+            falla(429, GP_MENSAJE_BLOQUEO);
+        }
         $st = gp_db()->prepare('SELECT * FROM ' . t('usuarios') . ' WHERE username = ?');
         $st->execute([$usuario]);
         $u = $st->fetch();
         if (!$u || !(int) $u['active'] || !password_verify($clave, $u['password_hash'])) {
-            bitacora($usuario, 'ingreso_fallido');
+            bitacora($usuario, 'ingreso_fallido', '', $ip); // la IP alimenta el límite de intentos
             falla(401, 'Usuario o contraseña incorrectos.');
         }
         gp_db()->prepare('UPDATE ' . t('usuarios') . ' SET last_login = ? WHERE id = ?')->execute([gp_ahora(), $u['id']]);
