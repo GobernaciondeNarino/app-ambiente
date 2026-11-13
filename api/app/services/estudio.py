@@ -41,8 +41,16 @@ def ajustes_defecto() -> dict[str, Any]:
         "idioma": "es",
         "acento": "custom",
         "color_acento": "#10A13B",
-        "nivel": "advanced",
+        "nivel": "intermediate",  # nivel de interfaz de GeoLibre (beginner | intermediate | advanced)
         "bloquear_nivel": False,
+        # Presentación minimalista (archivo de interfaz y parámetro panels=collapsed de GeoLibre)
+        "etiquetas_barra": False,  # False = barra superior solo con iconos
+        "info_proyecto": False,  # nombre y ruta del proyecto en la barra
+        "lista_compacta": True,  # lista de capas compacta
+        "paneles_plegados": True,  # Capas y Estilo empiezan plegados en sus rieles
+        "panel_explorador": False,  # panel Browser
+        "panel_estilo": True,  # panel Style
+        "panel_comentarios": False,  # panel Comments
         "menus_ocultos": [],
         "elementos_ocultos": [],
         "fuentes_ocultas": [],
@@ -139,7 +147,8 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
         if not 2 <= len(n) <= 60:
             _falla("Nombre de la aplicación: entre 2 y 60 caracteres.")
         a["nombre"] = n
-    for b in ("bienvenida", "bloquear_nivel", "instalar_complementos", "mapas_regionales", "servicios_predeterminados", "compartir_publico", "restringir_complementos"):
+    for b in ("bienvenida", "bloquear_nivel", "instalar_complementos", "mapas_regionales", "servicios_predeterminados", "compartir_publico", "restringir_complementos",
+              "etiquetas_barra", "info_proyecto", "lista_compacta", "paneles_plegados", "panel_explorador", "panel_estilo", "panel_comentarios"):
         if b in d:
             a[b] = bool(d[b])
     if "idioma" in d:
@@ -307,11 +316,31 @@ def politica_vigente(settings: Settings) -> bool:
         d = json.loads((dir_ / "deployment.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    return isinstance(d, dict) and d.get("version") == 1 and bool((d.get("sharing") or {}).get("embedOrigins")) and (dir_ / "geoportal-ajustes.json").is_file()
+    try:
+        i = json.loads((dir_ / "geoportal-ajustes.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    # El archivo de interfaz de versiones anteriores no traía «layout»: se regenera
+    return isinstance(d, dict) and d.get("version") == 1 and bool((d.get("sharing") or {}).get("embedOrigins")) and isinstance(i, dict) and "layout" in i
 
 
 def interfaz(a: dict[str, Any]) -> dict[str, Any]:
-    return {"type": "geolibre-interface", "version": 1, "language": a["idioma"], "theme": {"scheme": a["acento"], "customColor": a["color_acento"]}}
+    """Archivo de interfaz para ?settingsUrl=: idioma, color de acento y disposición."""
+    return {
+        "type": "geolibre-interface",
+        "version": 1,
+        "language": a["idioma"],
+        "theme": {"scheme": a["acento"], "customColor": a["color_acento"]},
+        "layout": {
+            "toolbarLabels": bool(a["etiquetas_barra"]),
+            "showProjectInfo": bool(a["info_proyecto"]),
+            "compactLayerList": bool(a["lista_compacta"]),
+            "layerPanelVisible": True,
+            "browserPanelVisible": bool(a["panel_explorador"]),
+            "stylePanelVisible": bool(a["panel_estilo"]),
+            "commentsPanelVisible": bool(a["panel_comentarios"]),
+        },
+    }
 
 
 def estado(settings: Settings) -> dict[str, Any]:
@@ -409,6 +438,7 @@ def config_publica(settings: Settings) -> dict[str, Any]:
         "ajustes_url": f"{base}/geolibre/geoportal-ajustes.json",
         "modo": a["modo"],
         "idioma": a["idioma"],
+        "paneles_plegados": bool(a["paneles_plegados"]),
         "activo": integrado(settings),
     }
 
@@ -422,4 +452,5 @@ def url_abrir(settings: Settings, proyecto: str, visor: bool | None = None) -> s
     else:
         base = url_externa(settings).rstrip("/") + "/"
         extra = "&welcome=0"
-    return f"{base}?url={quote(proyecto, safe='')}&locale={a['idioma']}{extra}" + ("&layout=viewer" if visor else "")
+    paneles = "&panels=collapsed" if a["paneles_plegados"] else ""
+    return f"{base}?url={quote(proyecto, safe='')}&locale={a['idioma']}{extra}{paneles}" + ("&layout=viewer" if visor else "")

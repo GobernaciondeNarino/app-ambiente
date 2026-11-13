@@ -58,8 +58,7 @@
       <!-- Interfaz minimalista: el mapa ocupa toda la vista; una tarjeta (búsqueda + capas) y un botón de herramientas -->
       <section class="vista visor" id="vista-visor" aria-label="Visor geográfico">
         <div class="mapa-contenedor" id="mapa-contenedor">
-          <div id="mapa" role="region" aria-label="Mapa"></div>
-
+          <!-- La tarjeta va antes que el mapa en el documento: la búsqueda es lo primero al tabular -->
           <aside class="tarjeta-mapa" id="panel" aria-label="Búsqueda y capas">
             <div class="buscador-mapa" role="search">
               <label class="buscador">
@@ -78,6 +77,8 @@
             </button>
             <div class="panel-lista" id="lista-capas" role="tree" aria-label="Capas por categoría"></div>
           </aside>
+
+          <div id="mapa" role="region" aria-label="Mapa"></div>
 
           <section class="leyenda plegada" id="leyenda" aria-label="Leyenda" hidden>
             <button type="button" class="leyenda-titulo" id="plegar-leyenda" aria-expanded="false" aria-controls="leyenda-items">

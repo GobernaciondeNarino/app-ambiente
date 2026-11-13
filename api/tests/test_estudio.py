@@ -90,7 +90,13 @@ def test_estudio_integrado_escribe_politica(client, auth, tmp_path, monkeypatch)
     assert dep["branding"] == {"appName": "Estudio Ambiental", "welcome": False}
     assert dep["sharing"]["shareUrl"] == "https://share.geolibre.app"
     interfaz = json.loads((carpeta / "geoportal-ajustes.json").read_text(encoding="utf-8"))
-    assert interfaz == {"type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "emerald", "customColor": "#10A13B"}}
+    # Presentación minimalista por defecto: barra con iconos, lista compacta, solo Capas y Estilo
+    assert interfaz == {
+        "type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "emerald", "customColor": "#10A13B"},
+        "layout": {"toolbarLabels": False, "showProjectInfo": False, "compactLayerList": True, "layerPanelVisible": True,
+                   "browserPanelVisible": False, "stylePanelVisible": True, "commentsPanelVisible": False},
+    }
+    assert dep["interface"]["level"] == "intermediate"
     assert client.get("/api/geolibre/deployment.json").json() == dep
     assert client.get("/api/geolibre/ajustes.json").json() == interfaz
 
@@ -100,6 +106,22 @@ def test_estudio_integrado_escribe_politica(client, auth, tmp_path, monkeypatch)
     client.get("/api/config")
     assert json.loads((carpeta / "deployment.json").read_text(encoding="utf-8")) == dep
     assert (carpeta / "geoportal-ajustes.json").is_file()
+    # Un archivo de interfaz de una versión anterior (sin «layout») también se regenera
+    (carpeta / "geoportal-ajustes.json").write_text('{"type":"geolibre-interface","version":1,"language":"es"}', encoding="utf-8")
+    assert client.get("/api/config").json()["estudio"]["paneles_plegados"] is True
+    assert json.loads((carpeta / "geoportal-ajustes.json").read_text(encoding="utf-8")) == interfaz
+
+    # Preajuste «Completo»: todo GeoLibre a la vista
+    completo = {"nivel": "advanced", "paneles_plegados": False, "lista_compacta": False, "etiquetas_barra": True, "info_proyecto": True,
+                "panel_estilo": True, "panel_explorador": True, "panel_comentarios": True}
+    r = client.put("/api/admin/geolibre", headers=auth, json=completo)
+    assert r.json()["politica"]["interface"]["level"] == "advanced"
+    assert client.get("/api/geolibre/ajustes.json").json()["layout"] == {
+        "toolbarLabels": True, "showProjectInfo": True, "compactLayerList": False, "layerPanelVisible": True,
+        "browserPanelVisible": True, "stylePanelVisible": True, "commentsPanelVisible": True}
+    assert "panels=collapsed" not in client.get("/api/config").json()["geolibre_proyecto_url"]
+    client.put("/api/admin/geolibre", headers=auth, json={"paneles_plegados": True})
+    assert "&panels=collapsed" in client.get("/api/config").json()["geolibre_proyecto_url"]
 
     cfg = client.get("/api/config").json()
     assert cfg["estudio"]["activo"] is True

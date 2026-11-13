@@ -697,6 +697,7 @@
       url = cfg.geolibre_url + "/?url=" + encodeURIComponent(urlProyecto(slugs, o.base)) + "&welcome=0";
     }
     url += "&locale=" + encodeURIComponent(e.idioma || "es") + "&theme=" + (o.tema === "oscuro" ? "dark" : "light");
+    if (e.paneles_plegados) url += "&panels=collapsed"; // presentación minimalista elegida en el administrador
     if (o.vista) url += "&lat=" + o.vista.lat.toFixed(5) + "&lon=" + o.vista.lon.toFixed(5) + "&zoom=" + o.vista.zoom.toFixed(2);
     return url + (visor ? "&layout=viewer" : "");
   }

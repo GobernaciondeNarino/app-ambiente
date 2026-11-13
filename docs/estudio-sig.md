@@ -59,7 +59,10 @@ La pestaña **deployment.json** muestra la política generada.
 | | Modo completo o visor (solo consulta) | parámetro `layout=viewer` |
 | | Idioma (21 idiomas de GeoLibre) | `language` de `?settingsUrl=` |
 | | Color de acento (azul, violeta, esmeralda, rosa, ámbar o personalizado, por defecto el verde institucional `#10A13B`) | `theme.scheme` / `theme.customColor` |
-| Interfaz y menús | Nivel principiante, intermedio o avanzado; bloquearlo | `interface.level` / `interface.lock` |
+| Interfaz y menús | Preajustes de presentación: Esencial, Estándar (por defecto), Completo y Solo consulta | Rellenan los campos siguientes |
+| | Empezar con los paneles plegados | parámetro `panels=collapsed` |
+| | Barra con iconos o con texto, nombre del proyecto, lista de capas compacta, paneles Estilo, Explorador y Comentarios | `layout` de `?settingsUrl=` (`toolbarLabels`, `showProjectInfo`, `compactLayerList`, `stylePanelVisible`, `browserPanelVisible`, `commentsPanelVisible`) |
+| | Nivel inicial, intermedio (por defecto) o avanzado; bloquearlo | `interface.level` / `interface.lock` |
 | | Menús ocultos (Proyecto, Editar, Ver, Añadir datos, Procesamiento, Controles, Complementos, Ayuda) | `interface.hiddenMenus` |
 | | Elementos de menú y fuentes de datos ocultos | `interface.hiddenMenuItems` / `interface.hiddenDataSources` |
 | Permisos | Editar proyectos, añadir datos, geoprocesamiento, exportar, instalar complementos, preferencias | `capabilities` |
@@ -105,20 +108,27 @@ y la API responde con CORS solo para su origen.
 
 ## Funciones del visor del geoportal
 
-Además del Estudio, el visor propio incorpora las funciones de uso frecuente de GeoLibre:
+Además del Estudio, el visor propio incorpora las funciones de uso frecuente de GeoLibre con una
+interfaz mínima: una tarjeta (búsqueda y capas), tres controles de navegación y un botón de
+herramientas. El diseño está en el [plan de interfaz minimalista](plan-interfaz-minimalista.md).
 
 | Función | Cómo |
 | --- | --- |
 | Modo oscuro | Botón de tema en la barra superior: automático (sigue al sistema), claro u oscuro. Se aplica al visor, catálogo, administrador, asistente de instalación, mapa base y Estudio SIG. |
-| Búsqueda | Caja «Buscar lugar, coordenada o entidad» (`Ctrl` + `K`): coordenadas decimales o sexagesimales, entidades de las capas encendidas y lugares de OpenStreetMap (Photon, con Nominatim de respaldo) priorizando Nariño. |
-| Coordenadas | Barra de estado con clic para cambiar el formato: grados decimales, GMS, grados y minutos, UTM y MAGNA-SIRGAS Origen Nacional (EPSG:9377); zoom, escala, rumbo e inclinación. |
+| Búsqueda y paleta de comandos | Una sola caja (`Ctrl` + `K`): acciones, capas por nombre (las enciende o apaga), mapas base, coordenadas decimales o sexagesimales, entidades de las capas encendidas y lugares de OpenStreetMap (Photon, con Nominatim de respaldo) priorizando Nariño. |
+| Capas | Una línea por capa; «⋯» abre opacidad, acercar, ficha, tabla, Estudio SIG y orden. Categorías plegables. |
+| Herramientas | Un botón (`H`) con mapas base, medir, terreno 3D, mi ubicación, añadir datos, copiar enlace, insertar, imagen, imprimir, pantalla completa, solo el mapa y atajos. |
+| Añadir datos | GeoJSON, Shapefile (.zip), GeoPackage, KML/KMZ, GPX, CSV y GeoTIFF desde el equipo, o GeoJSON, WMS y XYZ por dirección; también arrastrando el archivo al mapa. Se leen en el navegador: no se suben ni se publican, y no viajan en los enlaces. |
+| Coordenadas | Píldora con clic para cambiar el formato: grados decimales, GMS, grados y minutos, UTM y MAGNA-SIRGAS Origen Nacional (EPSG:9377); zoom, escala, rumbo e inclinación. |
 | Medición | Distancia y área geodésicas (`M`, `A`; doble clic o `Enter` termina, `Esc` cancela). |
 | Terreno 3D | Relieve con sombreado (`T`); arrastre con clic derecho para inclinar y girar. |
-| Tabla de atributos | Desde cada capa: filtro, orden por columna, páginas de 100 filas, clic para ubicar y resaltar, exportación a CSV. |
-| Orden de capas | Botones subir y bajar en cada capa. |
-| Enlace permanente | La dirección guarda vista, capas, mapa base y terreno; botón para copiarla o compartirla. |
-| Imagen del mapa | Descarga PNG con título institucional, capas y fecha. |
-| Atajos de teclado | `N` norte, `U` sin inclinación, `R` vista de Nariño, `L` panel de capas, `?` ayuda. |
+| Tabla de atributos | Filtro, orden por columna, páginas de 100 filas, clic para ubicar y resaltar, exportación a CSV y «Filtrar también el mapa». |
+| Enlace permanente | La dirección guarda vista, capas, mapa base y terreno; «Copiar enlace de esta vista». |
+| Insertar el mapa | Código `<iframe>` de la vista actual, con ancho, alto y «solo el mapa». |
+| Imprimir e imagen | Hoja A4 horizontal con encabezado institucional, norte, escala gráfica, leyenda y fuente (`P`); descarga PNG con título, capas y fecha. |
+| Solo el mapa | `F` oculta la interfaz; `?maponly=1` en la dirección la abre así para incrustarla. |
+| Parámetros de la dirección | Los de GeoLibre: `maponly`, `panels=collapsed`, `theme=dark\|light`, `lat`, `lon`, `zoom`; y sus equivalentes `solomapa`, `paneles=plegados`, `tema=oscuro\|claro`. Además `capas=`, `mapa=`, `base=` y `3d=1`. |
+| Atajos de teclado | `N` norte, `U` sin inclinación, `R` vista de Nariño, `L` lista de capas, `H` herramientas, `F` solo el mapa, `P` imprimir, `?` ayuda. |
 
 ## Qué no incluye y por qué
 

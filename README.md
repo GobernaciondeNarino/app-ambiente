@@ -11,7 +11,7 @@ datos salgan de la infraestructura de la Gobernación.
 
 | Componente | Qué hace | Dónde |
 | --- | --- | --- |
-| **Visor público** | Mapa con capas por categoría, transparencia, orden, leyenda, consulta de atributos, tabla de atributos, búsqueda de lugares, coordenadas y entidades, medición, terreno 3D, enlace permanente, imagen PNG, mapas base y ficha de metadatos | `portal/index.html` |
+| **Visor público** | Interfaz minimalista: el mapa a toda la vista, una tarjeta (búsqueda + capas) y un botón de herramientas. Paleta de comandos (`Ctrl` + `K`), capas por categoría con opacidad y orden, consulta y tabla de atributos, datos propios sin subirlos (archivos, WMS, XYZ), medición, terreno 3D, enlace permanente, insertar el mapa, imprimir, imagen PNG, mapas base y ficha de metadatos | `portal/index.html` · [plan de interfaz](docs/plan-interfaz-minimalista.md) |
 | **Estudio SIG** | GeoLibre integrado (mismo origen), configurado desde el administrador y controlado desde el visor | `portal/geolibre/` · [guía](docs/estudio-sig.md) |
 | **Catálogo** | Tarjetas de geodatos con búsqueda y filtros | `portal/index.html#catalogo` |
 | **Administrador** | Carga de geodatos, ficha de metadatos, simbología, publicación, categorías, usuarios, bitácora y ajustes del Estudio SIG | `portal/admin/` |
@@ -116,6 +116,8 @@ metros) el administrador permite indicar el EPSG de origen.
 
 - [Manual del administrador](docs/manual-administrador.md): cómo cargar, documentar, simbolizar y publicar geodatos.
 - [Estudio SIG](docs/estudio-sig.md): GeoLibre integrado, instalación, todos sus ajustes, integración con el visor y funciones del visor.
+- [Revisión de GeoLibre](docs/revision-geolibre.md) y su [inventario de funciones](docs/anexo-inventario-geolibre.md): qué ofrece GeoLibre y cómo queda cubierto.
+- [Plan de implementación](docs/plan-implementacion.md) y [plan de interfaz minimalista](docs/plan-interfaz-minimalista.md): fases, criterios y estado.
 - [Arquitectura y despliegue](docs/arquitectura.md): componentes, API, integración con GeoLibre, producción y respaldos.
 - [Instalación en Plesk subiendo archivos](docs/instalacion-plesk.md): edición PHP + MySQL con asistente de instalación.
 - [Despliegue en Plesk con Docker o systemd](docs/despliegue-plesk.md): edición Python, en dominio, subdominio o subdirectorio.

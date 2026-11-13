@@ -28,8 +28,16 @@ function gl_ajustes_defecto(): array
         'idioma' => 'es',
         'acento' => 'custom',
         'color_acento' => '#10A13B',
-        'nivel' => 'advanced',           // nivel de interfaz de GeoLibre
+        'nivel' => 'intermediate',       // nivel de interfaz de GeoLibre (beginner | intermediate | advanced)
         'bloquear_nivel' => false,
+        // Presentación minimalista (archivo de interfaz y parámetro panels=collapsed de GeoLibre)
+        'etiquetas_barra' => false,      // false = barra superior solo con iconos
+        'info_proyecto' => false,        // nombre y ruta del proyecto en la barra
+        'lista_compacta' => true,        // lista de capas compacta
+        'paneles_plegados' => true,      // Capas y Estilo empiezan plegados en sus rieles
+        'panel_explorador' => false,     // panel Browser
+        'panel_estilo' => true,          // panel Style
+        'panel_comentarios' => false,    // panel Comments
         'menus_ocultos' => [],
         'elementos_ocultos' => [],       // ids de elementos de menú, p. ej. «help.diagnostics»
         'fuentes_ocultas' => [],
@@ -94,7 +102,8 @@ function gl_validar_ajustes(array $d): array
         if (mb_strlen($n) < 2 || mb_strlen($n) > 60) falla(422, 'Nombre de la aplicación: entre 2 y 60 caracteres.');
         $a['nombre'] = $n;
     }
-    foreach (['bienvenida', 'bloquear_nivel', 'instalar_complementos', 'mapas_regionales', 'servicios_predeterminados', 'compartir_publico', 'restringir_complementos'] as $b) {
+    foreach (['bienvenida', 'bloquear_nivel', 'instalar_complementos', 'mapas_regionales', 'servicios_predeterminados', 'compartir_publico', 'restringir_complementos',
+        'etiquetas_barra', 'info_proyecto', 'lista_compacta', 'paneles_plegados', 'panel_explorador', 'panel_estilo', 'panel_comentarios'] as $b) {
         if (array_key_exists($b, $d)) $a[$b] = (bool) $d[$b];
     }
     if (isset($d['idioma'])) $a['idioma'] = in_array($d['idioma'], GL_IDIOMAS, true) ? $d['idioma'] : falla(422, 'Idioma no disponible en GeoLibre.');
@@ -222,10 +231,12 @@ function gl_origenes_incrustacion(string $origen): array
 function gl_politica_vigente(): bool
 {
     $d = json_decode((string) @file_get_contents(gl_carpeta() . '/deployment.json'), true);
-    return is_array($d) && ($d['version'] ?? null) === 1 && !empty($d['sharing']['embedOrigins']) && is_file(gl_carpeta() . '/geoportal-ajustes.json');
+    $i = json_decode((string) @file_get_contents(gl_carpeta() . '/geoportal-ajustes.json'), true);
+    // El archivo de interfaz de versiones anteriores no traía «layout»: se regenera
+    return is_array($d) && ($d['version'] ?? null) === 1 && !empty($d['sharing']['embedOrigins']) && is_array($i) && isset($i['layout']);
 }
 
-/** Archivo de interfaz para ?settingsUrl= (idioma y color de acento). */
+/** Archivo de interfaz para ?settingsUrl=: idioma, color de acento y disposición (qué muestra la barra y qué paneles). */
 function gl_interfaz(array $a): array
 {
     return [
@@ -233,6 +244,15 @@ function gl_interfaz(array $a): array
         'version' => 1,
         'language' => $a['idioma'],
         'theme' => ['scheme' => $a['acento'], 'customColor' => $a['color_acento']],
+        'layout' => [
+            'toolbarLabels' => (bool) $a['etiquetas_barra'],
+            'showProjectInfo' => (bool) $a['info_proyecto'],
+            'compactLayerList' => (bool) $a['lista_compacta'],
+            'layerPanelVisible' => true,
+            'browserPanelVisible' => (bool) $a['panel_explorador'],
+            'stylePanelVisible' => (bool) $a['panel_estilo'],
+            'commentsPanelVisible' => (bool) $a['panel_comentarios'],
+        ],
     ];
 }
 
@@ -392,5 +412,6 @@ function gl_config_publica(): array
         'ajustes_url' => $base . '/geolibre/geoportal-ajustes.json',
         'modo' => $a['modo'],
         'idioma' => $a['idioma'],
+        'paneles_plegados' => (bool) $a['paneles_plegados'],
     ];
 }

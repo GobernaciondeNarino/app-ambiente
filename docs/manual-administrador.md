@@ -164,8 +164,8 @@ capa, y **Traer vista del visor** lleva al Estudio la vista y las capas encendid
 Si se eligió una instancia externa, el botón **Abrir en GeoLibre** abre las capas en esa
 instancia en una pestaña nueva.
 
-El botón **Proyecto .geolibre** del visor descarga el archivo del proyecto para abrirlo en
-GeoLibre de escritorio.
+La acción **Descargar proyecto .geolibre** (escríbala en la búsqueda del visor, `Ctrl` + `K`)
+descarga el archivo del proyecto para abrirlo en GeoLibre de escritorio.
 
 ### Configurar el Estudio (solo administradores)
 
@@ -176,7 +176,8 @@ En **Estudio SIG** del administrador:
 2. **¿Qué GeoLibre se usa?:** Estudio integrado o una instancia externa (por ejemplo
    `https://web.geolibre.app`).
 3. **Pestañas de ajustes:** apariencia e idioma (nombre, idioma, color de acento, modo completo o
-   solo consulta, bienvenida), interfaz y menús (nivel, menús y elementos ocultos), permisos,
+   solo consulta, bienvenida), interfaz y menús (preajustes de presentación **Esencial**,
+   **Estándar**, **Completo** y **Solo consulta**; disposición, nivel, menús y elementos ocultos), permisos,
    complementos, servicios institucionales (WMS, WFS, WMTS, XYZ, ArcGIS, CSW) y mapas base,
    compartir y conexiones (servicio público desactivado por defecto, servidor propio, colaboración,
    Overpass, GeoLens). La pestaña **deployment.json** muestra la política resultante.
@@ -184,7 +185,27 @@ En **Estudio SIG** del administrador:
 Los cambios se aplican la próxima vez que se abre el Estudio. La guía completa está en
 [Estudio SIG](estudio-sig.md).
 
-## 11. Modo oscuro
+## 11. El visor en pocas palabras
+
+El visor muestra el mapa a toda la vista con tres elementos:
+
+- **Tarjeta de búsqueda y capas** (arriba a la izquierda). La casilla enciende la capa; «⋯» abre
+  su opacidad, acercar, ficha, tabla de atributos, Estudio SIG y orden. La caja de búsqueda
+  (`Ctrl` + `K`) encuentra capas, lugares, coordenadas y entidades, y ejecuta acciones: escriba
+  «medir», «imprimir» o «satélite».
+- **Botón de herramientas** (bajo los controles de acercar y alejar, tecla `H`): mapas base,
+  medir, terreno 3D, mi ubicación, añadir datos, copiar enlace, insertar el mapa, imagen,
+  imprimir, pantalla completa y solo el mapa.
+- **Leyenda** (abajo a la derecha), plegada hasta que se pulsa.
+
+**Añadir datos** deja al visitante ver sus propios archivos o servicios sobre las capas del
+geoportal. Esos datos se quedan en su navegador: no llegan al servidor ni aparecen en el catálogo.
+Para publicar un geodato use **Cargar geodato** en el administrador.
+
+Para mostrar el mapa en otra página institucional use **Insertar el mapa…**, que entrega el
+código `<iframe>` con la vista y las capas del momento.
+
+## 12. Modo oscuro
 
 El botón de tema de la barra superior (geoportal, administrador y asistente de instalación)
 alterna entre **Automático** (sigue la preferencia del sistema), **Claro** y **Oscuro**. La

@@ -831,3 +831,10 @@ pre.codigo {
 #est-agregar-servicio {
   align-self: flex-start;
 }
+
+.preajustes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 4px;
+}

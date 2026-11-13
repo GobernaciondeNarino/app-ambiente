@@ -1219,6 +1219,26 @@
   };
   const NOMBRES_SERVICIO = { wms: "WMS", wfs: "WFS", wmts: "WMTS", xyz: "Teselas XYZ", arcgis: "ArcGIS REST", csw: "Catálogo CSW" };
 
+  // Presentación del Estudio: disposición (archivo de interfaz de GeoLibre) y preajustes que la rellenan
+  const CAMPOS_DISPOSICION = ["paneles_plegados", "lista_compacta", "etiquetas_barra", "info_proyecto", "panel_estilo", "panel_explorador", "panel_comentarios"];
+  const PREAJUSTES = {
+    esencial: { nivel: "beginner", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false },
+    estandar: { nivel: "intermediate", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: true, panel_explorador: false, panel_comentarios: false },
+    completo: { nivel: "advanced", modo: "completo", paneles_plegados: false, lista_compacta: false, etiquetas_barra: true, info_proyecto: true, panel_estilo: true, panel_explorador: true, panel_comentarios: true },
+    consulta: { nivel: "beginner", modo: "visor", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false },
+  };
+
+  function marcarPreajuste() {
+    const f = $("#form-estudio");
+    $$("[data-preajuste]").forEach((b) => {
+      const p = PREAJUSTES[b.dataset.preajuste];
+      const igual = f.nivel.value === p.nivel && f.modo.value === p.modo && CAMPOS_DISPOSICION.every((k) => f[k].checked === p[k]);
+      b.setAttribute("aria-pressed", String(igual));
+      b.classList.toggle("btn-primario", igual);
+      b.classList.toggle("btn-secundario", !igual);
+    });
+  }
+
   function textoLista(v) {
     return (v || []).join(", ");
   }
@@ -1315,6 +1335,7 @@
     f.bienvenida.checked = !!a.bienvenida;
     f.nivel.value = a.nivel;
     f.bloquear_nivel.checked = !!a.bloquear_nivel;
+    CAMPOS_DISPOSICION.forEach((k) => (f[k].checked = !!a[k]));
     $("#est-menus").innerHTML = o.menus.map((m) => '<label><input type="checkbox" name="menus_ocultos" value="' + m + '"' + (a.menus_ocultos.includes(m) ? " checked" : "") + "> " + escapar(NOMBRES_MENU[m] || m) + "</label>").join("");
     f.elementos_ocultos.value = textoLista(a.elementos_ocultos);
     f.fuentes_ocultas.value = textoLista(a.fuentes_ocultas);
@@ -1341,6 +1362,7 @@
     $("#est-politica").textContent = JSON.stringify(r.politica, null, 2);
     $("#est-politica-url").href = API + "/geolibre/deployment.json";
     actualizarAcento();
+    marcarPreajuste();
     $("#estudio-sin-guardar").hidden = true;
   }
 
@@ -1354,8 +1376,20 @@
     const b = e.target.closest("[data-pe]");
     if (b) seleccionarPestanaEstudio(b.dataset.pe);
   });
+  $("#form-estudio").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-preajuste]");
+    if (!b) return;
+    const f = e.currentTarget;
+    const p = PREAJUSTES[b.dataset.preajuste];
+    f.nivel.value = p.nivel;
+    f.modo.value = p.modo;
+    CAMPOS_DISPOSICION.forEach((k) => (f[k].checked = p[k]));
+    $("#estudio-sin-guardar").hidden = false;
+    marcarPreajuste();
+  });
   $("#form-estudio").addEventListener("input", (e) => {
     $("#estudio-sin-guardar").hidden = false;
+    marcarPreajuste();
     if (e.target.name === "acento" || e.target.name === "color_acento") actualizarAcento();
   });
   $("#form-estudio").addEventListener("change", (e) => {
@@ -1386,6 +1420,7 @@
       bienvenida: f.bienvenida.checked,
       nivel: f.nivel.value,
       bloquear_nivel: f.bloquear_nivel.checked,
+      ...Object.fromEntries(CAMPOS_DISPOSICION.map((k) => [k, f[k].checked])),
       menus_ocultos: marcados("menus_ocultos"),
       elementos_ocultos: f.elementos_ocultos.value,
       fuentes_ocultas: f.fuentes_ocultas.value,

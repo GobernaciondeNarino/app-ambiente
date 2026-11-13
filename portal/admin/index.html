@@ -287,6 +287,24 @@
                 <p class="ayuda-pie">El tema claro u oscuro del Estudio sigue al del geoportal (botón de tema en la barra superior); cada usuario puede cambiarlo también desde el menú de GeoLibre.</p>
               </div>
               <div class="panel-estudio" data-pe-panel="interfaz" hidden>
+                <div class="campo"><span><strong>Presentación</strong></span>
+                  <div class="preajustes" role="group" aria-label="Preajustes de presentación">
+                    <button type="button" class="btn btn-secundario btn-chico" data-preajuste="esencial">Esencial</button>
+                    <button type="button" class="btn btn-secundario btn-chico" data-preajuste="estandar">Estándar</button>
+                    <button type="button" class="btn btn-secundario btn-chico" data-preajuste="completo">Completo</button>
+                    <button type="button" class="btn btn-secundario btn-chico" data-preajuste="consulta">Solo consulta</button>
+                  </div>
+                  <span class="ayuda"><strong>Esencial:</strong> lo básico de GeoLibre, barra con iconos y paneles plegados. <strong>Estándar</strong> (recomendado): interfaz minimalista con análisis vectorial, SQL y tablero. <strong>Completo:</strong> todas las herramientas a la vista. <strong>Solo consulta:</strong> sin edición ni análisis. Cada preajuste rellena los campos de abajo; el visitante puede cambiar el nivel en GeoLibre (Ayuda → Simplificar la interfaz) si no se bloquea.</span>
+                </div>
+                <div class="campo"><span><strong>Disposición</strong></span><div class="lista-campos" id="est-disposicion">
+                  <label><input type="checkbox" name="paneles_plegados"> Empezar con los paneles plegados</label>
+                  <label><input type="checkbox" name="lista_compacta"> Lista de capas compacta</label>
+                  <label><input type="checkbox" name="etiquetas_barra"> Texto de los menús en la barra (si no, solo iconos)</label>
+                  <label><input type="checkbox" name="info_proyecto"> Nombre del proyecto en la barra</label>
+                  <label><input type="checkbox" name="panel_estilo"> Panel Estilo</label>
+                  <label><input type="checkbox" name="panel_explorador"> Panel Explorador</label>
+                  <label><input type="checkbox" name="panel_comentarios"> Panel Comentarios</label>
+                </div></div>
                 <div class="rejilla-campos">
                   <div class="campo"><label for="est-nivel">Nivel de la interfaz</label><select id="est-nivel" name="nivel"><option value="beginner">Principiante: lo esencial</option><option value="intermediate">Intermedio</option><option value="advanced">Avanzado: todas las herramientas</option></select></div>
                   <div class="campo"><span><strong>Bloqueo</strong></span><label class="check"><input type="checkbox" name="bloquear_nivel"> Impedir que el usuario cambie el nivel</label></div>

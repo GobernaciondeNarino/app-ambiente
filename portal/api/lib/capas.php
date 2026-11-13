@@ -105,7 +105,8 @@ function url_geolibre(string $proyecto, ?bool $visor = null): string
         $base = rtrim(function_exists('gl_url_externa') ? gl_url_externa() : 'https://web.geolibre.app', '/') . '/';
         $extra = '&welcome=0';
     }
-    return $base . '?url=' . rawurlencode($proyecto) . '&locale=' . rawurlencode($ajustes['idioma']) . $extra . ($visor ? '&layout=viewer' : '');
+    return $base . '?url=' . rawurlencode($proyecto) . '&locale=' . rawurlencode($ajustes['idioma']) . $extra
+        . (!empty($ajustes['paneles_plegados']) ? '&panels=collapsed' : '') . ($visor ? '&layout=viewer' : '');
 }
 
 /** Representación de la capa con la misma forma que la edición Python (LayerOut). */
