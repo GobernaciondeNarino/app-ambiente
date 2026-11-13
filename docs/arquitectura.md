@@ -79,7 +79,17 @@ tablas se crean al iniciar.
 
 ### API
 
-Documentación interactiva en `/api/docs`.
+Documentación interactiva en `/api/docs` (solo en la edición Python; la edición PHP no la tiene).
+
+**Errores (iguales en las dos ediciones):** JSON `{"detail": "texto en español"}`, sin trazas ni
+rutas internas, con 400, 401 (con `WWW-Authenticate: Bearer`), 403, 404, 405 «Método no
+permitido.», 413 y 422 para datos no válidos: tipos incorrectos, `publicar=` ausente o no booleano,
+`category_id` inexistente, `data_date` fuera de `AAAA`, `AAAA-MM` o `AAAA-MM-DD` con fecha real, o
+correos no válidos. `api/tests/test_contrato.py` y `pruebas/edicion_php/test_contrato_php.py`
+comprueban ese contrato en cada edición. Diferencias legítimas que se mantienen: la ingesta (GDAL en
+el servidor frente a conversión en el navegador), `/api/admin/configuracion` solo en PHP, el
+*preflight* CORS (200 en Python, 204 en PHP) y un `Range` mal formado (400 en Python, se ignora en
+PHP).
 
 **Pública (solo capas publicadas):**
 
