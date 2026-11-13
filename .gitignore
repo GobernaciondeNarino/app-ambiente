@@ -25,3 +25,9 @@ portal/geolibre/
 .claude-flow/security/
 .claude-flow/memory-package.json
 .claude/settings.json.bak-*
+# Estado de ejecución de Ruflo (enjambres, tareas, agentes, libro de políticas) y copias de trabajo de agentes
+.claude-flow/agents/
+.claude-flow/swarm/
+.claude-flow/tasks/
+.claude-flow/policy/
+.claude/worktrees/
