@@ -321,6 +321,7 @@
 }
 
 .capa-fila {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -360,7 +361,17 @@
   font-weight: 600;
 }
 
+/* Toda la fila enciende o apaga la capa (la casilla de 17 px sola era un objetivo muy chico);
+   el botón «⋯» queda por encima */
+.capa-fila label::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
 .capa-mas {
+  position: relative;
+  z-index: 1;
   border: 0;
   background: none;
   padding: 6px;
@@ -1259,6 +1270,72 @@ body.solo-mapa .visor {
   background: var(--fondo-mapa);
 }
 
+/* Sin GeoLibre instalado: estado vacío en lugar del marco */
+.estudio-vacio {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.estudio-vacio p {
+  max-width: 520px;
+  margin: 0 0 12px;
+}
+
+.estudio-vacio strong {
+  font-family: var(--fuente-titulos);
+  font-size: 18px;
+  color: var(--gris-titulo);
+}
+
+/* Sin motor de mapa (MapLibre no cargó): aviso en lugar del mapa; catálogo y fichas siguen */
+.visor.sin-mapa .tarjeta-mapa,
+.visor.sin-mapa .leyenda,
+.visor.sin-mapa .barra-estado {
+  display: none;
+}
+
+.aviso-sin-mapa {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+}
+
+.aviso-sin-mapa > div {
+  max-width: 460px;
+  padding: 18px 20px;
+  background: var(--superficie);
+  border-top: 4px solid var(--amarillo);
+  border-radius: 12px;
+  box-shadow: var(--sombra);
+}
+
+.aviso-sin-mapa p {
+  margin: 0 0 10px;
+}
+
+.aviso-sin-mapa strong {
+  font-family: var(--fuente-titulos);
+  font-size: 17px;
+  color: var(--gris-titulo);
+}
+
+.aviso-sin-mapa .acciones-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
 /* Atajos de teclado */
 dialog.dialogo-chico {
   width: min(520px, calc(100vw - 32px));
@@ -1709,6 +1786,16 @@ dl.metadatos > :nth-last-child(-n + 2) {
   .capa-acciones button {
     min-height: 40px;
     padding: 6px 12px;
+  }
+
+  .capa-detalle input[type="range"],
+  .tabla-datos-mapa th button {
+    min-height: 40px;
+  }
+
+  .capa-detalle input[type="range"] {
+    height: 40px;
+    margin: 0;
   }
 
   .menu-herramientas [role="menuitem"],

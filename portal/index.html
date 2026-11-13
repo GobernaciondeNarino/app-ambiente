@@ -139,6 +139,12 @@
           <button class="btn btn-primario btn-chico" type="button" id="estudio-aplicar-tema">Recargar ahora</button>
         </div>
         <iframe class="marco-estudio" id="marco-estudio" title="Estudio SIG (GeoLibre)" allow="fullscreen; clipboard-read; clipboard-write; geolocation"></iframe>
+        <!-- Sin GeoLibre instalado en este servidor (la configuración pública dice estudio.activo = false) -->
+        <div class="estudio-vacio" id="estudio-vacio" hidden>
+          <p><strong>El Estudio SIG no está instalado en este geoportal.</strong></p>
+          <p id="estudio-vacio-externo" hidden>Puede abrir las capas publicadas en <a id="estudio-vacio-enlace" href="#" target="_blank" rel="noopener">GeoLibre (sitio externo)</a>, un SIG libre que funciona en el navegador.</p>
+          <p><a class="btn btn-secundario" href="#visor" data-icono="mapa">Volver al visor</a></p>
+        </div>
       </section>
 
       <!-- ============================ CATÁLOGO ============================ -->
@@ -172,7 +178,7 @@
             <li><strong>Consultar la ficha de metadatos</strong> de cada geodato: fuente, fecha, escala, sistema de referencia original y licencia de uso.</li>
             <li><strong>Descargar</strong> los geodatos en formatos abiertos: GeoJSON (vector, EPSG:4326) y GeoTIFF optimizado para la nube — COG (ráster).</li>
             <li><strong>Buscar y medir</strong>: localizar lugares, coordenadas (decimales o sexagesimales) y entidades de las capas activas; medir distancias y áreas; ver el relieve en 3D; consultar la tabla de atributos y exportarla a CSV; copiar un enlace con la vista actual o descargar el mapa como imagen.</li>
-            <li><strong>Analizar en el Estudio SIG</strong>: la sección «Estudio SIG» integra <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un SIG libre y de código abierto que corre en el navegador, con las capas del geoportal ya cargadas: edición, estilos, geoprocesamiento, consultas SQL, impresión de mapas, vista 3D y exportación, sin instalar nada y sin que los datos salgan de su equipo.</li>
+            <li id="acerca-estudio" hidden><strong>Analizar en el Estudio SIG</strong>: la sección «Estudio SIG» integra <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un SIG libre y de código abierto que corre en el navegador, con las capas del geoportal ya cargadas: edición, estilos, geoprocesamiento, consultas SQL, impresión de mapas, vista 3D y exportación, sin instalar nada y sin que los datos salgan de su equipo.</li>
           </ul>
           <h2>Sistema de referencia</h2>
           <p>Los geodatos se publican en WGS 84 (EPSG:4326) para su visualización web. La ficha de cada capa indica el sistema de referencia en el que fue producida (p. ej. MAGNA-SIRGAS Origen Nacional, EPSG:9377).</p>

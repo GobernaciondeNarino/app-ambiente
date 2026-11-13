@@ -217,7 +217,7 @@
       .filter((a) => coincide(a.nombre + " " + (a.claves || "")))
       .map((a) => ({ etiqueta: a.nombre, icono: a.icono, atajo: a.atajo, estado: a.activa && a.activa() ? "activo" : "", accion: a.ejecutar, comando: true }));
     if (nq) {
-      V.MAPAS_BASE.filter((b) => coincide("mapa base " + b.nombre)).forEach((b) =>
+      V.MAPAS_BASE.filter((b) => coincide("mapa base " + b.nombre + " " + (b.corto || ""))).forEach((b) =>
         acciones.push({ etiqueta: "Mapa base: " + b.nombre, icono: "base", estado: b.id === V.estado.base ? "activo" : "", accion: () => V.cambiarBase(b.id, true), comando: true }));
     }
     const capas = !nq ? [] : V.estado.capas
@@ -1211,6 +1211,7 @@
 
   function vistaActual() {
     const m = V.estado.mapa;
+    if (!m) return null; // sin motor de mapa: el Estudio abre en su vista inicial
     const c = m.getCenter();
     return { lat: c.lat, lon: c.lng, zoom: m.getZoom() };
   }
@@ -1266,12 +1267,13 @@
 
   function eventosEstudio() {
     document.addEventListener("visor:ruta", (e) => {
-      if (e.detail.ruta === "estudio" && !estudio.cargado) cargarEstudio();
+      const activo = V.estado.config && V.estado.config.estudio && V.estado.config.estudio.activo;
+      if (e.detail.ruta === "estudio" && !estudio.cargado && activo) cargarEstudio(); // sin GeoLibre: aviso, sin marco
     });
     $("#estudio-recargar").addEventListener("click", () => cargarEstudio(estudio.vista));
     $("#estudio-sincronizar").addEventListener("click", () => {
       const v = vistaActual();
-      enviarEstudio("setView", { center: [v.lon, v.lat], zoom: v.zoom, duration: 800 });
+      if (v) enviarEstudio("setView", { center: [v.lon, v.lat], zoom: v.zoom, duration: 800 });
       V.estado.activas.map(V.capaPorSlug).filter(Boolean).forEach((c) => enviarEstudio("setLayerVisibility", { layerId: c.geolibre_id, visible: true }));
       notificar("El Estudio SIG muestra la vista y las capas activas del visor.");
     });
@@ -1307,6 +1309,11 @@
     V = window.Visor;
     incrustado = document.body.classList.contains("solo-mapa");
     const m = V.estado.mapa;
+    if (!m) {
+      // Sin motor de mapa (MapLibre no cargó): solo el Estudio SIG, que no depende de él
+      eventosEstudio();
+      return;
+    }
     m.addControl(new ControlMenu(), "top-right");
     if (matchMedia("(pointer: coarse)").matches) m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-right");
     $("#volver-geoportal").addEventListener("click", (e) => {

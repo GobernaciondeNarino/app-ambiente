@@ -128,7 +128,27 @@
 
   // ------------------------------------------------------------------ mapa
 
+  /** Si MapLibre no cargó, el visor muestra un aviso y el catálogo, las fichas y las descargas siguen funcionando. */
+  function avisoSinMapa() {
+    $("#vista-visor").classList.add("sin-mapa");
+    if ($("#aviso-sin-mapa")) return;
+    $("#mapa-contenedor").insertAdjacentHTML(
+      "beforeend",
+      '<div class="aviso-sin-mapa" id="aviso-sin-mapa" role="alert"><div>' +
+        "<p><strong>No se pudo cargar el motor del mapa.</strong></p>" +
+        "<p>Puede seguir consultando el catálogo, las fichas de metadatos y las descargas. Recargue la página para volver a intentarlo.</p>" +
+        '<p class="acciones-aviso"><a class="btn btn-primario" href="#catalogo">' + icono("catalogo") + "Ir al catálogo</a>" +
+        '<button class="btn btn-secundario" type="button" data-recargar>' + icono("historial") + "Volver a intentar</button></p>" +
+        "</div></div>",
+    );
+    $("#aviso-sin-mapa [data-recargar]").addEventListener("click", () => location.reload());
+  }
+
   function iniciarMapa() {
+    if (!window.maplibregl) {
+      avisoSinMapa();
+      return false;
+    }
     const mapa = new maplibregl.Map({
       container: "mapa",
       style: baseActual().estilo,
@@ -160,6 +180,15 @@
     mapa.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     mapa.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
+    // Sin oyente, MapLibre manda cada «error» a la consola. Cambiar de mapa base (o de tema) mientras el
+    // estilo anterior aún se descarga cancela esa descarga: es esperado y no se informa. El resto, sí.
+    mapa.on("error", (e) => {
+      const error = e && e.error;
+      if (error && error.name === "AbortError") return;
+      console.error(error || e);
+    });
+    silenciarCancelaciones(mapa);
+
     mapa.on("style.load", () => {
       estado.estiloListo = true;
       estado.activas.forEach((slug) => agregarAlMapa(capaPorSlug(slug)));
@@ -182,6 +211,7 @@
     const atribucion = mapa.getContainer().querySelector(".maplibregl-ctrl-attrib");
     if (atribucion) atribucion.addEventListener("toggle", () => requestAnimationFrame(evitarAtribucion));
     estado.mapa = mapa;
+    return true;
   }
 
   function evitarAtribucion() {
@@ -336,8 +366,20 @@
     if (elegida) estado.baseElegida = true;
     estado.estiloListo = false;
     estado.mapa.setStyle(base.estilo, { diff: false }); // recarga completa: «style.load» vuelve a agregar las capas
+    silenciarCancelaciones(estado.mapa);
     pintarMenuBase();
     actualizarEnlaces();
+  }
+
+  /**
+   * Al reemplazar un estilo que aún se descarga (estilo o sprite), MapLibre lo desengancha del mapa y
+   * después cancela sus peticiones: esa cancelación se emite sobre el estilo suelto y, si no tiene
+   * oyentes, va directa a la consola. Un oyente propio en cada estilo la absorbe; mientras el estilo
+   * está enganchado, sus errores siguen llegando al oyente del mapa.
+   */
+  function silenciarCancelaciones(m) {
+    const estilo = m && m.style;
+    if (estilo && typeof estilo.on === "function") estilo.on("error", () => {});
   }
 
   /** Orden de dibujo: la última capa de estado.activas queda encima. */
@@ -561,7 +603,8 @@
     lista.innerHTML = grupos
       .map((g) => {
         const clave = g.cat.slug || String(g.cat.id);
-        const conActivas = g.capas.some((c) => estado.activas.includes(c.slug));
+        // estado.iniciales: capas que se encienden al cargar el mapa (por defecto o pedidas en el enlace)
+        const conActivas = g.capas.some((c) => estado.activas.includes(c.slug) || (estado.iniciales && estado.iniciales.has(c.slug)));
         const abierta = estado.categoriasAbiertas[clave] != null ? estado.categoriasAbiertas[clave] : pocas || conActivas;
         const id = "categoria-" + clave.replace(/[^a-z0-9-]+/gi, "-");
         return (
@@ -622,12 +665,22 @@
       else if (accion === "quitar") quitarCapaLocal(capa.slug);
       else abrirFicha(capa);
     });
+    // En pantallas angostas la tarjeta ocupa todo el ancho: leyenda abierta y lista de capas se excluyen
+    const angosta = () => window.matchMedia("(max-width: 860px)").matches;
     $("#plegar-leyenda").addEventListener("click", () => {
       const plegada = $("#leyenda").classList.toggle("plegada");
       $("#plegar-leyenda").setAttribute("aria-expanded", String(!plegada));
       try { localStorage.setItem("geoportal.leyenda", plegada ? "plegada" : "abierta"); } catch (_) { /* sin almacenamiento */ }
+      if (!plegada && angosta()) plegarPanel(true);
     });
-    $("#alternar-panel").addEventListener("click", () => plegarPanel(!$("#vista-visor").classList.contains("panel-oculto")));
+    $("#alternar-panel").addEventListener("click", () => {
+      const abrir = $("#vista-visor").classList.contains("panel-oculto");
+      plegarPanel(!abrir);
+      if (abrir && angosta() && !$("#leyenda").classList.contains("plegada")) {
+        $("#leyenda").classList.add("plegada"); // sin guardar: es un ajuste de espacio, no la elección del usuario
+        $("#plegar-leyenda").setAttribute("aria-expanded", "false");
+      }
+    });
   }
 
   // ------------------------------------------------------------------ capas del usuario (solo en este navegador)
@@ -802,11 +855,11 @@
     const servicio = capa.urls.datos;
     $("#ficha-cuerpo").innerHTML =
       '<div class="ficha-acciones">' +
-      '<button class="btn btn-primario" type="button" data-ver>' + icono("mapa") + "Ver en el mapa</button>" +
+      (estado.mapa ? '<button class="btn btn-primario" type="button" data-ver>' + icono("mapa") + "Ver en el mapa</button>" : "") +
       (estado.config.estudio && estado.config.estudio.activo
         ? '<button class="btn btn-acento" type="button" data-estudio>' + icono("estudio") + "Ver en Estudio SIG</button>"
         : '<a class="btn btn-acento" href="' + escapar(urlGeoLibre([capa.slug])) + '" target="_blank" rel="noopener">' + icono("abrir") + "Abrir en GeoLibre</a>") +
-      (capa.kind === "vector" ? '<button class="btn btn-secundario" type="button" data-tabla>' + icono("tabla") + "Tabla de atributos</button>" : "") +
+      (capa.kind === "vector" && estado.mapa ? '<button class="btn btn-secundario" type="button" data-tabla>' + icono("tabla") + "Tabla de atributos</button>" : "") +
       (capa.downloadable
         ? '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga")) + '">' + icono("descargar") + (capa.kind === "raster" ? "Descargar COG" : "Descargar GeoJSON") + "</a>" +
           '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga?original=1")) + '">' + icono("archivo") + "Archivo original</a>"
@@ -829,7 +882,8 @@
       if (!estado.activas.includes(capa.slug)) alternarCapa(capa.slug, true, true);
       window.VisorHerramientas.abrirTabla(capa.slug);
     });
-    $("#ficha-cuerpo [data-ver]").addEventListener("click", () => {
+    const botonVer = $("#ficha-cuerpo [data-ver]");
+    if (botonVer) botonVer.addEventListener("click", () => {
       d.close();
       irA("visor");
       alternarCapa(capa.slug, true, false);
@@ -880,7 +934,7 @@
               (c.source ? '<span class="insignia">' + escapar(c.source) + "</span>" : "") +
               "</div></div>" +
               '<div class="acciones">' +
-              '<button class="btn btn-primario btn-chico" data-accion="ver">' + icono("mapa") + "Ver</button>" +
+              (estado.mapa ? '<button class="btn btn-primario btn-chico" data-accion="ver">' + icono("mapa") + "Ver</button>" : "") +
               '<button class="btn btn-secundario btn-chico" data-accion="info">' + icono("info") + "Ficha</button>" +
               '<a class="btn btn-secundario btn-chico" href="' + escapar(urlGeoLibre([c.slug])) + '" target="_blank" rel="noopener">' + icono("abrir") + "GeoLibre</a>" +
               "</div></article>"
@@ -914,7 +968,8 @@
   }
 
   function mostrarRuta(ruta) {
-    const rutas = ["visor", "catalogo", "acerca"].concat(estado.config && estado.config.estudio && estado.config.estudio.activo ? ["estudio"] : []);
+    // #estudio vale en cuanto se conoce la configuración: sin GeoLibre instalado muestra un aviso, no el visor
+    const rutas = ["visor", "catalogo", "acerca"].concat(estado.config ? ["estudio"] : []);
     const valida = rutas.includes(ruta) ? ruta : "visor";
     document.querySelectorAll(".vista").forEach((v) => (v.hidden = v.id !== "vista-" + valida));
     document.querySelectorAll("[data-ruta]").forEach((a) => {
@@ -985,15 +1040,22 @@
       $("#lista-capas").innerHTML = '<p class="vacio">No fue posible conectar con el servicio de datos.</p>';
       notificar("No fue posible cargar el catálogo de capas. Intente de nuevo más tarde.", "error");
     }
-    iniciarMapa();
+    const hayMapa = iniciarMapa();
     window.Visor = {
       estado, $, capaPorSlug, alternarCapa, acercarA, abrirFicha, rutaCapa, moverCapa, cambiarBase, baseActual,
       urlGeoLibre, urlProyecto, irA, mostrarRuta, idsDe, MAPAS_BASE, NARINO, RAMPAS,
       pintarPanel, pintarMenuBase, plegarPanel, activasPublicadas, urlDescargaProyecto, agregarCapaLocal, quitarCapaLocal, estiloDe, muestraHTML,
     };
     document.dispatchEvent(new CustomEvent("visor:listo"));
-    const enEstudio = estado.config && estado.config.estudio && estado.config.estudio.activo;
+    const enEstudio = !!(estado.config && estado.config.estudio && estado.config.estudio.activo);
     $("#nav-estudio").hidden = !enEstudio;
+    $("#acerca-estudio").hidden = !enEstudio; // «Acerca» no promete un Estudio que este servidor no tiene
+    ["#marco-estudio", ".estudio-acciones", ".estudio-detalle"].forEach((s) => ($(s).hidden = !enEstudio));
+    $("#estudio-vacio").hidden = enEstudio;
+    if (!enEstudio && estado.config && estado.config.geolibre_url) {
+      $("#estudio-vacio-enlace").href = urlGeoLibre(activasPublicadas());
+      $("#estudio-vacio-externo").hidden = false;
+    }
     // La documentación interactiva de la API (/api/docs) solo existe en la edición Python (Docker)
     $("#api-docs").hidden = !estado.config || !estado.config.edicion || estado.config.edicion === "php";
     if (location.hash === "#estudio") mostrarRuta("estudio");
@@ -1001,15 +1063,19 @@
       "beforeend",
       estado.categorias.map((c) => '<option value="' + c.id + '">' + escapar(c.name) + "</option>").join(""),
     );
+    // Capas iniciales: ?capa=slug o las marcadas como visibles por defecto. Se encienden al cargar el mapa,
+    // pero la lista ya abre sus categorías (con más de 12 capas solo se abren las que tienen algo encendido)
+    const pedidas = (params.get("capa") || params.get("capas") || "").split(",").filter(Boolean);
+    const iniciales = pedidas.length ? pedidas : estado.capas.filter((c) => c.visible_by_default).map((c) => c.slug);
+    estado.iniciales = hayMapa ? new Set(iniciales) : null;
     pintarPanel();
     pintarCatalogo();
     actualizarEnlaces();
+    if (!hayMapa) return;
 
-    // Capas iniciales: ?capa=slug o las marcadas como visibles por defecto
-    const pedidas = (params.get("capa") || params.get("capas") || "").split(",").filter(Boolean);
-    const iniciales = pedidas.length ? pedidas : estado.capas.filter((c) => c.visible_by_default).map((c) => c.slug);
     estado.mapa.once("load", () => {
       iniciales.forEach((s) => alternarCapa(s, true, false));
+      estado.iniciales = null;
       if (params.get("mapa") || params.get("lat")) return; // la vista viene en el enlace
       if (pedidas.length === 1 && capaPorSlug(pedidas[0])) {
         acercarA(capaPorSlug(pedidas[0]));
