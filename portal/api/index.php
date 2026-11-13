@@ -21,6 +21,24 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 
 $metodo = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
+/** ¿La ruta existe con algún método? (para responder 405 y no 404, como la edición Python) */
+function gp_ruta_conocida(string $ruta): bool
+{
+    foreach ([
+        '#^(salud|config|categorias|capas|proyecto\.geolibre|geolibre/(deployment|ajustes)\.json)?$#',
+        '#^capas/[^/]+(/(datos\.geojson|datos\.tif|vista-previa\.png|descarga|proyecto\.geolibre))?$#',
+        '#^auth/(ingresar|yo|cambiar-clave)$#',
+        '#^admin/(resumen|capas|categorias|usuarios|bitacora|geolibre|geolibre/instalar|configuracion)$#',
+        '#^admin/(capas|categorias|usuarios)/\d+$#',
+        '#^admin/capas/\d+/(archivo|vista-previa|publicacion|muestra|datos|original)$#',
+    ] as $patron) {
+        if (preg_match($patron, $ruta)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Ruta relativa a la carpeta api/
 $uri = rawurldecode(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
 $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php')), '/');
@@ -57,6 +75,9 @@ try {
 
     rutas_publicas($metodo, $ruta);
     rutas_admin($metodo, $ruta);
+    if (gp_ruta_conocida($ruta)) {
+        falla(405, 'Método no permitido.');
+    }
     falla(404, 'Recurso no encontrado.');
 } catch (RespuestaHttp $e) {
     json_respuesta(['detail' => $e->detalle] + $e->extra, $e->estado);

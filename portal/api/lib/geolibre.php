@@ -96,8 +96,9 @@ function gl_url_valida(string $url, array $esquemas): bool
 function gl_validar_ajustes(array $d): array
 {
     $a = gl_ajustes();
-    if (isset($d['modo'])) $a['modo'] = in_array($d['modo'], ['completo', 'visor'], true) ? $d['modo'] : falla(422, 'modo: completo o visor.');
-    if (isset($d['nombre'])) {
+    // array_key_exists (no isset): un valor null es un error, como en la edición Python
+    if (array_key_exists('modo', $d)) $a['modo'] = in_array($d['modo'], ['completo', 'visor'], true) ? $d['modo'] : falla(422, 'modo: completo o visor.');
+    if (array_key_exists('nombre', $d)) {
         $n = trim(preg_replace('/\s+/', ' ', (string) $d['nombre']));
         if (mb_strlen($n) < 2 || mb_strlen($n) > 60) falla(422, 'Nombre de la aplicación: entre 2 y 60 caracteres.');
         $a['nombre'] = $n;
@@ -106,13 +107,13 @@ function gl_validar_ajustes(array $d): array
         'etiquetas_barra', 'info_proyecto', 'lista_compacta', 'paneles_plegados', 'panel_explorador', 'panel_estilo', 'panel_comentarios'] as $b) {
         if (array_key_exists($b, $d)) $a[$b] = (bool) $d[$b];
     }
-    if (isset($d['idioma'])) $a['idioma'] = in_array($d['idioma'], GL_IDIOMAS, true) ? $d['idioma'] : falla(422, 'Idioma no disponible en GeoLibre.');
-    if (isset($d['acento'])) $a['acento'] = in_array($d['acento'], GL_ACENTOS, true) ? $d['acento'] : falla(422, 'Color de acento no válido.');
-    if (isset($d['color_acento'])) {
+    if (array_key_exists('idioma', $d)) $a['idioma'] = in_array($d['idioma'], GL_IDIOMAS, true) ? $d['idioma'] : falla(422, 'Idioma no disponible en GeoLibre.');
+    if (array_key_exists('acento', $d)) $a['acento'] = in_array($d['acento'], GL_ACENTOS, true) ? $d['acento'] : falla(422, 'Color de acento no válido.');
+    if (array_key_exists('color_acento', $d)) {
         if (!preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $d['color_acento'])) falla(422, 'color_acento: use #RRGGBB.');
         $a['color_acento'] = strtoupper((string) $d['color_acento']);
     }
-    if (isset($d['nivel'])) $a['nivel'] = in_array($d['nivel'], GL_NIVELES, true) ? $d['nivel'] : falla(422, 'Nivel de interfaz no válido.');
+    if (array_key_exists('nivel', $d)) $a['nivel'] = in_array($d['nivel'], GL_NIVELES, true) ? $d['nivel'] : falla(422, 'Nivel de interfaz no válido.');
     if (array_key_exists('menus_ocultos', $d)) $a['menus_ocultos'] = gl_lista($d['menus_ocultos'], GL_MENUS);
     if (array_key_exists('capacidades', $d)) $a['capacidades'] = gl_lista($d['capacidades'], GL_CAPACIDADES);
     foreach (['elementos_ocultos', 'fuentes_ocultas', 'complementos_ocultos', 'complementos_activos', 'complementos_bloqueados', 'complementos_permitidos'] as $l) {
@@ -137,9 +138,11 @@ function gl_validar_ajustes(array $d): array
         $a['geolens_url'] = $v === '' ? 'off' : $v;
     }
     if (array_key_exists('servicios', $d)) {
-        if (!is_array($d['servicios'])) falla(422, 'servicios debe ser una lista.');
+        if (!is_array($d['servicios']) || !array_is_list($d['servicios'])) falla(422, 'servicios debe ser una lista.');
         $servicios = [];
         foreach (array_slice($d['servicios'], 0, 100) as $i => $s) {
+            $s = is_array($s) ? $s : [];
+            $s['fields'] = is_array($s['fields'] ?? null) ? $s['fields'] : [];
             $nombre = trim((string) ($s['name'] ?? ''));
             $tipo = (string) ($s['kind'] ?? '');
             $url = trim((string) ($s['fields']['url'] ?? $s['url'] ?? ''));
@@ -168,6 +171,20 @@ function gl_validar_ajustes(array $d): array
         $a['servicios'] = $servicios;
     }
     return $a;
+}
+
+/** Respuesta de GET y PUT /admin/geolibre (misma forma que la edición Python). */
+function gl_respuesta_admin(array $ajustes): array
+{
+    return [
+        'ajustes' => $ajustes,
+        'estado' => gl_estado(),
+        'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())),
+        'integrado' => geolibre_local(),
+        'usar_integrado' => in_array((string) gp_opcion('geolibre_url', 'local'), ['', 'local'], true),
+        'url_externa' => gl_url_externa(),
+        'opciones' => ['capacidades' => GL_CAPACIDADES, 'menus' => GL_MENUS, 'niveles' => GL_NIVELES, 'acentos' => GL_ACENTOS, 'idiomas' => GL_IDIOMAS, 'tipos_servicio' => GL_TIPOS_SERVICIO],
+    ];
 }
 
 /** deployment.json de GeoLibre a partir de los ajustes (ver docs/deployment-policy.md de GeoLibre). */

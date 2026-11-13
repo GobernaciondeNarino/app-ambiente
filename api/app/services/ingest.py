@@ -85,7 +85,7 @@ def _safe_extract(archive: Path, dest: Path) -> None:
         root = dest.resolve()
         for member in members:
             target = (dest / member.filename).resolve()
-            if not str(target).startswith(str(root)):
+            if target != root and not target.is_relative_to(root):
                 raise IngestError("El archivo comprimido contiene rutas no permitidas.")
         zf.extractall(dest)
 

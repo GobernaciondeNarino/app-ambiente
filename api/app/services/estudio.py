@@ -143,7 +143,7 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
     if "modo" in d:
         a["modo"] = d["modo"] if d["modo"] in ("completo", "visor") else _falla("modo: completo o visor.")
     if "nombre" in d:
-        n = " ".join(str(d["nombre"]).split())
+        n = " ".join(str(d["nombre"] or "").split())
         if not 2 <= len(n) <= 60:
             _falla("Nombre de la aplicación: entre 2 y 60 caracteres.")
         a["nombre"] = n
@@ -169,18 +169,18 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
         if k in d:
             a[k] = _lista(d[k])
     if "panel_inicial" in d:
-        p = str(d["panel_inicial"]).strip()
+        p = str(d["panel_inicial"] or "").strip()
         if p and not ID_RE.match(p):
             _falla("Panel inicial no válido.")
         a["panel_inicial"] = p
     for k, esquemas in (("registro_complementos", ("https",)), ("url_compartir", ("https",)), ("url_colaboracion", ("wss",)), ("overpass_url", ("https",))):
         if k in d:
-            v = str(d[k]).strip().rstrip("/")
+            v = str(d[k] or "").strip().rstrip("/")
             if v and (not _url_valida(v, esquemas) or (k == "overpass_url" and urlsplit(v).query)):
                 _falla(f"{k}: use una dirección {' o '.join(esquemas)}://")
             a[k] = v
     if "geolens_url" in d:
-        v = str(d["geolens_url"]).strip() or "off"
+        v = str(d["geolens_url"] or "").strip() or "off"
         if v not in ("off", "same-origin") and not _url_valida(v, ("https",)):
             _falla("GeoLens: off, same-origin o una URL https.")
         a["geolens_url"] = v
@@ -192,10 +192,10 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
         servicios = []
         for i, s in enumerate(d["servicios"][:100]):
             s = s if isinstance(s, dict) else {}
-            nombre = str(s.get("name", "")).strip()
-            tipo = str(s.get("kind", ""))
+            nombre = str(s.get("name") or "").strip()
+            tipo = str(s.get("kind") or "")
             campos_in = s.get("fields") if isinstance(s.get("fields"), dict) else {}
-            url = str(campos_in.get("url", s.get("url", ""))).strip()
+            url = str(campos_in.get("url", s.get("url")) or "").strip()
             if not nombre or tipo not in TIPOS_SERVICIO or not _url_valida(url, ("https", "http")):
                 _falla(f"Servicio {i + 1}: indique nombre, tipo ({', '.join(TIPOS_SERVICIO)}) y una URL válida.")
             campos: dict[str, Any] = {"url": url}

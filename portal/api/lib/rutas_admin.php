@@ -142,18 +142,59 @@ function procesar_carga(int $idCapa): array
     }
 }
 
+/** Metadatos del formulario de carga (campo «metadatos», JSON). Mismos códigos que la edición Python. */
+function metadatos_formulario(): array
+{
+    $crudo = trim((string) ($_POST['metadatos'] ?? ''));
+    if ($crudo === '') {
+        return [];
+    }
+    $m = json_decode($crudo, true);
+    if (!is_array($m) || !str_starts_with($crudo, '{')) {
+        falla(422, 'Metadatos no válidos: no son un objeto JSON.');
+    }
+    try {
+        return validar_metadatos($m);
+    } catch (RespuestaHttp $e) {
+        falla($e->estado, 'Metadatos no válidos: ' . $e->detalle);
+    }
+}
+
+/** Texto opcional del cuerpo: null si no viene; 422 si no es texto o supera $max. */
+function texto_cuerpo(array $d, string $k, int $max): ?string
+{
+    if (!array_key_exists($k, $d) || $d[$k] === null) {
+        return null;
+    }
+    if (!is_string($d[$k])) {
+        falla(422, "$k: debe ser texto.");
+    }
+    if (mb_strlen($d[$k]) > $max) {
+        falla(422, "$k: admite como máximo $max caracteres.");
+    }
+    return $d[$k];
+}
+
 // ---------------------------------------------------------------- rutas
 
 function rutas_admin(string $metodo, string $ruta): void
 {
     // Autenticación
-    if ($ruta === 'auth/ingresar' && $metodo === 'POST') {
+    if ($ruta === 'auth/ingresar') {
+        if ($metodo !== 'POST') {
+            return; // 405 en index.php (no 401: la ruta no exige sesión)
+        }
         $d = cuerpo_json();
-        $usuario = trim((string) ($d['username'] ?? ''));
+        $usuario = $d['username'] ?? null;
+        $clave = $d['password'] ?? null;
+        if (!is_string($usuario) || !is_string($clave) || $usuario === '' || $clave === '' || mb_strlen($usuario) > 80 || mb_strlen($clave) > 200) {
+            falla(422, 'Indique el usuario (hasta 80 caracteres) y la contraseña.');
+        }
+        $usuario = trim($usuario);
         $st = gp_db()->prepare('SELECT * FROM ' . t('usuarios') . ' WHERE username = ?');
         $st->execute([$usuario]);
         $u = $st->fetch();
-        if (!$u || !(int) $u['active'] || !password_verify((string) ($d['password'] ?? ''), $u['password_hash'])) {
+        if (!$u || !(int) $u['active'] || !password_verify($clave, $u['password_hash'])) {
             bitacora($usuario, 'ingreso_fallido');
             falla(401, 'Usuario o contraseña incorrectos.');
         }
@@ -170,11 +211,16 @@ function rutas_admin(string $metodo, string $ruta): void
     }
     if ($ruta === 'auth/cambiar-clave' && $metodo === 'POST') {
         $d = cuerpo_json();
-        if (!password_verify((string) ($d['current_password'] ?? ''), $yo['password_hash'])) {
+        $actual = $d['current_password'] ?? null;
+        $nueva = $d['new_password'] ?? null;
+        if (!is_string($actual) || !is_string($nueva)) {
+            falla(422, 'Indique la contraseña actual y la nueva.');
+        }
+        if (!password_verify($actual, $yo['password_hash'])) {
             falla(400, 'La contraseña actual no es correcta.');
         }
-        validar_clave((string) ($d['new_password'] ?? ''));
-        gp_db()->prepare('UPDATE ' . t('usuarios') . ' SET password_hash = ? WHERE id = ?')->execute([password_hash((string) $d['new_password'], PASSWORD_BCRYPT, ['cost' => 12]), $yo['id']]);
+        validar_clave($nueva);
+        gp_db()->prepare('UPDATE ' . t('usuarios') . ' SET password_hash = ? WHERE id = ?')->execute([password_hash($nueva, PASSWORD_BCRYPT, ['cost' => 12]), $yo['id']]);
         bitacora($yo['username'], 'cambio_clave', $yo['username']);
         json_respuesta(['mensaje' => 'Contraseña actualizada.']);
     }
@@ -202,16 +248,22 @@ function rutas_admin(string $metodo, string $ruta): void
     if ($ruta === 'admin/capas' && $metodo === 'GET') {
         $sql = 'SELECT * FROM ' . t('capas') . ' WHERE 1=1';
         $args = [];
-        if (($q = trim((string) ($_GET['q'] ?? ''))) !== '') {
-            $like = '%' . addcslashes(mb_substr($q, 0, 120), '%_\\') . '%';
+        $q = param_texto('q', 120);
+        $estado = param_texto('estado');
+        if ($estado !== '' && !in_array($estado, ['publicadas', 'borradores'], true)) {
+            falla(422, 'estado: use publicadas o borradores.');
+        }
+        $categoriaId = param_entero('categoria_id', null, PHP_INT_MIN, PHP_INT_MAX);
+        if ($q !== '') {
+            $like = '%' . addcslashes($q, '%_\\') . '%';
             $sql .= ' AND (title LIKE ? OR description LIKE ? OR original_filename LIKE ?)';
             array_push($args, $like, $like, $like);
         }
-        if (($_GET['estado'] ?? '') === 'publicadas') $sql .= ' AND published = 1';
-        if (($_GET['estado'] ?? '') === 'borradores') $sql .= ' AND published = 0';
-        if (!empty($_GET['categoria_id'])) {
+        if ($estado === 'publicadas') $sql .= ' AND published = 1';
+        if ($estado === 'borradores') $sql .= ' AND published = 0';
+        if ($categoriaId) {
             $sql .= ' AND category_id = ?';
-            $args[] = (int) $_GET['categoria_id'];
+            $args[] = $categoriaId;
         }
         $st = $db->prepare($sql . ' ORDER BY updated_at DESC, id DESC');
         $st->execute($args);
@@ -219,7 +271,7 @@ function rutas_admin(string $metodo, string $ruta): void
         json_respuesta(array_map(static fn ($f) => capa_salida(capa_desde_fila($f), $cats), $st->fetchAll()));
     }
     if ($ruta === 'admin/capas' && $metodo === 'POST') {
-        $meta = validar_metadatos(json_decode((string) ($_POST['metadatos'] ?? '{}'), true) ?: []);
+        $meta = metadatos_formulario();
         if ($yo['role'] !== 'administrador') {
             unset($meta['published']); // un editor siempre carga como borrador
         }
@@ -316,8 +368,8 @@ function rutas_admin(string $metodo, string $ruta): void
         }
         if ($sub === 'publicacion' && $metodo === 'POST') {
             exigir_admin($yo);
-            $publicar = filter_var($_GET['publicar'] ?? '', FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-            if ($publicar === null) falla(422, 'Indique publicar=true o publicar=false.');
+            // Obligatorio: sin el parámetro la capa no se retira (antes «publicar» vacío equivalía a false)
+            $publicar = param_booleano('publicar');
             if ($publicar && !$capa['processed_path']) falla(409, 'La capa no tiene datos procesados.');
             $capa['published'] = $publicar;
             $capa['updated_by'] = $yo['username'];
@@ -326,8 +378,8 @@ function rutas_admin(string $metodo, string $ruta): void
             json_respuesta(capa_salida(cargar_capa($id)));
         }
         if ($sub === 'muestra' && $metodo === 'GET') {
+            $lim = param_entero('limite', 50, 1, 500);
             if ($capa['kind'] !== 'vector') json_respuesta(['type' => 'FeatureCollection', 'features' => []]);
-            $lim = max(1, min(500, (int) ($_GET['limite'] ?? 50)));
             $fc = json_decode((string) file_get_contents(gp_ruta_datos($capa['processed_path'])), true);
             json_respuesta(['type' => 'FeatureCollection', 'features' => array_slice($fc['features'] ?? [], 0, $lim)]);
         }
@@ -345,7 +397,8 @@ function rutas_admin(string $metodo, string $ruta): void
         $sql = 'SELECT c.*, COUNT(l.id) AS n FROM ' . t('categorias') . ' c LEFT JOIN ' . t('capas') . ' l ON l.category_id = c.id GROUP BY c.id ORDER BY c.position, c.name';
         json_respuesta(array_map(static fn ($c) => categoria_salida($c, (int) $c['n']), $db->query($sql)->fetchAll()));
     }
-    if (preg_match('#^admin/categorias(?:/(\d+))?$#', $ruta, $m) && in_array($metodo, ['POST', 'PUT', 'DELETE'], true)) {
+    if (preg_match('#^admin/categorias(?:/(\d+))?$#', $ruta, $m) && ($metodo === 'POST' xor isset($m[1])) && in_array($metodo, ['POST', 'PUT', 'DELETE'], true)) {
+        // POST sin identificador; PUT y DELETE con él (lo demás: 405 en index.php)
         exigir_admin($yo);
         $id = isset($m[1]) ? (int) $m[1] : null;
         if ($id !== null) {
@@ -364,23 +417,25 @@ function rutas_admin(string $metodo, string $ruta): void
             json_respuesta(null, 204);
         }
         $d = cuerpo_json();
-        $nombre = trim((string) ($d['name'] ?? ''));
-        $color = (string) ($d['color'] ?? '#10A13B');
-        if (mb_strlen($nombre) < 2 || mb_strlen($nombre) > 120) falla(422, 'name: entre 2 y 120 caracteres.');
+        // Los campos que no se envían conservan su valor (el administrador no envía «icon»)
+        $base = $cat ?? ['description' => '', 'color' => '#10A13B', 'icon' => 'capas', 'position' => 0];
+        $nombre = trim(texto_cuerpo($d, 'name', 120) ?? '');
+        if (mb_strlen($nombre) < 2) falla(422, 'name: entre 2 y 120 caracteres.');
+        $color = texto_cuerpo($d, 'color', 9) ?? $base['color'];
         if (!preg_match('/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/', $color)) falla(422, 'Color hexadecimal no válido (use #RRGGBB).');
-        $valores = [$nombre, mb_substr(trim((string) ($d['description'] ?? '')), 0, 2000), $color, mb_substr((string) ($d['icon'] ?? 'capas'), 0, 40), (int) ($d['position'] ?? 0)];
-        if ($metodo === 'POST' && $id === null) {
+        $posicion = array_key_exists('position', $d) ? filter_var($d['position'], FILTER_VALIDATE_INT) : (int) $base['position'];
+        if ($posicion === false) falla(422, 'position: debe ser un número entero.');
+        $valores = [$nombre, trim(texto_cuerpo($d, 'description', 2000) ?? $base['description']), $color, texto_cuerpo($d, 'icon', 40) ?? $base['icon'], $posicion];
+        if ($metodo === 'POST') {
             $slug = slug_unico('categorias', $nombre);
             $db->prepare('INSERT INTO ' . t('categorias') . ' (name, description, color, icon, position, slug) VALUES (?, ?, ?, ?, ?, ?)')->execute([...$valores, $slug]);
             $id = (int) $db->lastInsertId();
             bitacora($yo['username'], 'categoria_creada', $slug);
             $estado = 201;
-        } elseif ($metodo === 'PUT' && $id !== null) {
+        } else {
             $db->prepare('UPDATE ' . t('categorias') . ' SET name = ?, description = ?, color = ?, icon = ?, position = ? WHERE id = ?')->execute([...$valores, $id]);
             bitacora($yo['username'], 'categoria_editada', $cat['slug']);
             $estado = 200;
-        } else {
-            falla(405, 'Método no permitido.');
         }
         $st = $db->prepare('SELECT c.*, (SELECT COUNT(*) FROM ' . t('capas') . ' l WHERE l.category_id = c.id) AS n FROM ' . t('categorias') . ' c WHERE c.id = ?');
         $st->execute([$id]);
@@ -395,40 +450,47 @@ function rutas_admin(string $metodo, string $ruta): void
         if ($metodo === 'GET' && $id === null) {
             json_respuesta(array_map('usuario_publico', $db->query('SELECT * FROM ' . t('usuarios') . ' ORDER BY username')->fetchAll()));
         }
+        if (!(($metodo === 'POST' && $id === null) || ($metodo === 'PUT' && $id !== null))) {
+            return; // 405 en index.php (antes respondía 422 pidiendo un cuerpo JSON)
+        }
         $d = cuerpo_json();
         $rol = $d['role'] ?? null;
         if ($rol !== null && !in_array($rol, ['administrador', 'editor'], true)) falla(422, 'Rol no válido.');
-        if ($metodo === 'POST' && $id === null) {
-            $usuario = (string) ($d['username'] ?? '');
-            if (!preg_match('/^[a-zA-Z0-9._-]{3,80}$/', $usuario)) falla(422, 'Usuario: de 3 a 80 caracteres (letras, números, punto, guion).');
+        $nombreCompleto = texto_cuerpo($d, 'full_name', 160);
+        $correo = texto_cuerpo($d, 'email', 160);
+        $clave = texto_cuerpo($d, 'password', 200);
+        if ($metodo === 'POST') {
+            $usuario = $d['username'] ?? '';
+            if (!is_string($usuario) || !preg_match('/^[a-zA-Z0-9._-]{3,80}$/', $usuario)) falla(422, 'Usuario: de 3 a 80 caracteres (letras, números, punto, guion).');
             $st = $db->prepare('SELECT id FROM ' . t('usuarios') . ' WHERE username = ?');
             $st->execute([$usuario]);
             if ($st->fetch()) falla(409, 'Ya existe un usuario con ese nombre.');
-            validar_clave((string) ($d['password'] ?? ''));
+            validar_clave($clave ?? '');
             $db->prepare('INSERT INTO ' . t('usuarios') . ' (username, full_name, email, password_hash, role, active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)')
-                ->execute([$usuario, mb_substr((string) ($d['full_name'] ?? ''), 0, 160), mb_substr((string) ($d['email'] ?? ''), 0, 160), password_hash((string) $d['password'], PASSWORD_BCRYPT, ['cost' => 12]), $rol ?? 'editor', gp_ahora()]);
+                ->execute([$usuario, $nombreCompleto ?? '', $correo ?? '', password_hash($clave, PASSWORD_BCRYPT, ['cost' => 12]), $rol ?? 'editor', gp_ahora()]);
             $nuevo = (int) $db->lastInsertId();
             bitacora($yo['username'], 'usuario_creado', $usuario, $rol ?? 'editor');
             $st = $db->prepare('SELECT * FROM ' . t('usuarios') . ' WHERE id = ?');
             $st->execute([$nuevo]);
             json_respuesta(usuario_publico($st->fetch()), 201);
         }
-        if ($metodo === 'PUT' && $id !== null) {
+        if ($metodo === 'PUT') {
             $st = $db->prepare('SELECT * FROM ' . t('usuarios') . ' WHERE id = ?');
             $st->execute([$id]);
             $obj = $st->fetch() ?: falla(404, 'Usuario no encontrado.');
-            if ((int) $obj['id'] === (int) $yo['id'] && ((array_key_exists('active', $d) && !$d['active']) || $rol === 'editor')) {
+            $activo = array_key_exists('active', $d) && $d['active'] !== null
+                ? (valor_booleano($d['active']) ?? falla(422, 'active: debe ser verdadero o falso.')) : null;
+            if ((int) $obj['id'] === (int) $yo['id'] && ($activo === false || $rol === 'editor')) {
                 falla(400, 'No puede desactivarse ni quitarse el rol de administrador a sí mismo.');
             }
-            if (!empty($d['password'])) {
-                validar_clave((string) $d['password']);
-                $obj['password_hash'] = password_hash((string) $d['password'], PASSWORD_BCRYPT, ['cost' => 12]);
+            if ($clave !== null && $clave !== '') {
+                validar_clave($clave);
+                $obj['password_hash'] = password_hash($clave, PASSWORD_BCRYPT, ['cost' => 12]);
             }
-            foreach (['full_name' => 160, 'email' => 160] as $k => $max) {
-                if (isset($d[$k])) $obj[$k] = mb_substr((string) $d[$k], 0, $max);
-            }
+            if ($nombreCompleto !== null) $obj['full_name'] = $nombreCompleto;
+            if ($correo !== null) $obj['email'] = $correo;
             if ($rol !== null) $obj['role'] = $rol;
-            if (array_key_exists('active', $d) && $d['active'] !== null) $obj['active'] = $d['active'] ? 1 : 0;
+            if ($activo !== null) $obj['active'] = $activo ? 1 : 0;
             $db->prepare('UPDATE ' . t('usuarios') . ' SET full_name = ?, email = ?, role = ?, active = ?, password_hash = ? WHERE id = ?')
                 ->execute([$obj['full_name'], $obj['email'], $obj['role'], $obj['active'], $obj['password_hash'], $id]);
             bitacora($yo['username'], 'usuario_editado', $obj['username'], implode(', ', array_keys($d)));
@@ -439,12 +501,12 @@ function rutas_admin(string $metodo, string $ruta): void
     // Bitácora
     if ($ruta === 'admin/bitacora' && $metodo === 'GET') {
         exigir_admin($yo);
-        $lim = max(1, min(2000, (int) ($_GET['limite'] ?? 200)));
+        $lim = param_entero('limite', 200, 1, 2000);
         json_respuesta(array_map('bitacora_salida', $db->query('SELECT * FROM ' . t('bitacora') . " ORDER BY at DESC, id DESC LIMIT $lim")->fetchAll()));
     }
 
     // Estudio SIG (GeoLibre integrado)
-    if ($ruta === 'admin/geolibre') {
+    if ($ruta === 'admin/geolibre' && in_array($metodo, ['GET', 'PUT'], true)) {
         exigir_admin($yo);
         if ($metodo === 'PUT') {
             $d = cuerpo_json();
@@ -462,12 +524,9 @@ function rutas_admin(string $metodo, string $ruta): void
             }
             $escrito = gl_escribir_archivos($ajustes);
             bitacora($yo['username'], 'geolibre_configuracion', 'estudio', implode(', ', array_keys($d)));
-            json_respuesta(['ajustes' => $ajustes, 'estado' => gl_estado(), 'archivos_escritos' => $escrito, 'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())), 'integrado' => geolibre_local(), 'usar_integrado' => in_array((string) gp_opcion('geolibre_url', 'local'), ['', 'local'], true), 'url_externa' => gl_url_externa()]);
+            json_respuesta(gl_respuesta_admin($ajustes) + ['archivos_escritos' => $escrito]);
         }
-        $ajustes = gl_ajustes();
-        json_respuesta(['ajustes' => $ajustes, 'estado' => gl_estado(), 'politica' => gl_politica($ajustes, gp_origen(gp_url_publica())), 'integrado' => geolibre_local(),
-            'usar_integrado' => in_array((string) gp_opcion('geolibre_url', 'local'), ['', 'local'], true), 'url_externa' => gl_url_externa(),
-            'opciones' => ['capacidades' => GL_CAPACIDADES, 'menus' => GL_MENUS, 'niveles' => GL_NIVELES, 'acentos' => GL_ACENTOS, 'idiomas' => GL_IDIOMAS, 'tipos_servicio' => GL_TIPOS_SERVICIO]]);
+        json_respuesta(gl_respuesta_admin(gl_ajustes()));
     }
     if ($ruta === 'admin/geolibre/instalar' && $metodo === 'POST') {
         exigir_admin($yo);
@@ -478,7 +537,7 @@ function rutas_admin(string $metodo, string $ruta): void
     }
 
     // Configuración del sitio (equivalente a «Ajustes» de WordPress)
-    if ($ruta === 'admin/configuracion') {
+    if ($ruta === 'admin/configuracion' && in_array($metodo, ['GET', 'PUT'], true)) {
         exigir_admin($yo);
         if ($metodo === 'PUT') {
             $d = cuerpo_json();

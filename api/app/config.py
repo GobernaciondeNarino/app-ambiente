@@ -11,6 +11,10 @@ from urllib.parse import urlsplit
 from pathlib import Path
 
 
+# Versión del geoportal (la misma que GP_VERSION de la edición PHP)
+VERSION = os.getenv("GEOPORTAL_VERSION", "1.2.0")
+
+
 def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None or value.strip() == "":

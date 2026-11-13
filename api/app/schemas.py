@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime
 from typing import Any
@@ -22,6 +23,17 @@ ALLOWED_STYLE_KEYS = {
     "rasterMode",
     "band",
 }
+
+
+def _numero_estilo(clave: str, valor: Any) -> float:
+    """Número de la simbología; el mensaje de error es el mismo de la edición PHP."""
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        numero = math.nan
+    if isinstance(valor, bool) or not math.isfinite(numero):
+        raise ValueError(f"{clave}: debe ser numérico.")
+    return numero
 
 
 class LoginIn(BaseModel):
@@ -156,9 +168,9 @@ class LayerMetaIn(BaseModel):
             elif key in ("colorRamp", "rasterMode"):
                 clean[key] = str(value)[:20]
             elif key == "band":
-                clean[key] = max(1, int(value))
+                clean[key] = max(1, int(_numero_estilo(key, value)))
             else:
-                number = float(value)
+                number = _numero_estilo(key, value)
                 if key == "fillOpacity":
                     number = min(max(number, 0), 1)
                 if key in ("strokeWidth", "circleRadius"):

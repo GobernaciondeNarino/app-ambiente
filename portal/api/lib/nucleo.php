@@ -201,7 +201,8 @@ function json_respuesta(mixed $datos, int $estado = 200, array $cabeceras = []):
     http_response_code($estado);
     header('Content-Type: application/json; charset=utf-8');
     foreach ($cabeceras as $k => $v) {
-        header("$k: $v");
+        // «Vary» se suma a la que ya puso CORS («Origin»): reemplazarla mezclaría respuestas entre orígenes en las cachés
+        header("$k: $v", strcasecmp($k, 'Vary') !== 0);
     }
     if ($estado !== 204) {
         echo json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
@@ -216,7 +217,69 @@ function cuerpo_json(): array
     if (!is_array($datos)) {
         falla(422, 'El cuerpo de la petición debe ser JSON.');
     }
+    // Un objeto, no una lista (json_decode los convierte a ambos en arreglos)
+    if (!str_starts_with(ltrim($crudo), '{')) {
+        falla(422, 'El cuerpo de la petición debe ser un objeto JSON.');
+    }
     return $datos;
+}
+
+// ---------------------------------------------------------------- parámetros (mismas reglas que la edición Python)
+
+/** Booleano con las formas que acepta la edición Python: true/false, 1/0, yes/no, on/off, t/f, y/n. Null si no es válido. */
+function valor_booleano(mixed $v): ?bool
+{
+    if (is_bool($v)) {
+        return $v;
+    }
+    if ((is_int($v) || is_float($v)) && ($v == 0 || $v == 1)) {
+        return (bool) $v;
+    }
+    if (is_string($v)) {
+        $s = strtolower(trim($v));
+        if (in_array($s, ['1', 'true', 't', 'yes', 'y', 'on'], true)) return true;
+        if (in_array($s, ['0', 'false', 'f', 'no', 'n', 'off'], true)) return false;
+    }
+    return null;
+}
+
+/** Parámetro booleano de la URL. Sin el parámetro: $defecto, o 422 si es obligatorio ($defecto null). */
+function param_booleano(string $nombre, ?bool $defecto = null): bool
+{
+    if (!isset($_GET[$nombre])) {
+        return $defecto ?? falla(422, "$nombre: es obligatorio.");
+    }
+    return valor_booleano($_GET[$nombre]) ?? falla(422, "$nombre: debe ser verdadero o falso.");
+}
+
+/** Parámetro entero de la URL entre $min y $max; vacío o ausente: $defecto. */
+function param_entero(string $nombre, ?int $defecto, int $min, int $max): ?int
+{
+    $v = $_GET[$nombre] ?? '';
+    if ($v === '') {
+        return $defecto;
+    }
+    if (!is_string($v) || !preg_match('/^-?\d{1,18}$/', trim($v))) {
+        falla(422, "$nombre: debe ser un número entero.");
+    }
+    $n = (int) $v;
+    if ($n < $min || $n > $max) {
+        falla(422, "$nombre: debe estar entre $min y $max.");
+    }
+    return $n;
+}
+
+/** Parámetro de texto de la URL (sin espacios extremos), con longitud máxima. */
+function param_texto(string $nombre, int $max = 2000): string
+{
+    $v = $_GET[$nombre] ?? '';
+    if (!is_string($v)) {
+        falla(422, "$nombre: debe ser texto.");
+    }
+    if (mb_strlen($v) > $max) {
+        falla(422, "$nombre: admite como máximo $max caracteres.");
+    }
+    return trim($v);
 }
 
 /**

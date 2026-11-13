@@ -18,6 +18,13 @@ from . import estudio
 from .geolibre import _stable_uuid, layer_urls
 
 CHUNK = 1024 * 1024
+# Mayor identificador que admiten las columnas INTEGER: uno mayor no existe (y SQLite fallaría con 500)
+ID_MAXIMO = 2**31 - 1
+
+
+def por_id(session: Session, model: type, ident: int):
+    """``session.get`` que devuelve None para identificadores imposibles (≤ 0 o fuera de rango)."""
+    return session.get(model, ident) if 0 < ident <= ID_MAXIMO else None
 
 
 def slugify(text: str, max_length: int = 80) -> str:
@@ -109,7 +116,7 @@ def audit(session: Session, username: str, action: str, target: str = "", detail
 
 
 def get_layer_or_404(session: Session, layer_id: int) -> Layer:
-    layer = session.get(Layer, layer_id)
+    layer = por_id(session, Layer, layer_id)
     if layer is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Capa no encontrada.")
     return layer

@@ -10,7 +10,9 @@ Roles:
 from __future__ import annotations
 
 import json
+import re
 import shutil
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,7 +25,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..config import Settings, request_settings
 from ..db import get_session
+from ..errores import texto_validacion
 from ..models import AuditLog, Category, Layer, User
+from .public import like_literal
 from ..schemas import (
     AuditOut,
     CategoryIn,
@@ -48,11 +52,13 @@ from ..security import (
 from ..services.ingest import ACCEPTED_EXTENSIONS, IngestError, IngestOptions, ingest_file, read_geojson_head, render_raster_preview
 from ..services import estudio
 from ..services.layers import (
+    ID_MAXIMO,
     audit,
     category_out,
     get_layer_or_404,
     layer_dirs,
     layer_out,
+    por_id,
     remove_layer_files,
     safe_filename,
     save_upload,
@@ -148,7 +154,9 @@ def summary(user: User = Depends(current_user), session: Session = Depends(get_s
 
 
 def _load_layer(session: Session, layer_id: int) -> Layer:
-    layer = session.scalar(select(Layer).options(selectinload(Layer.category)).where(Layer.id == layer_id))
+    layer = None
+    if 0 < layer_id <= ID_MAXIMO:
+        layer = session.scalar(select(Layer).options(selectinload(Layer.category)).where(Layer.id == layer_id))
     if layer is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Capa no encontrada.")
     return layer
@@ -159,16 +167,20 @@ def _parse_meta(raw: str | None) -> LayerMetaIn:
         return LayerMetaIn()
     try:
         return LayerMetaIn.model_validate(json.loads(raw))
-    except (json.JSONDecodeError, ValidationError) as exc:
-        raise HTTPException(422, f"Metadatos no válidos: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise HTTPException(422, "Metadatos no válidos: no son un objeto JSON.") from exc
+    except ValidationError as exc:
+        # Mensaje en español, sin el volcado interno de pydantic
+        raise HTTPException(422, "Metadatos no válidos: " + texto_validacion(exc.errors())) from exc
 
 
 def _apply_meta(layer: Layer, meta: LayerMetaIn, session: Session, user: User) -> list[str]:
     changed: list[str] = []
     data = meta.model_dump(exclude_unset=True)
-    if "published" in data and user.role != "administrador":
+    # «published: null» equivale a no enviarlo (se ignora, como en la edición PHP)
+    if data.get("published") is not None and user.role != "administrador":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Solo un administrador puede publicar o retirar capas.")
-    if "category_id" in data and data["category_id"] is not None and session.get(Category, data["category_id"]) is None:
+    if "category_id" in data and data["category_id"] is not None and por_id(session, Category, data["category_id"]) is None:
         raise HTTPException(422, "La categoría indicada no existe.")
     if "style" in data and data["style"] is not None:
         data["style"] = {**(layer.style or {}), **data["style"]}
@@ -202,6 +214,13 @@ def _apply_ingest(layer: Layer, result, original: Path, original_name: str, size
     layer.raster_info = result.raster_info
 
 
+def _sin_rutas(mensaje: str, settings: Settings) -> str:
+    """Quita de un mensaje de GDAL/rasterio las rutas internas de la carpeta de datos (deja el nombre)."""
+    for raiz in {str(settings.data_dir), str(Path(tempfile.gettempdir()).resolve()), tempfile.gettempdir()}:
+        mensaje = re.sub(re.escape(raiz.rstrip("/\\")) + r"[^\s'\"]*[/\\]", "", mensaje)
+    return mensaje
+
+
 async def _run_ingest(settings: Settings, layer: Layer, upload: UploadFile, opts: IngestOptions):
     filename = safe_filename(upload.filename or "archivo")
     ext = Path(filename).suffix.lower()
@@ -219,7 +238,7 @@ async def _run_ingest(settings: Settings, layer: Layer, upload: UploadFile, opts
         try:
             result = await run_in_threadpool(ingest_file, staged_file, staging_out, opts)
         except IngestError as exc:
-            raise HTTPException(422, str(exc)) from exc
+            raise HTTPException(422, _sin_rutas(str(exc), settings)) from exc
         # Reemplazo atómico de los archivos de la capa
         shutil.rmtree(originals, ignore_errors=True)
         shutil.rmtree(processed, ignore_errors=True)
@@ -247,9 +266,11 @@ def admin_list_layers(
     settings: Settings = Depends(_settings),
 ) -> list[LayerOut]:
     query = select(Layer).options(selectinload(Layer.category))
-    if q:
-        like = f"%{q.strip()}%"
-        query = query.where(or_(Layer.title.ilike(like), Layer.description.ilike(like), Layer.original_filename.ilike(like)))
+    if q and q.strip():
+        like = like_literal(q)
+        query = query.where(
+            or_(Layer.title.ilike(like, escape="\\"), Layer.description.ilike(like, escape="\\"), Layer.original_filename.ilike(like, escape="\\"))
+        )
     if estado == "publicadas":
         query = query.where(Layer.published.is_(True))
     elif estado == "borradores":
@@ -474,10 +495,11 @@ def admin_create_category(
 def admin_update_category(
     cat_id: int, data: CategoryIn, user: User = Depends(require_admin), session: Session = Depends(get_session)
 ) -> CategoryOut:
-    cat = session.get(Category, cat_id)
+    cat = por_id(session, Category, cat_id)
     if cat is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoría no encontrada.")
-    for key, value in data.model_dump().items():
+    # Solo los campos enviados: el administrador no envía «icon» y no debe perderse
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(cat, key, value)
     audit(session, user.username, "categoria_editada", cat.slug)
     session.commit()
@@ -486,7 +508,7 @@ def admin_update_category(
 
 @router.delete("/categorias/{cat_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 def admin_delete_category(cat_id: int, user: User = Depends(require_admin), session: Session = Depends(get_session)) -> None:
-    cat = session.get(Category, cat_id)
+    cat = por_id(session, Category, cat_id)
     if cat is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoría no encontrada.")
     in_use = session.scalar(select(func.count(Layer.id)).where(Layer.category_id == cat_id)) or 0
@@ -531,7 +553,7 @@ def admin_create_user(data: UserCreate, user: User = Depends(require_admin), ses
 def admin_update_user(
     user_id: int, data: UserUpdate, user: User = Depends(require_admin), session: Session = Depends(get_session)
 ) -> User:
-    target = session.get(User, user_id)
+    target = por_id(session, User, user_id)
     if target is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
     changes = data.model_dump(exclude_unset=True)

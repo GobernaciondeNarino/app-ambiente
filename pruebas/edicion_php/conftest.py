@@ -82,3 +82,18 @@ def sitio(tmp_path_factory):
     }
     proceso.terminate()
     _mysql(f"DROP DATABASE IF EXISTS `{base_datos}`")
+
+
+def instalar_sitio(sitio, clave: str) -> str:
+    """Instala el sitio con el asistente (sin comprobar cada paso) y devuelve un token de administrador."""
+    url = sitio["url"]
+    with httpx.Client(follow_redirects=False, timeout=30) as c:
+        bd = {"db_host": MYSQL["host"], "db_puerto": MYSQL["port"], "db_nombre": sitio["bd"], "db_prefijo": "gp_",
+              "db_usuario": MYSQL["user"], "db_clave": MYSQL["password"]}
+        assert c.post(url + "instalar/?paso=bd", data=bd).status_code == 303
+        r = c.post(url + "instalar/?paso=sitio", data={
+            "nombre_portal": "Geoportal de prueba", "url_publica": "", "geolibre_url": "https://web.geolibre.app",
+            "admin_usuario": "admin", "admin_nombre": "Administración", "admin_correo": "sig@ejemplo.gov.co",
+            "datos_dir": str(sitio["datos"]), "admin_clave": clave, "admin_clave2": clave})
+        assert "quedó instalado" in r.text
+        return c.post(url + "api/auth/ingresar", json={"username": "admin", "password": clave}).json()["access_token"]

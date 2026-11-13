@@ -73,21 +73,28 @@ function cabecera_autorizacion(): string
     return '';
 }
 
+/** 401 de sesión con «WWW-Authenticate: Bearer», como la edición Python. */
+function falla_sesion(string $detalle): never
+{
+    header('WWW-Authenticate: Bearer');
+    falla(401, $detalle);
+}
+
 function usuario_actual(): array
 {
     $cab = cabecera_autorizacion();
     if (!preg_match('/^Bearer\s+(\S+)$/i', $cab, $m)) {
-        falla(401, 'Debe iniciar sesión.');
+        falla_sesion('Debe iniciar sesión.');
     }
     $carga = jwt_validar($m[1]);
     if ($carga === null) {
-        falla(401, 'Sesión no válida o expirada.');
+        falla_sesion('Sesión no válida o expirada.');
     }
     $st = gp_db()->prepare('SELECT * FROM ' . t('usuarios') . ' WHERE username = ?');
     $st->execute([(string) ($carga['sub'] ?? '')]);
     $u = $st->fetch();
     if (!$u || !(int) $u['active']) {
-        falla(401, 'Sesión no válida o expirada.');
+        falla_sesion('Sesión no válida o expirada.');
     }
     return $u;
 }

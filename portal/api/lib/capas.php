@@ -143,7 +143,10 @@ function validar_metadatos(array $m): array
         if (!array_key_exists($k, $m) || $m[$k] === null) {
             return;
         }
-        $v = trim((string) $m[$k]);
+        if (!is_string($m[$k])) {
+            falla(422, "$k: debe ser texto.");
+        }
+        $v = trim($m[$k]);
         if (mb_strlen($v) > $max || mb_strlen($v) < $min) {
             falla(422, "$k: longitud no válida.");
         }
@@ -159,32 +162,40 @@ function validar_metadatos(array $m): array
     $texto('lineage', 5000);
     $texto('update_frequency', 40);
     $texto('label_field', 120);
-    if (array_key_exists('data_date', $m) && $m['data_date'] !== null) {
-        $d = trim((string) $m['data_date']);
-        if ($d !== '' && !preg_match('/^\d{4}(-\d{2}(-\d{2})?)?$/', $d)) {
-            falla(422, 'data_date: use el formato AAAA, AAAA-MM o AAAA-MM-DD.');
-        }
-        $limpio['data_date'] = $d;
+    $texto('data_date', 20);
+    if (($limpio['data_date'] ?? '') !== '' && !preg_match('/^\d{4}(-\d{2}(-\d{2})?)?$/', $limpio['data_date'])) {
+        falla(422, 'data_date: use el formato AAAA, AAAA-MM o AAAA-MM-DD.');
     }
     if (array_key_exists('category_id', $m)) {
-        $limpio['category_id'] = $m['category_id'] === null || $m['category_id'] === '' ? null : (int) $m['category_id'];
+        $cat = $m['category_id'];
+        if ($cat !== null && $cat !== '' && filter_var($cat, FILTER_VALIDATE_INT) === false) {
+            falla(422, 'category_id: debe ser un número entero.'); // antes (int) 'abc' = 0 y la base de datos respondía 500
+        }
+        $limpio['category_id'] = $cat === null || $cat === '' ? null : (int) $cat;
     }
-    if (isset($m['keywords']) && is_array($m['keywords'])) {
+    // Listas de texto: otro tipo es un error (422), no se ignora ni se convierte
+    foreach (['keywords', 'popup_fields'] as $l) {
+        if (array_key_exists($l, $m) && $m[$l] !== null && (!is_array($m[$l]) || !array_is_list($m[$l]) || array_filter($m[$l], static fn ($x) => !is_string($x)))) {
+            falla(422, "$l: debe ser una lista de textos.");
+        }
+    }
+    if (isset($m['keywords'])) {
         $vistas = [];
         foreach ($m['keywords'] as $k) {
-            $k = mb_substr(trim((string) $k), 0, 60);
+            $k = mb_substr(trim($k), 0, 60);
             if ($k !== '' && !in_array(mb_strtolower($k), array_map('mb_strtolower', $vistas), true)) {
                 $vistas[] = $k;
             }
         }
         $limpio['keywords'] = array_slice($vistas, 0, 30);
     }
-    if (isset($m['popup_fields']) && is_array($m['popup_fields'])) {
-        $limpio['popup_fields'] = array_values(array_map('strval', $m['popup_fields']));
+    if (isset($m['popup_fields'])) {
+        $limpio['popup_fields'] = array_values($m['popup_fields']);
     }
     foreach (['downloadable', 'visible_by_default', 'published'] as $b) {
         if (array_key_exists($b, $m) && $m[$b] !== null) {
-            $limpio[$b] = (bool) $m[$b];
+            // «quizás» ya no cuenta como verdadero
+            $limpio[$b] = valor_booleano($m[$b]) ?? falla(422, "$b: debe ser verdadero o falso.");
         }
     }
     foreach (['opacity' => [0, 1], 'position' => [-1000000, 1000000]] as $n => [$min, $max]) {
@@ -195,7 +206,10 @@ function validar_metadatos(array $m): array
             $limpio[$n] = $n === 'position' ? (int) $m[$n] : (float) $m[$n];
         }
     }
-    if (isset($m['style']) && is_array($m['style'])) {
+    if (array_key_exists('style', $m) && $m['style'] !== null && (!is_array($m['style']) || ($m['style'] !== [] && array_is_list($m['style'])))) {
+        falla(422, 'style: debe ser un objeto JSON.');
+    }
+    if (isset($m['style'])) {
         $estilo = [];
         foreach ($m['style'] as $k => $v) {
             if (!in_array($k, ESTILO_PERMITIDO, true) || $v === null || $v === '') {
@@ -208,11 +222,13 @@ function validar_metadatos(array $m): array
                 $estilo[$k] = $v;
             } elseif ($k === 'colorRamp' || $k === 'rasterMode') {
                 $estilo[$k] = mb_substr((string) $v, 0, 20);
-            } elseif ($k === 'band') {
-                $estilo[$k] = max(1, (int) $v);
             } else {
                 if (!is_numeric($v)) {
                     falla(422, "$k: debe ser numérico.");
+                }
+                if ($k === 'band') {
+                    $estilo[$k] = max(1, (int) $v);
+                    continue;
                 }
                 $n = (float) $v;
                 if ($k === 'fillOpacity') {
@@ -235,7 +251,7 @@ function aplicar_metadatos(array &$capa, array $meta, array $usuario): array
     if (array_key_exists('published', $meta) && $usuario['role'] !== 'administrador') {
         falla(403, 'Solo un administrador puede publicar o retirar capas.');
     }
-    if (!empty($meta['category_id'])) {
+    if (($meta['category_id'] ?? null) !== null) { // también 0: no existe (antes llegaba a la base de datos y respondía 500)
         $st = gp_db()->prepare('SELECT id FROM ' . t('categorias') . ' WHERE id = ?');
         $st->execute([$meta['category_id']]);
         if (!$st->fetch()) {
@@ -350,6 +366,10 @@ function capa_geolibre(array $c, ?string $grupo): array
         if (isset($c['style'][$k])) {
             $estilo[$k] = $c['style'][$k];
         }
+    }
+    if ($c['geometry_type'] === 'Línea') {
+        // En GeoLibre el color de línea es el del trazo (igual que la edición Python)
+        $estilo['strokeColor'] = $c['style']['strokeColor'] ?? $estilo['fillColor'];
     }
     $urls = urls_capa($c);
     $id = uuid5('capa:' . $c['slug']);

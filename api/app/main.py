@@ -10,7 +10,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from .config import get_settings, origin_of
+from . import errores
+from .config import VERSION, get_settings, origin_of
 from .db import Base, get_engine, session_scope
 from .models import Category, User
 from .routers import admin, public
@@ -90,7 +91,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Geoportal Ambiental — Gobernación de Nariño",
         description="API de catálogo, consulta y administración de geodatos de la Secretaría de Ambiente y Desarrollo Sostenible.",
-        version=os.getenv("GEOPORTAL_VERSION", "1.2.0"),
+        version=VERSION,
         lifespan=lifespan,
         docs_url=None,  # se sirve abajo con una URL relativa (funciona en subdirectorios)
         redoc_url=None,
@@ -112,6 +113,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
         expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
     )
+    # Errores en JSON y en español, con la misma forma que la edición PHP
+    errores.instalar(app)
     # La compresión gzip la hace nginx (no aplica a respuestas parciales 206 de las COG)
     app.include_router(public.router)
     app.include_router(admin.auth_router)
