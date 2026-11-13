@@ -667,6 +667,20 @@ body {
   inset: 0;
 }
 
+/* Sin MapLibre o sin WebGL: aviso en lugar del mapa */
+.mapa-previa.sin-mapa {
+  height: auto;
+}
+
+.mapa-previa.sin-mapa #mapa-previa {
+  position: static;
+  padding: 14px;
+}
+
+.mapa-previa.sin-mapa .aviso {
+  margin: 0;
+}
+
 dl.tecnica {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -780,6 +794,18 @@ dl.tecnica dd {
   .volver {
     display: inline-flex;
     align-items: center;
+    /* Por encima del título que sigue: el texto del h1 invade 3 px de la zona pulsable */
+    position: relative;
+    z-index: 1;
+  }
+
+  /* El título de la capa en la tabla es el enlace a su ficha: zona pulsable de 40 px */
+  .tabla .titulo-celda a {
+    display: block;
+    min-height: 40px;
+    padding: 9px 0;
+    position: relative;
+    z-index: 1;
   }
 
   .avanzado summary {

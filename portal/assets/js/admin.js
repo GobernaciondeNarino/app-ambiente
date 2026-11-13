@@ -33,6 +33,7 @@
   const ACCIONES = {
     ingreso: "Ingreso",
     ingreso_fallido: "Ingreso fallido",
+    ingreso_bloqueado: "Ingreso bloqueado (demasiados intentos)",
     carga: "Carga de geodato",
     edicion: "Edición",
     actualizacion_archivo: "Actualización de archivo",
@@ -1078,16 +1079,44 @@
 
   // ------------------------------------------------------------------ mapa de vista previa
 
+  // Textos de los controles de MapLibre en español (los mismos que usa el visor)
+  const TEXTOS_MAPA = {
+    "NavigationControl.ZoomIn": "Acercar",
+    "NavigationControl.ZoomOut": "Alejar",
+    "NavigationControl.ResetBearing": "Restablecer orientación",
+    "Map.Title": "Vista previa de la capa",
+    "Popup.Close": "Cerrar ventana emergente",
+    "AttributionControl.ToggleAttribution": "Mostrar u ocultar la atribución",
+    "AttributionControl.MapFeedback": "Comentarios sobre el mapa",
+    "LogoControl.Title": "Logotipo de MapLibre",
+  };
+
+  /**
+   * Crea el mapa de vista previa. Si MapLibre no cargó o el navegador no tiene WebGL, deja un aviso
+   * en su lugar y devuelve null: el resto del editor sigue funcionando.
+   */
   function asegurarMapa() {
-    if (estado.mapa) return estado.mapa;
-    estado.mapa = new maplibregl.Map({
-      container: "mapa-previa",
-      style: "https://tiles.openfreemap.org/styles/positron",
-      center: [-77.8, 1.45],
-      zoom: 6.5,
-      attributionControl: { compact: true },
-    });
-    estado.mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    if (estado.mapa || estado.sinMapa) return estado.mapa;
+    try {
+      if (!window.maplibregl) throw new Error("No se cargó la biblioteca de mapas (MapLibre).");
+      estado.mapa = new maplibregl.Map({
+        container: "mapa-previa",
+        style: "https://tiles.openfreemap.org/styles/positron",
+        center: [-77.8, 1.45],
+        zoom: 6.5,
+        attributionControl: { compact: true },
+        locale: TEXTOS_MAPA,
+      });
+      estado.mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    } catch (ex) {
+      console.warn("Vista previa del mapa no disponible:", ex);
+      estado.mapa = null;
+      estado.sinMapa = true;
+      $(".mapa-previa").classList.add("sin-mapa");
+      $("#mapa-previa").innerHTML =
+        '<p class="aviso advertencia" role="status">La vista previa del mapa no está disponible: no se pudo cargar la biblioteca de mapas o el navegador no admite WebGL. ' +
+        "La capa se puede editar, guardar y publicar con normalidad.</p>";
+    }
     return estado.mapa;
   }
 
@@ -1099,6 +1128,7 @@
   async function previsualizar() {
     const c = estado.capa;
     const m = asegurarMapa();
+    if (!m) return;
     const dibujar = async () => {
       limpiarPrevia(m);
       try {
