@@ -32,7 +32,11 @@ compuerta de Bash bloqueando un comando de borrado de la raíz.
 | `CLAUDE.md`: se quitaron la regla que prohíbe la línea `Co-Authored-By` y el paso `npm run build && npm test`; se añadieron las reglas y las pruebas del proyecto | La plantilla es genérica; este proyecto no tiene paso de compilación y ya tiene su propia convención de commits |
 
 Los scripts de `.claude/helpers/` se dejaron exactamente como los entrega Ruflo: llevan un manifiesto
-con sumas SHA-256 y firma ed25519 (`helpers.manifest.json`).
+con sumas SHA-256 y firma ed25519 (`helpers.manifest.json`). `ruflo init` escribe en
+`statusline.cjs` la ruta de su caché de `npx` y su versión, y con eso el archivo deja de coincidir
+con el manifiesto; al arrancar, el propio Ruflo (servidor MCP o CLI) lo vuelve a copiar del paquete.
+Por eso se versiona la copia del paquete, la que coincide con la firma: así el árbol de trabajo no
+cambia en cada sesión.
 
 ## Qué implica tenerlo instalado
 
