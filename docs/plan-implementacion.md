@@ -125,6 +125,21 @@ No forman parte de esta entrega. Hoy se resuelven en el Estudio SIG.
 | Servicios OGC propios (WMS, WFS) | Publicar las capas para otros SIG | Requiere servidor de mapas |
 | Uso sin conexión | Aplicación instalable con teselas guardadas | GeoLibre lo ofrece en su aplicación |
 
+### Pendientes de la revisión por módulos
+
+La revisión con agentes coordinados por Ruflo (un agente por módulo: visor, administrador,
+asistente de instalación, capa institucional y API) y la validación independiente posterior dejaron
+estos puntos abiertos:
+
+| Tema | Qué falta | Quién |
+| --- | --- | --- |
+| Datos institucionales | Enlaces legales del pie (hoy apuntan a la portada de narino.gov.co), código postal, redes sociales y logotipos oficiales en `config-institucional.js` y `assets/img/` | La Gobernación aporta los datos |
+| Sesiones | Revocar los tokens al cambiar la contraseña y una ruta de cierre de sesión en el servidor (hoy «Salir» borra el token del navegador y caduca a las 8 h) | Ambas ediciones de la API |
+| Bitácora y capas | Paginación y filtros en la bitácora; ordenar la lista de capas por columnas | Administrador |
+| Tamaño de archivos | Superan las 500 líneas: `admin.js`, `institucional.css`, `instalar/index.php`, `rutas_admin.php`, `capas.php` y `admin.py`. Dividirlos es una reorganización aparte | Cada módulo |
+| Caché | Datos y proyectos se sirven con `Cache-Control: public, max-age=60`: una capa retirada puede verse hasta 60 s desde una caché | API, si se quiere acortar |
+| Pruebas | Firefox, Safari, lector de pantalla, dispositivos táctiles reales y HTTPS (portapapeles y «Mi ubicación» solo funcionan con HTTPS) | Antes de producción |
+
 ## Verificación
 
 ```bash
@@ -142,6 +157,14 @@ for f in portal/assets/js/*.js; do node --check "$f"; done
 Las pruebas de extremo a extremo usan Playwright contra una instalación en subcarpeta anidada
 (`/secretarias/ambiente/geoportal/`) de un Plesk simulado: nginx delante de Apache, PHP-FPM con
 `open_basedir` y MySQL 8.
+
+En la revisión por módulos se añadieron las pruebas de contrato de la API (`api/tests/test_contrato.py`,
+`api/tests/test_ingreso.py`, `pruebas/edicion_php/test_contrato_php.py`: 40 pruebas en Python y 20 en
+PHP) y se recorrieron con Playwright, sobre el código integrado, cuatro instalaciones (subcarpeta,
+subcarpeta anidada, raíz de subdominio sin permiso de escritura y sitio sin instalar) en 360×740,
+390×844 táctil, 768×1024, 1024×768 y 1440×900, en claro y oscuro: visor (143 comprobaciones y un
+recorrido funcional de 87), capa institucional (120, con un barrido de 14 páginas), administrador (64)
+y asistente de instalación (341, con una instalación completa y sus casos de error).
 
 ## Riesgos
 
