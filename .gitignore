@@ -13,3 +13,15 @@ dist/
 portal/config.php
 portal/datos-*/
 portal/geolibre/
+
+# Ruflo local secrets and runtime data
+.env.local
+.env.*.local
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/sessions/
+.swarm/
+.claude-flow/metrics/
+.claude-flow/security/
+.claude-flow/memory-package.json
+.claude/settings.json.bak-*
