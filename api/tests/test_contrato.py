@@ -108,3 +108,53 @@ def test_editor_puede_enviar_published_nulo(client, auth, geojson_file):
     capa = _upload(client, ed, geojson_file, {"title": "Humedales"}).json()["capa"]
     assert client.put(f"/api/admin/capas/{capa['id']}", headers=ed, json={"published": None, "description": "x"}).status_code == 200
     assert client.put(f"/api/admin/capas/{capa['id']}", headers=ed, json={"published": True}).status_code == 403
+
+
+FECHA_INEXISTENTE = "data_date: la fecha no existe (mes de 01 a 12 y un día válido para ese mes)."
+FECHA_FORMATO = "data_date: use el formato AAAA, AAAA-MM o AAAA-MM-DD."
+CORREO_NO_VALIDO = "correo electrónico no válido (p. ej. nombre@entidad.gov.co)."
+
+
+def test_fecha_de_la_informacion(client, auth, geojson_file):
+    r = _upload(client, auth, geojson_file, {"title": "Humedales", "data_date": "2024-02-29"})
+    assert r.status_code == 201 and r.json()["capa"]["data_date"] == "2024-02-29"
+    capa = r.json()["capa"]
+    url = f"/api/admin/capas/{capa['id']}"
+    guardada = "2024-02-29"
+    for valor in ("2024", None, "2024-02", " 1990-12-31 ", "", "2000-02-29"):
+        r = client.put(url, headers=auth, json={"data_date": valor})
+        guardada = guardada if valor is None else valor.strip()
+        assert r.status_code == 200 and r.json()["data_date"] == guardada, valor
+    for valor in ("2026-13", "2026-02-30", "2023-02-29", "2026-00", "2026-04-31", "2026-12-32", "0000"):
+        r = client.put(url, headers=auth, json={"data_date": valor})
+        assert r.status_code == 422 and r.json()["detail"] == FECHA_INEXISTENTE, valor
+    for valor in ("2026-1", "26-01-01", "2026/01/01", "ayer"):
+        r = client.put(url, headers=auth, json={"data_date": valor})
+        assert r.status_code == 422 and r.json()["detail"] == FECHA_FORMATO, valor
+    assert client.get(url, headers=auth).json()["data_date"] == "2000-02-29"
+    r = _upload(client, auth, geojson_file, {"title": "Otra", "data_date": "2026-02-30"})
+    assert r.status_code == 422 and r.json()["detail"] == "Metadatos no válidos: " + FECHA_INEXISTENTE
+
+
+def test_correos_de_contacto_y_de_usuario(client, auth, geojson_file):
+    r = _upload(client, auth, geojson_file, {"title": "Humedales", "contact_email": " sig@narino.gov.co "})
+    assert r.status_code == 201 and r.json()["capa"]["contact_email"] == "sig@narino.gov.co"
+    url = f"/api/admin/capas/{r.json()['capa']['id']}"
+    for valor in ("correo", "a@b", "a..b@x.co", "josé@x.co", "a@x.co b", "@x.co"):
+        r = client.put(url, headers=auth, json={"contact_email": valor})
+        assert r.status_code == 422 and r.json()["detail"] == "contact_email: " + CORREO_NO_VALIDO, valor
+    assert client.put(url, headers=auth, json={"contact_email": "o'neil+sig@sub-dominio.gov.co"}).json()["contact_email"] == "o'neil+sig@sub-dominio.gov.co"
+    assert client.put(url, headers=auth, json={"contact_email": ""}).json()["contact_email"] == ""
+    r = _upload(client, auth, geojson_file, {"title": "Otra", "contact_email": "malo"})
+    assert r.status_code == 422 and r.json()["detail"] == "Metadatos no válidos: contact_email: " + CORREO_NO_VALIDO
+    # Usuarios: crear y editar
+    nuevo = {"username": "editora", "password": "Editora-2026!", "role": "editor"}
+    r = client.post("/api/admin/usuarios", headers=auth, json=nuevo | {"email": "editora@"})
+    assert r.status_code == 422 and r.json()["detail"] == "email: " + CORREO_NO_VALIDO
+    r = client.post("/api/admin/usuarios", headers=auth, json=nuevo | {"email": "editora@narino.gov.co"})
+    assert r.status_code == 201 and r.json()["email"] == "editora@narino.gov.co"
+    uid = r.json()["id"]
+    r = client.put(f"/api/admin/usuarios/{uid}", headers=auth, json={"email": "x@y"})
+    assert r.status_code == 422 and r.json()["detail"] == "email: " + CORREO_NO_VALIDO
+    assert client.put(f"/api/admin/usuarios/{uid}", headers=auth, json={"email": None}).json()["email"] == "editora@narino.gov.co"
+    assert client.put(f"/api/admin/usuarios/{uid}", headers=auth, json={"email": ""}).json()["email"] == ""

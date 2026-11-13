@@ -458,6 +458,10 @@ function rutas_admin(string $metodo, string $ruta): void
         if ($rol !== null && !in_array($rol, ['administrador', 'editor'], true)) falla(422, 'Rol no válido.');
         $nombreCompleto = texto_cuerpo($d, 'full_name', 160);
         $correo = texto_cuerpo($d, 'email', 160);
+        $correo = $correo === null ? null : trim($correo);
+        if ($correo !== null && $correo !== '' && !correo_valido($correo)) {
+            falla(422, 'email: ' . GP_CORREO_NO_VALIDO);
+        }
         $clave = texto_cuerpo($d, 'password', 200);
         if ($metodo === 'POST') {
             $usuario = $d['username'] ?? '';

@@ -163,8 +163,17 @@ function validar_metadatos(array $m): array
     $texto('update_frequency', 40);
     $texto('label_field', 120);
     $texto('data_date', 20);
-    if (($limpio['data_date'] ?? '') !== '' && !preg_match('/^\d{4}(-\d{2}(-\d{2})?)?$/', $limpio['data_date'])) {
-        falla(422, 'data_date: use el formato AAAA, AAAA-MM o AAAA-MM-DD.');
+    if (($limpio['data_date'] ?? '') !== '') {
+        // AAAA, AAAA-MM o AAAA-MM-DD, con un mes y un día que existan (como la edición Python)
+        if (!preg_match('/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?\z/', $limpio['data_date'], $f)) {
+            falla(422, 'data_date: use el formato AAAA, AAAA-MM o AAAA-MM-DD.');
+        }
+        if (!checkdate((int) ($f[2] ?? 1), (int) ($f[3] ?? 1), (int) $f[1])) {
+            falla(422, 'data_date: la fecha no existe (mes de 01 a 12 y un día válido para ese mes).');
+        }
+    }
+    if (($limpio['contact_email'] ?? '') !== '' && !correo_valido($limpio['contact_email'])) {
+        falla(422, 'contact_email: ' . GP_CORREO_NO_VALIDO);
     }
     if (array_key_exists('category_id', $m)) {
         $cat = $m['category_id'];

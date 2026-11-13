@@ -4,13 +4,22 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$")
-ISO_DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
+ISO_DATE = re.compile(r"([0-9]{4})(?:-([0-9]{2})(?:-([0-9]{2}))?)?")
+# Correo: parte local «dot-atom» y dominio con al menos un punto. Misma expresión que correo_valido() de la
+# edición PHP; acepta lo mismo que FILTER_VALIDATE_EMAIL salvo los dominios entre corchetes.
+EMAIL = re.compile(
+    r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+)
+FECHA_FORMATO = "Use el formato AAAA, AAAA-MM o AAAA-MM-DD."
+FECHA_INEXISTENTE = "La fecha no existe (mes de 01 a 12 y un día válido para ese mes)."
+CORREO_NO_VALIDO = "Correo electrónico no válido (p. ej. nombre@entidad.gov.co)."
 ALLOWED_STYLE_KEYS = {
     "fillColor",
     "strokeColor",
@@ -23,6 +32,33 @@ ALLOWED_STYLE_KEYS = {
     "rasterMode",
     "band",
 }
+
+
+def correo_opcional(v: str | None) -> str | None:
+    """Vacío o un correo válido (sin espacios extremos)."""
+    if v is None:
+        return v
+    v = v.strip()
+    if v and not EMAIL.fullmatch(v):
+        raise ValueError(CORREO_NO_VALIDO)
+    return v
+
+
+def fecha_opcional(v: str | None) -> str | None:
+    """Vacío, AAAA, AAAA-MM o AAAA-MM-DD con un mes y un día que existan en el calendario."""
+    if v is None:
+        return v
+    v = v.strip()
+    if not v:
+        return v
+    m = ISO_DATE.fullmatch(v)
+    if not m:
+        raise ValueError(FECHA_FORMATO)
+    try:
+        date(int(m[1]), int(m[2] or 1), int(m[3] or 1))
+    except ValueError:
+        raise ValueError(FECHA_INEXISTENTE) from None
+    return v
 
 
 def _numero_estilo(clave: str, valor: Any) -> float:
@@ -67,6 +103,11 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=1, max_length=200)
     role: str = Field(default="editor", pattern="^(administrador|editor)$")
 
+    @field_validator("email")
+    @classmethod
+    def _correo(cls, v: str | None) -> str | None:
+        return correo_opcional(v)
+
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, max_length=160)
@@ -74,6 +115,11 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, max_length=200)
     role: str | None = Field(default=None, pattern="^(administrador|editor)$")
     active: bool | None = None
+
+    @field_validator("email")
+    @classmethod
+    def _correo(cls, v: str | None) -> str | None:
+        return correo_opcional(v)
 
 
 class PasswordChange(BaseModel):
@@ -136,9 +182,12 @@ class LayerMetaIn(BaseModel):
     @field_validator("data_date")
     @classmethod
     def _date(cls, v: str | None) -> str | None:
-        if v and not ISO_DATE.match(v):
-            raise ValueError("Use el formato AAAA, AAAA-MM o AAAA-MM-DD.")
-        return v
+        return fecha_opcional(v)
+
+    @field_validator("contact_email")
+    @classmethod
+    def _correo(cls, v: str | None) -> str | None:
+        return correo_opcional(v)
 
     @field_validator("keywords")
     @classmethod

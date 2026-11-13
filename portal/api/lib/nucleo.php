@@ -269,6 +269,18 @@ function param_entero(string $nombre, ?int $defecto, int $min, int $max): ?int
     return $n;
 }
 
+/**
+ * ¿Correo válido? Parte local «dot-atom» y dominio con al menos un punto. Misma expresión que EMAIL de la
+ * edición Python; acepta lo mismo que FILTER_VALIDATE_EMAIL salvo los dominios entre corchetes.
+ */
+function correo_valido(string $correo): bool
+{
+    return (bool) preg_match("/^[A-Za-z0-9!#$%&'*+\\/=?^_`{|}~-]+(?:\\.[A-Za-z0-9!#$%&'*+\\/=?^_`{|}~-]+)*"
+        . "@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\z/", $correo);
+}
+
+const GP_CORREO_NO_VALIDO = 'correo electrónico no válido (p. ej. nombre@entidad.gov.co).';
+
 /** Parámetro de texto de la URL (sin espacios extremos), con longitud máxima. */
 function param_texto(string $nombre, int $max = 2000): string
 {

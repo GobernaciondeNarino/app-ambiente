@@ -107,3 +107,56 @@ def test_cabeceras_vary_y_www_authenticate(api, sitio):
     assert httpx.get(sitio["url"] + "api/admin/capas").headers.get("www-authenticate") == "Bearer"
     assert "www-authenticate" not in api.get("/admin/capas").headers
     assert httpx.head(sitio["url"] + f"api/capas/{api.capa['slug']}/datos.geojson").status_code == 200
+
+
+FECHA_INEXISTENTE = "data_date: la fecha no existe (mes de 01 a 12 y un día válido para ese mes)."
+FECHA_FORMATO = "data_date: use el formato AAAA, AAAA-MM o AAAA-MM-DD."
+CORREO_NO_VALIDO = "correo electrónico no válido (p. ej. nombre@entidad.gov.co)."
+
+
+def _cargar_capa(api, meta):
+    return _cargar(api, str(api.base_url) + "/admin/capas", api.token, FC, INFO, meta)
+
+
+def test_fecha_de_la_informacion(api):
+    r = _cargar_capa(api, {"title": "Con fecha", "data_date": "2024-02-29"})
+    assert r.status_code == 201 and r.json()["capa"]["data_date"] == "2024-02-29"
+    url = f"/admin/capas/{r.json()['capa']['id']}"
+    guardada = "2024-02-29"
+    for valor in ("2024", None, "2024-02", " 1990-12-31 ", "", "2000-02-29"):
+        r = api.put(url, json={"data_date": valor})
+        guardada = guardada if valor is None else valor.strip()
+        assert r.status_code == 200 and r.json()["data_date"] == guardada, valor
+    for valor in ("2026-13", "2026-02-30", "2023-02-29", "2026-00", "2026-04-31", "2026-12-32", "0000"):
+        r = api.put(url, json={"data_date": valor})
+        assert r.status_code == 422 and r.json()["detail"] == FECHA_INEXISTENTE, valor
+    for valor in ("2026-1", "26-01-01", "2026/01/01", "ayer"):
+        r = api.put(url, json={"data_date": valor})
+        assert r.status_code == 422 and r.json()["detail"] == FECHA_FORMATO, valor
+    assert api.get(url).json()["data_date"] == "2000-02-29"
+    r = _cargar_capa(api, {"title": "Otra", "data_date": "2026-02-30"})
+    assert r.status_code == 422 and r.json()["detail"] == "Metadatos no válidos: " + FECHA_INEXISTENTE
+
+
+def test_correos_de_contacto_y_de_usuario(api):
+    r = _cargar_capa(api, {"title": "Con correo", "contact_email": " sig@narino.gov.co "})
+    assert r.status_code == 201 and r.json()["capa"]["contact_email"] == "sig@narino.gov.co"
+    url = f"/admin/capas/{r.json()['capa']['id']}"
+    for valor in ("correo", "a@b", "a..b@x.co", "josé@x.co", "a@x.co b", "@x.co"):
+        r = api.put(url, json={"contact_email": valor})
+        assert r.status_code == 422 and r.json()["detail"] == "contact_email: " + CORREO_NO_VALIDO, valor
+    assert api.put(url, json={"contact_email": "o'neil+sig@sub-dominio.gov.co"}).json()["contact_email"] == "o'neil+sig@sub-dominio.gov.co"
+    assert api.put(url, json={"contact_email": ""}).json()["contact_email"] == ""
+    r = _cargar_capa(api, {"title": "Otra", "contact_email": "malo"})
+    assert r.status_code == 422 and r.json()["detail"] == "Metadatos no válidos: contact_email: " + CORREO_NO_VALIDO
+    # Usuarios: crear y editar
+    nuevo = {"username": "editora", "password": "Editora-2026!", "role": "editor"}
+    r = api.post("/admin/usuarios", json=nuevo | {"email": "editora@"})
+    assert r.status_code == 422 and r.json()["detail"] == "email: " + CORREO_NO_VALIDO
+    r = api.post("/admin/usuarios", json=nuevo | {"email": "editora@narino.gov.co"})
+    assert r.status_code == 201 and r.json()["email"] == "editora@narino.gov.co"
+    uid = r.json()["id"]
+    r = api.put(f"/admin/usuarios/{uid}", json={"email": "x@y"})
+    assert r.status_code == 422 and r.json()["detail"] == "email: " + CORREO_NO_VALIDO
+    assert api.put(f"/admin/usuarios/{uid}", json={"email": None}).json()["email"] == "editora@narino.gov.co"
+    assert api.put(f"/admin/usuarios/{uid}", json={"email": ""}).json()["email"] == ""
