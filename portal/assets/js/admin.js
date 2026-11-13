@@ -45,6 +45,10 @@
     usuario_creado: "Usuario creado",
     usuario_editado: "Usuario editado",
     cambio_clave: "Cambio de contraseña",
+    geolibre_configuracion: "Configuración del Estudio SIG",
+    geolibre_instalacion: "Instalación de GeoLibre",
+    configuracion: "Configuración del sitio",
+    instalacion: "Instalación",
   };
 
   const estado = { token: null, usuario: null, categorias: [], capa: null, mapa: null, sucio: false, ingesta: "servidor", edicion: "" };
@@ -111,6 +115,92 @@
     if (datos && Array.isArray(datos.detail))
       return datos.detail.map((d) => (d.loc ? d.loc.slice(1).join(".") + ": " : "") + d.msg).join(" · ");
     return "Error " + codigo + " en el servidor.";
+  }
+
+  // ------------------------------------------------------------------ validación junto al campo
+
+  let contadorErrores = 0;
+
+  /** Muestra el mensaje debajo del control y lo enlaza con aria-describedby. */
+  function errorEnCampo(el, mensaje) {
+    let span = el.dataset.errorId && document.getElementById(el.dataset.errorId);
+    if (!span) {
+      span = document.createElement("span");
+      span.className = "error-campo";
+      span.id = "error-campo-" + ++contadorErrores;
+      el.dataset.errorId = span.id;
+      (el.closest(".campo") || el.parentElement).appendChild(span);
+    }
+    span.textContent = mensaje;
+    el.setAttribute("aria-invalid", "true");
+    const ids = (el.getAttribute("aria-describedby") || "").split(" ").filter(Boolean);
+    if (!ids.includes(span.id)) el.setAttribute("aria-describedby", ids.concat(span.id).join(" "));
+  }
+
+  function quitarError(el) {
+    const id = el.dataset.errorId;
+    const span = document.getElementById(id);
+    if (span) span.remove();
+    el.removeAttribute("aria-invalid");
+    delete el.dataset.errorId;
+    const ids = (el.getAttribute("aria-describedby") || "").split(" ").filter((x) => x && x !== id);
+    if (ids.length) el.setAttribute("aria-describedby", ids.join(" "));
+    else el.removeAttribute("aria-describedby");
+  }
+
+  function limpiarErrores(raiz) {
+    $$("[data-error-id]", raiz).forEach(quitarError);
+  }
+
+  // Al corregir un campo marcado, su error desaparece
+  document.addEventListener("input", (e) => e.target.dataset && e.target.dataset.errorId && quitarError(e.target));
+
+  function mensajeValidez(el) {
+    const v = el.validity;
+    if (v.valueMissing) return "Este campo es obligatorio.";
+    if (v.typeMismatch && el.type === "email") return "Escriba un correo válido, p. ej. nombre@narino.gov.co.";
+    if (v.typeMismatch && el.type === "url") return "Escriba una dirección completa, p. ej. https://servidor.gov.co/…";
+    if (v.patternMismatch) return el.dataset.errorFormato || "El formato no es válido.";
+    if (v.tooShort) return "Mínimo " + el.minLength + " caracteres.";
+    if (v.tooLong) return "Máximo " + el.maxLength + " caracteres.";
+    if (v.rangeUnderflow || v.rangeOverflow) return "Use un valor entre " + el.min + " y " + el.max + ".";
+    if (v.badInput || v.stepMismatch) return "Escriba un número válido.";
+    return el.validationMessage;
+  }
+
+  /** Hace visible un control que esté en una pestaña oculta o en un bloque plegado. */
+  function mostrarCampo(el) {
+    const panel = el.closest(".panel-pestana[hidden]");
+    if (panel) seleccionarPestana(panel.dataset.panel);
+    const pe = el.closest(".panel-estudio[hidden]");
+    if (pe) seleccionarPestanaEstudio(pe.dataset.pePanel);
+    const det = el.closest("details:not([open])");
+    if (det) det.open = true;
+  }
+
+  /** Valida los controles de raiz con las reglas del HTML (required, type, pattern…); cada error va junto a su campo. */
+  function validar(raiz) {
+    limpiarErrores(raiz);
+    const malos = $$("input, select, textarea", raiz).filter((el) => !el.disabled && el.willValidate && !el.checkValidity());
+    malos.forEach((el) => errorEnCampo(el, mensajeValidez(el)));
+    if (malos.length) {
+      mostrarCampo(malos[0]);
+      malos[0].focus();
+    }
+    return !malos.length;
+  }
+
+  /** Si el servidor señala un campo («nombre_campo: mensaje»), muestra el error junto a él y devuelve el texto con su etiqueta. */
+  function errorDelServidor(raiz, mensaje) {
+    const m = /^([a-z_]+)(?:\.[a-z0-9_]+)*:\s*(.+)$/i.exec(mensaje || "");
+    const el = m && raiz.querySelector('[name="' + m[1] + '"]');
+    if (!el) return mensaje;
+    errorEnCampo(el, m[2].charAt(0).toUpperCase() + m[2].slice(1));
+    mostrarCampo(el);
+    el.focus();
+    const l = el.id && document.querySelector('label[for="' + el.id + '"]');
+    const etiqueta = ((l && l.textContent) || el.getAttribute("aria-label") || "").trim();
+    return etiqueta ? etiqueta + ": " + m[2] : mensaje;
   }
 
   function subir(ruta, formData, alProgreso) {
@@ -182,6 +272,9 @@
     } catch (ex) {
       err.textContent = ex.message;
       err.hidden = false;
+      // Para reintentar sin buscar el campo
+      $("#clave").focus();
+      $("#clave").select();
     }
   });
 
@@ -214,10 +307,16 @@
       estado.sucio = false;
     }
     $$(".vista").forEach((v) => (v.hidden = v.id !== "vista-" + vista));
-    $$(".menu-lateral a").forEach((a) => {
+    const menu = $(".menu-lateral");
+    $$("a", menu).forEach((a) => {
       const actual = a.dataset.vista === vista || (vista === "capa" && a.dataset.vista === "capas");
-      if (actual) a.setAttribute("aria-current", "page");
-      else a.removeAttribute("aria-current");
+      if (actual) {
+        a.setAttribute("aria-current", "page");
+        // En el teléfono el menú es una fila con desplazamiento: centra la sección actual
+        const r = a.getBoundingClientRect();
+        const rm = menu.getBoundingClientRect();
+        if (menu.scrollWidth > menu.clientWidth) menu.scrollLeft += r.left - rm.left - (rm.width - r.width) / 2;
+      } else a.removeAttribute("aria-current");
     });
     Promise.resolve()
       .then(() => VISTAS[vista](id))
@@ -266,6 +365,13 @@
     $("#dialogo-cuerpo").innerHTML = cuerpoHTML;
     const pie = $("#dialogo-pie");
     pie.innerHTML = "";
+    // Una sola respuesta por diálogo: botón, X o Esc (estos dos equivalen a cancelar)
+    let respondido = false;
+    const responder = (valor) => {
+      if (respondido) return;
+      respondido = true;
+      alCerrar && alCerrar(valor);
+    };
     botones.forEach((b) => {
       const el = document.createElement("button");
       el.type = b.enviar ? "submit" : "button";
@@ -274,7 +380,7 @@
       if (!b.enviar)
         el.addEventListener("click", () => {
           d.close();
-          alCerrar && alCerrar(b.valor);
+          responder(b.valor);
         });
       pie.appendChild(el);
     });
@@ -285,7 +391,8 @@
       const ok = await alEnviar(form);
       if (ok !== false) d.close();
     };
-    d.onclose = null;
+    // El evento «close» llega después: si ya se abrió otro diálogo, no es de este
+    d.onclose = () => !d.open && responder(false);
     d.showModal();
     const primero = $("#dialogo-cuerpo input, #dialogo-cuerpo select, #dialogo-cuerpo textarea");
     if (primero) primero.focus();
@@ -295,14 +402,19 @@
 
   // ------------------------------------------------------------------ campos de metadatos
 
+  function opcionesCategoria(seleccion) {
+    return (
+      '<option value="">— Sin categoría —</option>' +
+      estado.categorias
+        .map((x) => '<option value="' + x.id + '"' + (seleccion === x.id ? " selected" : "") + ">" + escapar(x.name) + "</option>")
+        .join("")
+    );
+  }
+
   function camposMetadatos(capa, prefijo) {
     const c = capa || {};
     const p = prefijo;
-    const opcionesCat =
-      '<option value="">— Sin categoría —</option>' +
-      estado.categorias
-        .map((x) => '<option value="' + x.id + '"' + (c.category_id === x.id ? " selected" : "") + ">" + escapar(x.name) + "</option>")
-        .join("");
+    const opcionesCat = opcionesCategoria(c.category_id);
     const lic = c.license || "CC-BY-4.0";
     const opcionesLic =
       LICENCIAS.map(([v, t]) => '<option value="' + escapar(v) + '"' + (v === lic ? " selected" : "") + ">" + escapar(t) + "</option>").join("") +
@@ -326,7 +438,7 @@
       campo("fuente", "Fuente / entidad productora", texto("fuente", "source", c.source, ' list="fuentes-sugeridas"'), "p. ej. IGAC, IDEAM, Corponariño, Gobernación de Nariño.") +
       campo("autor", "Autor o responsable técnico", texto("autor", "author", c.author)) +
       campo("correo", "Correo de contacto", '<input type="email" id="' + p + 'correo" name="contact_email" value="' + escapar(c.contact_email || "") + '">') +
-      campo("fecha", "Fecha de la información", texto("fecha", "data_date", c.data_date, ' placeholder="AAAA-MM-DD" pattern="\\d{4}(-\\d{2}(-\\d{2})?)?"'), "Fecha de producción o corte (AAAA, AAAA-MM o AAAA-MM-DD).") +
+      campo("fecha", "Fecha de la información", texto("fecha", "data_date", c.data_date, ' placeholder="AAAA-MM-DD" pattern="\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?" data-error-formato="Use AAAA, AAAA-MM o AAAA-MM-DD, p. ej. 2024-06."'), "Fecha de producción o corte (AAAA, AAAA-MM o AAAA-MM-DD).") +
       campo("escala", "Escala", texto("escala", "scale", c.scale, ' placeholder="1:25.000"')) +
       campo("frecuencia", "Frecuencia de actualización", '<select id="' + p + 'frecuencia" name="update_frequency">' + opcionesFrec + "</select>") +
       campo("licencia", "Licencia de uso", '<select id="' + p + 'licencia" name="license">' + opcionesLic + "</select>") +
@@ -424,6 +536,11 @@
     if (!$("#campos-carga").dataset.listo) {
       $("#campos-carga").innerHTML = camposMetadatos(null, "c-");
       $("#campos-carga").dataset.listo = "1";
+    } else {
+      // El formulario se arma una vez: las categorías creadas o renombradas después se actualizan aquí
+      const sel = $("#c-categoria");
+      const valor = sel.value;
+      sel.innerHTML = opcionesCategoria(Number(valor) || null);
     }
   }
 
@@ -470,15 +587,21 @@
         return;
       }
       const meta = leerMetadatos(form);
-      if (!meta.title || meta.title.length < 2) {
-        err.textContent = "Escriba un título para la capa.";
+      if (!validar($("#campos-carga"))) {
+        err.textContent = "Revise los campos marcados de la ficha.";
         err.hidden = false;
+        return;
+      }
+      if (meta.title.length < 2) {
+        errorEnCampo($("#c-titulo"), "Escriba un título de al menos 2 caracteres.");
         $("#c-titulo").focus();
         return;
       }
       if (esAdmin() && $("#publicar-al-cargar").checked) meta.published = true;
       const prog = $("#progreso");
       const boton = form.querySelector("button[type=submit]");
+      $("#progreso-barra").style.width = "0";
+      $("#progreso-texto").textContent = "Preparando el archivo…";
       prog.hidden = false;
       prog.classList.add("procesando");
       boton.disabled = true;
@@ -497,6 +620,7 @@
         });
         notificar("Geodato cargado: " + r.capa.title);
         form.reset();
+        limpiarErrores(form);
         elegirArchivo(null);
         estado.advertencias = advertencias.concat((r.advertencias || []).filter((a) => !advertencias.includes(a)));
         location.hash = "#capa/" + r.capa.id;
@@ -646,7 +770,8 @@
     if (!b) return;
     const c = estado.capa;
     if (b.dataset.accion === "publicar") {
-      if (estado.sucio) await guardarCapa();
+      // Si el guardado falla no se publica: verCapa() recargaría la ficha y se perderían los cambios
+      if (estado.sucio && !(await guardarCapa())) return;
       if (await publicar(c.id, !c.published, c.title)) verCapa(c.id);
     }
     if (b.dataset.accion === "eliminar" && (await eliminar(c.id, c.title))) {
@@ -655,17 +780,41 @@
     }
   });
 
+  /** Marca la pestaña activa; solo ella entra en el orden de tabulación (las demás, con las flechas). */
+  function marcarPestanas(botones, activa) {
+    botones.forEach((b) => {
+      b.setAttribute("aria-selected", String(b === activa));
+      b.tabIndex = b === activa ? 0 : -1;
+    });
+  }
+
+  /** Teclado de las pestañas (patrón ARIA): flechas, Inicio y Fin cambian de pestaña. */
+  function tecladoPestanas(lista, activar) {
+    lista.addEventListener("keydown", (e) => {
+      const tabs = $$('[role="tab"]', lista);
+      const i = tabs.indexOf(document.activeElement);
+      const destino = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+      if (i < 0 || destino === undefined) return;
+      e.preventDefault();
+      const t = tabs[(destino + tabs.length) % tabs.length];
+      activar(t);
+      t.focus();
+    });
+  }
+
   function seleccionarPestana(nombre) {
-    $$(".pestanas [data-pestana]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.pestana === nombre)));
+    const botones = $$(".pestanas-capa [data-pestana]");
+    marcarPestanas(botones, botones.find((b) => b.dataset.pestana === nombre));
     $$(".panel-pestana").forEach((p) => (p.hidden = p.dataset.panel !== nombre));
     $("#acciones-guardar").hidden = nombre === "datos" || nombre === "archivo";
     if (nombre === "datos") cargarMuestra();
   }
 
-  $(".pestanas").addEventListener("click", (e) => {
+  $(".pestanas-capa").addEventListener("click", (e) => {
     const b = e.target.closest("[data-pestana]");
     if (b) seleccionarPestana(b.dataset.pestana);
   });
+  tecladoPestanas($(".pestanas-capa"), (b) => seleccionarPestana(b.dataset.pestana));
 
   function pintarSimbologia() {
     const c = estado.capa;
@@ -779,9 +928,13 @@
   async function guardarCapa() {
     const c = estado.capa;
     const meta = leerMetadatos($("#campos-edicion"));
-    if (!meta.title || meta.title.length < 2) {
+    if (!validar($("#campos-edicion"))) {
+      notificar("Revise los campos marcados en Metadatos.", "error");
+      return false;
+    }
+    if (meta.title.length < 2) {
       seleccionarPestana("metadatos");
-      notificar("El título es obligatorio.", "error");
+      errorEnCampo($("#e-titulo"), "Escriba un título de al menos 2 caracteres.");
       $("#e-titulo").focus();
       return false;
     }
@@ -816,7 +969,7 @@
       notificar("Cambios guardados.");
       return true;
     } catch (ex) {
-      notificar(ex.message, "error");
+      notificar(errorDelServidor($("#campos-edicion"), ex.message), "error");
       return false;
     }
   }
@@ -1020,13 +1173,15 @@
         '<div class="campo ancho"><label for="cat-desc">Descripción</label><textarea id="cat-desc" name="description" rows="3">' + escapar(c.description) + "</textarea></div>" +
         '<div class="campo"><label for="cat-color">Color</label><input id="cat-color" name="color" type="color" value="' + escapar(c.color) + '"></div>' +
         '<div class="campo"><label for="cat-pos">Orden</label><input id="cat-pos" name="position" type="number" value="' + c.position + '"></div>' +
-        '</div><div class="aviso error" id="cat-error" hidden></div>',
+        '</div><div class="aviso error" id="cat-error" role="alert" hidden></div>',
       [
         { texto: "Cancelar", clase: "btn-secundario" },
         { texto: "Guardar", clase: "btn-primario", enviar: true },
       ],
       null,
       async (form) => {
+        $("#cat-error").hidden = true;
+        if (!validar($("#dialogo-cuerpo"))) return false;
         const datos = {
           name: form.name.value.trim(),
           description: form.description.value.trim(),
@@ -1039,7 +1194,7 @@
           verCategorias();
           return true;
         } catch (ex) {
-          $("#cat-error").textContent = ex.message;
+          $("#cat-error").textContent = errorDelServidor($("#dialogo-cuerpo"), ex.message);
           $("#cat-error").hidden = false;
           return false;
         }
@@ -1086,19 +1241,21 @@
     abrirDialogo(
       u ? "Editar usuario «" + u.username + "»" : "Nuevo usuario",
       '<div class="rejilla-campos">' +
-        (u ? "" : '<div class="campo"><label for="u-usuario" class="obligatorio">Usuario</label><input id="u-usuario" name="username" type="text" required pattern="[a-zA-Z0-9._-]+" minlength="3" autocomplete="off"><span class="ayuda">Letras, números, punto, guion.</span></div>') +
+        (u ? "" : '<div class="campo"><label for="u-usuario" class="obligatorio">Usuario</label><input id="u-usuario" name="username" type="text" required pattern="[a-zA-Z0-9._\\-]+" data-error-formato="Use solo letras sin tilde, números, punto, guion o guion bajo." minlength="3" autocomplete="off"><span class="ayuda">Letras, números, punto, guion.</span></div>') +
         '<div class="campo"><label for="u-rol">Rol</label><select id="u-rol" name="role"><option value="editor"' + (u && u.role === "editor" ? " selected" : "") + '>Editor</option><option value="administrador"' + (u && u.role === "administrador" ? " selected" : "") + ">Administrador</option></select></div>" +
         '<div class="campo"><label for="u-nombre">Nombre completo</label><input id="u-nombre" name="full_name" type="text" value="' + escapar(u ? u.full_name : "") + '"></div>' +
         '<div class="campo"><label for="u-correo">Correo</label><input id="u-correo" name="email" type="email" value="' + escapar(u ? u.email : "") + '"></div>' +
-        '<div class="campo"><label for="u-clave"' + (u ? "" : ' class="obligatorio"') + ">" + (u ? "Nueva contraseña (opcional)" : "Contraseña") + '</label><input id="u-clave" name="password" type="password" autocomplete="new-password"><span class="ayuda">Mínimo 10 caracteres con letras y números o símbolos.</span></div>' +
+        '<div class="campo"><label for="u-clave"' + (u ? "" : ' class="obligatorio"') + ">" + (u ? "Nueva contraseña (opcional)" : "Contraseña") + '</label><input id="u-clave" name="password" type="password" autocomplete="new-password" minlength="10"' + (u ? "" : " required") + '><span class="ayuda">Mínimo 10 caracteres con letras y números o símbolos.</span></div>' +
         (u ? '<label class="check"><input type="checkbox" name="active"' + (u.active ? " checked" : "") + "> Usuario activo</label>" : "") +
-        '</div><div class="aviso error" id="u-error" hidden></div>',
+        '</div><div class="aviso error" id="u-error" role="alert" hidden></div>',
       [
         { texto: "Cancelar", clase: "btn-secundario" },
         { texto: "Guardar", clase: "btn-primario", enviar: true },
       ],
       null,
       async (form) => {
+        $("#u-error").hidden = true;
+        if (!validar($("#dialogo-cuerpo"))) return false;
         const datos = { full_name: form.full_name.value.trim(), email: form.email.value.trim(), role: form.role.value };
         if (form.password.value) datos.password = form.password.value;
         if (u) datos.active = form.active.checked;
@@ -1109,7 +1266,7 @@
           verUsuarios();
           return true;
         } catch (ex) {
-          $("#u-error").textContent = ex.message;
+          $("#u-error").textContent = errorDelServidor($("#dialogo-cuerpo"), ex.message);
           $("#u-error").hidden = false;
           return false;
         }
@@ -1143,14 +1300,23 @@
 
   $("#form-clave").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    const err = $("#error-clave");
+    err.hidden = true;
+    if (!validar(form)) return;
     const nueva = $("#clave-nueva").value;
-    if (nueva !== $("#clave-confirmar").value) return notificar("Las contraseñas nuevas no coinciden.", "error");
+    if (nueva !== $("#clave-confirmar").value) {
+      errorEnCampo($("#clave-confirmar"), "No coincide con la nueva contraseña.");
+      $("#clave-confirmar").focus();
+      return;
+    }
     try {
       await api("/auth/cambiar-clave", { method: "POST", json: { current_password: $("#clave-actual").value, new_password: nueva } });
-      e.target.reset();
+      form.reset();
       notificar("Contraseña actualizada.");
     } catch (ex) {
-      notificar(ex.message, "error");
+      err.textContent = ex.message;
+      err.hidden = false;
     }
   });
 
@@ -1178,6 +1344,7 @@
   $("#form-configuracion").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.currentTarget;
+    if (!validar(f)) return;
     try {
       await api("/admin/configuracion", {
         method: "PUT",
@@ -1192,7 +1359,7 @@
       notificar("Configuración guardada.");
       verConfiguracion();
     } catch (ex) {
-      notificar(ex.message, "error");
+      notificar(errorDelServidor(f, ex.message), "error");
     }
   });
 
@@ -1307,7 +1474,8 @@
   }
 
   function seleccionarPestanaEstudio(nombre) {
-    $$(".pestanas-estudio [data-pe]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.pe === nombre)));
+    const botones = $$(".pestanas-estudio [data-pe]");
+    marcarPestanas(botones, botones.find((b) => b.dataset.pe === nombre));
     $$(".panel-estudio").forEach((p) => (p.hidden = p.dataset.pePanel !== nombre));
   }
 
@@ -1376,6 +1544,7 @@
     const b = e.target.closest("[data-pe]");
     if (b) seleccionarPestanaEstudio(b.dataset.pe);
   });
+  tecladoPestanas($(".pestanas-estudio"), (b) => seleccionarPestanaEstudio(b.dataset.pe));
   $("#form-estudio").addEventListener("click", (e) => {
     const b = e.target.closest("[data-preajuste]");
     if (!b) return;
@@ -1410,6 +1579,11 @@
   $("#form-estudio").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.currentTarget;
+    // Las filas de servicio vacías no se guardan: se quitan para que no cuenten como campos obligatorios
+    $$("#est-servicios tr").forEach((tr) => {
+      if ($$("input", tr).every((i) => !i.value.trim() || i.dataset.s === "category")) tr.remove();
+    });
+    if (!validar(f)) return notificar("Revise los campos marcados.", "error");
     const marcados = (nombre) => $$('#form-estudio [name="' + nombre + '"]:checked').map((x) => x.value);
     const datos = {
       nombre: f.nombre.value.trim(),
@@ -1450,13 +1624,14 @@
         : "Ajustes del Estudio SIG guardados. Se aplican la próxima vez que se abra el Estudio.");
       verEstudio();
     } catch (ex) {
-      notificar(ex.message, "error");
+      notificar(errorDelServidor(f, ex.message), "error");
     }
   });
 
   $("#form-estudio-origen").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.currentTarget;
+    if (!validar(f)) return;
     const integrado = f.usar_integrado.value === "1";
     if (integrado && !estado.estudio.estado.instalado) {
       notificar("Primero instale GeoLibre en este servidor.", "error");

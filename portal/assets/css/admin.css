@@ -150,9 +150,10 @@ body {
   font-size: 18px;
 }
 
+/* minmax(0, …): el contenido ancho (tablas, código) no ensancha la columna ni la página */
 .dos-columnas {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -293,6 +294,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -300,6 +302,22 @@ body {
   font-size: 14px;
   color: #6b5800;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+:root[data-tema="oscuro"] .sin-guardar {
+  color: #f3d75b;
+}
+
+/* Error de validación junto al campo */
+.error-campo {
+  color: var(--peligro);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+[aria-invalid="true"] {
+  border-color: var(--peligro) !important;
 }
 
 .avanzado {
@@ -445,7 +463,7 @@ body {
 
 .zona-carga > span {
   font-size: 13.5px;
-  color: var(--gris-suave);
+  color: var(--gris-texto); /* gris-suave no alcanza 4,5:1 sobre el fondo de la zona */
   max-width: 720px;
 }
 
@@ -500,6 +518,9 @@ body {
 
 .tabla-contenedor {
   overflow-x: auto;
+  /* Contiene los .sr-only (posición absoluta) de las celdas: sin esto escapan del
+     desplazamiento propio de la tabla y ensanchan la página en el teléfono */
+  position: relative;
 }
 
 .tabla {
@@ -547,7 +568,7 @@ body {
 
 .tabla .titulo-celda small {
   display: block;
-  color: var(--gris-suave);
+  color: var(--gris-texto);
   font-size: 12.5px;
 }
 
@@ -679,11 +700,18 @@ dl.tecnica dd {
 /* Responsivo */
 @media (max-width: 1100px) {
   .editor {
-    grid-template-columns: 1fr;
+    /* minmax(0, 1fr): las pestañas y la tabla de datos se desplazan dentro, no ensanchan la página */
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .editor-lateral {
     position: static;
+  }
+}
+
+@media (max-width: 600px) {
+  .mapa-previa {
+    height: 300px;
   }
 }
 
@@ -717,12 +745,60 @@ dl.tecnica dd {
   .dos-columnas,
   .rejilla-campos,
   .filtros-tabla {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .encabezado .usuario-actual .usuario-nombre,
   .encabezado .usuario-actual a {
     display: none;
+  }
+
+  /* Objetivos táctiles de 40 px o más */
+  .menu-lateral a {
+    min-height: 44px;
+  }
+
+  .btn {
+    min-height: 40px;
+  }
+
+  .btn-icono {
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .encabezado .marca,
+  .volver,
+  .check,
+  .lista-campos label,
+  .avanzado summary {
+    min-height: 40px;
+  }
+
+  .volver {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .avanzado summary {
+    line-height: 40px;
+  }
+
+  .tabla-servicios input,
+  .tabla-servicios select {
+    min-height: 40px;
+  }
+
+  input[type="range"],
+  input[type="file"],
+  input[type="color"] {
+    min-height: 40px;
+  }
+
+  input[type="color"] {
+    min-width: 46px;
   }
 }
 
@@ -777,9 +853,10 @@ dl.tecnica dd {
   color: var(--gris-titulo);
 }
 
+/* gris-texto: gris-suave no alcanza 4,5:1 sobre el verde claro de la opción marcada */
 .opcion-radio small {
   display: block;
-  color: var(--gris-suave);
+  color: var(--gris-texto);
   font-size: 13.5px;
   line-height: 1.4;
 }
@@ -787,7 +864,7 @@ dl.tecnica dd {
 .opcion-radio code {
   font-size: 12px;
   font-weight: 400;
-  color: var(--gris-suave);
+  color: var(--gris-texto);
 }
 
 .lista-permisos {

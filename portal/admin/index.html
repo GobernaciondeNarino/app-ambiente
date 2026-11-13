@@ -41,7 +41,7 @@
         <p>Secretaría de Ambiente y Desarrollo Sostenible</p>
         <div class="campo"><label for="usuario">Usuario</label><input id="usuario" name="username" type="text" autocomplete="username" required></div>
         <div class="campo"><label for="clave">Contraseña</label><input id="clave" name="password" type="password" autocomplete="current-password" required></div>
-        <div class="aviso error" id="error-ingreso" hidden></div>
+        <div class="aviso error" id="error-ingreso" role="alert" hidden></div>
         <button class="btn btn-primario" type="submit">Ingresar</button>
         <a href="../" class="volver">← Volver al geoportal</a>
       </form>
@@ -134,7 +134,7 @@
               </details>
               <label class="check" data-solo-admin><input type="checkbox" id="publicar-al-cargar"> Publicar inmediatamente después de cargar</label>
               <div class="progreso" id="progreso" hidden><div class="barra"><span id="progreso-barra"></span></div><span id="progreso-texto">Subiendo…</span></div>
-              <div class="aviso error" id="error-carga" hidden></div>
+              <div class="aviso error" id="error-carga" role="alert" hidden></div>
               <div class="acciones-formulario"><button class="btn btn-primario" type="submit" data-icono="subir">Cargar y procesar</button></div>
             </form>
           </section>
@@ -168,17 +168,17 @@
             <div class="aviso advertencia" id="capa-advertencias" hidden></div>
             <div class="editor">
               <div class="tarjeta editor-formulario">
-                <div class="pestanas" role="tablist">
-                  <button role="tab" type="button" aria-selected="true" data-pestana="metadatos">Metadatos</button>
-                  <button role="tab" type="button" aria-selected="false" data-pestana="simbologia">Simbología</button>
-                  <button role="tab" type="button" aria-selected="false" data-pestana="datos">Datos</button>
-                  <button role="tab" type="button" aria-selected="false" data-pestana="archivo">Archivo</button>
+                <div class="pestanas pestanas-capa" role="tablist" aria-label="Secciones de la capa">
+                  <button role="tab" type="button" id="pestana-metadatos" aria-controls="panel-metadatos" aria-selected="true" data-pestana="metadatos">Metadatos</button>
+                  <button role="tab" type="button" id="pestana-simbologia" aria-controls="panel-simbologia" aria-selected="false" tabindex="-1" data-pestana="simbologia">Simbología</button>
+                  <button role="tab" type="button" id="pestana-datos" aria-controls="panel-datos" aria-selected="false" tabindex="-1" data-pestana="datos">Datos</button>
+                  <button role="tab" type="button" id="pestana-archivo" aria-controls="panel-archivo" aria-selected="false" tabindex="-1" data-pestana="archivo">Archivo</button>
                 </div>
                 <form id="form-capa" novalidate>
-                  <div class="panel-pestana" data-panel="metadatos"><div id="campos-edicion"></div></div>
-                  <div class="panel-pestana" data-panel="simbologia" hidden><div id="campos-simbologia"></div></div>
-                  <div class="panel-pestana" data-panel="datos" hidden><div id="datos-capa"></div></div>
-                  <div class="panel-pestana" data-panel="archivo" hidden><div id="archivo-capa"></div></div>
+                  <div class="panel-pestana" data-panel="metadatos" role="tabpanel" id="panel-metadatos" aria-labelledby="pestana-metadatos"><div id="campos-edicion"></div></div>
+                  <div class="panel-pestana" data-panel="simbologia" role="tabpanel" id="panel-simbologia" aria-labelledby="pestana-simbologia" hidden><div id="campos-simbologia"></div></div>
+                  <div class="panel-pestana" data-panel="datos" role="tabpanel" id="panel-datos" aria-labelledby="pestana-datos" hidden><div id="datos-capa"></div></div>
+                  <div class="panel-pestana" data-panel="archivo" role="tabpanel" id="panel-archivo" aria-labelledby="pestana-archivo" hidden><div id="archivo-capa"></div></div>
                   <div class="acciones-formulario" id="acciones-guardar">
                     <span class="sin-guardar" id="sin-guardar" hidden>Cambios sin guardar</span>
                     <button class="btn btn-primario" type="submit" data-icono="check">Guardar cambios</button>
@@ -267,15 +267,15 @@
 
             <form class="tarjeta editor-formulario" id="form-estudio" novalidate>
               <div class="pestanas pestanas-estudio" role="tablist" aria-label="Ajustes del Estudio SIG">
-                <button role="tab" type="button" aria-selected="true" data-pe="apariencia">Apariencia e idioma</button>
-                <button role="tab" type="button" aria-selected="false" data-pe="interfaz">Interfaz y menús</button>
-                <button role="tab" type="button" aria-selected="false" data-pe="permisos">Permisos</button>
-                <button role="tab" type="button" aria-selected="false" data-pe="complementos">Complementos</button>
-                <button role="tab" type="button" aria-selected="false" data-pe="servicios">Servicios y mapas base</button>
-                <button role="tab" type="button" aria-selected="false" data-pe="compartir">Compartir y conexiones</button>
-                <button role="tab" type="button" aria-selected="false" data-pe="politica">deployment.json</button>
+                <button role="tab" type="button" id="pe-apariencia" aria-controls="pe-panel-apariencia" aria-selected="true" data-pe="apariencia">Apariencia e idioma</button>
+                <button role="tab" type="button" id="pe-interfaz" aria-controls="pe-panel-interfaz" aria-selected="false" tabindex="-1" data-pe="interfaz">Interfaz y menús</button>
+                <button role="tab" type="button" id="pe-permisos" aria-controls="pe-panel-permisos" aria-selected="false" tabindex="-1" data-pe="permisos">Permisos</button>
+                <button role="tab" type="button" id="pe-complementos" aria-controls="pe-panel-complementos" aria-selected="false" tabindex="-1" data-pe="complementos">Complementos</button>
+                <button role="tab" type="button" id="pe-servicios" aria-controls="pe-panel-servicios" aria-selected="false" tabindex="-1" data-pe="servicios">Servicios y mapas base</button>
+                <button role="tab" type="button" id="pe-compartir" aria-controls="pe-panel-compartir" aria-selected="false" tabindex="-1" data-pe="compartir">Compartir y conexiones</button>
+                <button role="tab" type="button" id="pe-politica" aria-controls="pe-panel-politica" aria-selected="false" tabindex="-1" data-pe="politica">deployment.json</button>
               </div>
-              <div class="panel-estudio" data-pe-panel="apariencia">
+              <div class="panel-estudio" data-pe-panel="apariencia" role="tabpanel" id="pe-panel-apariencia" aria-labelledby="pe-apariencia">
                 <div class="rejilla-campos">
                   <div class="campo"><label for="est-nombre">Nombre de la aplicación</label><input id="est-nombre" name="nombre" type="text" maxlength="60" required><span class="ayuda">Aparece en la barra superior y el título de la pestaña de GeoLibre.</span></div>
                   <div class="campo"><label for="est-modo">Modo</label><select id="est-modo" name="modo"><option value="completo">Completo: edición, análisis y geoprocesamiento</option><option value="visor">Visor: solo consulta (layout=viewer)</option></select></div>
@@ -286,7 +286,7 @@
                 </div>
                 <p class="ayuda-pie">El tema claro u oscuro del Estudio sigue al del geoportal (botón de tema en la barra superior); cada usuario puede cambiarlo también desde el menú de GeoLibre.</p>
               </div>
-              <div class="panel-estudio" data-pe-panel="interfaz" hidden>
+              <div class="panel-estudio" data-pe-panel="interfaz" role="tabpanel" id="pe-panel-interfaz" aria-labelledby="pe-interfaz" hidden>
                 <div class="campo"><span><strong>Presentación</strong></span>
                   <div class="preajustes" role="group" aria-label="Preajustes de presentación">
                     <button type="button" class="btn btn-secundario btn-chico" data-preajuste="esencial">Esencial</button>
@@ -313,11 +313,11 @@
                 <div class="campo"><label for="est-elementos">Elementos de menú ocultos</label><textarea id="est-elementos" name="elementos_ocultos" rows="2" placeholder="p. ej. help.diagnostics, project.recent"></textarea><span class="ayuda">Identificadores de GeoLibre separados por coma o salto de línea.</span></div>
                 <div class="campo"><label for="est-fuentes">Fuentes de datos ocultas en «Añadir datos»</label><textarea id="est-fuentes" name="fuentes_ocultas" rows="2" placeholder="p. ej. earth-engine, planetary-computer"></textarea></div>
               </div>
-              <div class="panel-estudio" data-pe-panel="permisos" hidden>
+              <div class="panel-estudio" data-pe-panel="permisos" role="tabpanel" id="pe-panel-permisos" aria-labelledby="pe-permisos" hidden>
                 <p class="ayuda-pie">Capacidades que GeoLibre concede a quien abra el Estudio. Al quitar una, GeoLibre oculta o bloquea las herramientas correspondientes.</p>
                 <div class="lista-permisos" id="est-capacidades"></div>
               </div>
-              <div class="panel-estudio" data-pe-panel="complementos" hidden>
+              <div class="panel-estudio" data-pe-panel="complementos" role="tabpanel" id="pe-panel-complementos" aria-labelledby="pe-complementos" hidden>
                 <div class="campo"><span><strong>Instalación</strong></span><label class="check"><input type="checkbox" name="instalar_complementos"> Permitir instalar complementos desde un archivo o URL</label></div>
                 <div class="rejilla-campos">
                   <div class="campo"><label for="est-registro">Registro de complementos</label><input id="est-registro" name="registro_complementos" type="url" placeholder="Vacío = registro oficial de GeoLibre"></div>
@@ -330,7 +330,7 @@
                 <div class="campo"><label for="est-bloqueados">Complementos bloqueados</label><textarea id="est-bloqueados" name="complementos_bloqueados" rows="2"></textarea></div>
                 <div class="campo"><label for="est-ocultos">Complementos ocultos en el gestor</label><textarea id="est-ocultos" name="complementos_ocultos" rows="2"></textarea></div>
               </div>
-              <div class="panel-estudio" data-pe-panel="servicios" hidden>
+              <div class="panel-estudio" data-pe-panel="servicios" role="tabpanel" id="pe-panel-servicios" aria-labelledby="pe-servicios" hidden>
                 <div class="rejilla-campos">
                   <div class="campo"><span><strong>Catálogo de GeoLibre</strong></span><label class="check"><input type="checkbox" name="servicios_predeterminados"> Incluir los servicios predeterminados de GeoLibre</label></div>
                   <div class="campo"><span><strong>Mapas base regionales</strong></span><label class="check"><input type="checkbox" name="mapas_regionales"> Ofrecer mapas base servidos desde China continental</label></div>
@@ -340,7 +340,7 @@
                 <div class="tabla-contenedor"><table class="tabla tabla-servicios"><thead><tr><th>Nombre</th><th>Tipo</th><th>URL</th><th>Capa(s)</th><th>Categoría</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody id="est-servicios"></tbody></table></div>
                 <button class="btn btn-secundario btn-chico" type="button" id="est-agregar-servicio">+ Agregar servicio</button>
               </div>
-              <div class="panel-estudio" data-pe-panel="compartir" hidden>
+              <div class="panel-estudio" data-pe-panel="compartir" role="tabpanel" id="pe-panel-compartir" aria-labelledby="pe-compartir" hidden>
                 <div class="campo"><span><strong>Compartir en línea</strong></span><label class="check"><input type="checkbox" name="compartir_publico"> Permitir «Compartir» y «Galería» con el servicio público de GeoLibre (share.geolibre.app)</label><span class="ayuda">Desactivado por defecto: los proyectos compartidos se publican fuera de la infraestructura de la Gobernación.</span></div>
                 <div class="rejilla-campos">
                   <div class="campo"><label for="est-compartir">Servidor propio para compartir</label><input id="est-compartir" name="url_compartir" type="url" placeholder="https://…"><span class="ayuda">Reemplaza al servicio público (contrato v1 de GeoLibre).</span></div>
@@ -350,7 +350,7 @@
                 </div>
                 <p class="ayuda-pie">El asistente de IA de GeoLibre queda desactivado: requiere claves de proveedores externos que no se publican en el navegador.</p>
               </div>
-              <div class="panel-estudio" data-pe-panel="politica" hidden>
+              <div class="panel-estudio" data-pe-panel="politica" role="tabpanel" id="pe-panel-politica" aria-labelledby="pe-politica" hidden>
                 <p class="ayuda-pie">Política que lee GeoLibre al iniciar (<code>geolibre/deployment.json</code>), generada a partir de estos ajustes. También se publica en <a id="est-politica-url" href="#" target="_blank" rel="noopener">la API</a>.</p>
                 <pre class="codigo" id="est-politica"></pre>
               </div>
@@ -366,6 +366,7 @@
               <div class="campo"><label for="clave-actual">Contraseña actual</label><input id="clave-actual" type="password" autocomplete="current-password" required></div>
               <div class="campo"><label for="clave-nueva">Nueva contraseña</label><input id="clave-nueva" type="password" autocomplete="new-password" minlength="10" required><span class="ayuda">Mínimo 10 caracteres, combinando letras con números o símbolos.</span></div>
               <div class="campo"><label for="clave-confirmar">Confirmar nueva contraseña</label><input id="clave-confirmar" type="password" autocomplete="new-password" required></div>
+              <div class="aviso error" id="error-clave" role="alert" hidden></div>
               <div class="acciones-formulario"><button class="btn btn-primario" type="submit">Actualizar contraseña</button></div>
             </form>
           </section>
