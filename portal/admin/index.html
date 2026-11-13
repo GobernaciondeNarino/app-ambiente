@@ -15,6 +15,8 @@
       (function (d) {
         var p = "auto";
         try { p = localStorage.getItem("geoportal.tema") || "auto"; } catch (e) {}
+        var q = /[?&](?:theme|tema)=(dark|light|oscuro|claro)\b/.exec(location.search); // tema pedido en la dirección
+        if (q) p = q[1] === "dark" || q[1] === "oscuro" ? "oscuro" : "claro";
         var oscuro = p === "oscuro" || (p !== "claro" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
         d.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
       })(document);

@@ -344,6 +344,8 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
     (function (d) {
       var p = "auto";
       try { p = localStorage.getItem("geoportal.tema") || "auto"; } catch (e) {}
+      var q = /[?&](?:theme|tema)=(dark|light|oscuro|claro)\b/.exec(location.search); // tema pedido en la dirección
+      if (q) p = q[1] === "dark" || q[1] === "oscuro" ? "oscuro" : "claro";
       var oscuro = p === "oscuro" || (p !== "claro" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
       d.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
     })(document);
@@ -405,11 +407,6 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
       /* 16 px: iOS no amplía la página al enfocar el campo */
       .instalador input, .instalador textarea { font-size: 16px; }
       table.req td { padding: 8px 6px; }
-    }
-    /* Botón de tema de la barra GOV.CO: área táctil de 40 px sin cambiar su aspecto */
-    @media (pointer: coarse) {
-      .barra-govco .boton-tema { position: relative; }
-      .barra-govco .boton-tema::after { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 40px; transform: translate(-50%, -50%); }
     }
   </style>
 </head>
