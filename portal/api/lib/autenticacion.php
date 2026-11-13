@@ -13,11 +13,42 @@ const GP_MAX_FALLOS_USUARIO_IP = 5;    // fallos de un usuario desde una IP
 const GP_MAX_FALLOS_IP = 20;           // fallos desde una IP con cualquier usuario (rociado de usuarios)
 const GP_MENSAJE_BLOQUEO = 'Demasiados intentos fallidos. Espere unos minutos e inténtelo de nuevo.';
 
-/** IP del cliente: REMOTE_ADDR (en Plesk, mod_remoteip ya restaura la IP real; X-Forwarded-For no es de fiar). */
-function ip_cliente(): string
+/** ¿Dirección de bucle local? (127.0.0.0/8, ::1 o ::ffff:127.x.y.z) */
+function gp_ip_bucle_local(string $ip): bool
 {
-    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
-    return $ip !== '' ? $ip : 'desconocida';
+    $bin = @inet_pton($ip);
+    if ($bin === false) {
+        return false;
+    }
+    if (strlen($bin) === 16 && str_starts_with($bin, str_repeat("\0", 10) . "\xff\xff")) {
+        $bin = substr($bin, 12); // IPv4 mapeada en IPv6
+    }
+    return strlen($bin) === 4 ? ord($bin[0]) === 127 : $bin === inet_pton('::1');
+}
+
+/**
+ * IP del cliente para el límite de intentos y la bitácora: REMOTE_ADDR, salvo que sea de bucle local. En ese caso
+ * la conexión viene del nginx del mismo servidor (Plesk sin mod_remoteip) y se toma la ÚLTIMA entrada de
+ * X-Forwarded-For, la que añade ese nginx con $proxy_add_x_forwarded_for (las anteriores las escribe el cliente);
+ * si no es una IP válida, X-Real-IP; si tampoco, REMOTE_ADDR. Desde otras conexiones no se lee ninguna cabecera.
+ */
+function gp_ip_cliente(): string
+{
+    $remota = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($remota === '') {
+        return 'desconocida';
+    }
+    if (!gp_ip_bucle_local($remota)) {
+        return $remota;
+    }
+    $reenviadas = explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+    foreach ([end($reenviadas), $_SERVER['HTTP_X_REAL_IP'] ?? ''] as $candidata) {
+        $candidata = trim((string) $candidata);
+        if ($candidata !== '' && filter_var($candidata, FILTER_VALIDATE_IP) !== false) {
+            return $candidata;
+        }
+    }
+    return $remota;
 }
 
 /**

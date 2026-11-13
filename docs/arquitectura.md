@@ -87,9 +87,10 @@ permitido.», 413 y 422 para datos no válidos: tipos incorrectos, `publicar=` a
 `category_id` inexistente, `data_date` fuera de `AAAA`, `AAAA-MM` o `AAAA-MM-DD` con fecha real, o
 correos no válidos. `POST /api/auth/ingresar` responde 429 con `Retry-After` tras 5 fallos del mismo
 usuario desde la misma IP, o 20 fallos desde la misma IP, en 15 minutos (contados en la bitácora,
-sin tablas nuevas). La IP del cliente es `REMOTE_ADDR` en PHP (con nginx delante de Apache, Apache
-debe restaurar la IP real con mod_remoteip; si no, todas las peticiones parecen venir del proxy
-local) y, en Python, la que entrega uvicorn con `--proxy-headers`: el `Dockerfile` solo
+sin tablas nuevas). En PHP, `gp_ip_cliente()` usa `REMOTE_ADDR`; solo si la conexión
+llega del propio servidor (bucle local: el nginx de Plesk delante de Apache sin mod_remoteip) toma la
+última entrada de `X-Forwarded-For` (la que añade ese nginx, no la que envía el cliente) o, si falta,
+`X-Real-IP`. En Python, la que entrega uvicorn con `--proxy-headers`: el `Dockerfile` solo
 confía en proxies de redes privadas y el servicio systemd solo en `127.0.0.1`. En una intranet
 cuyos equipos usan direcciones privadas, restrinja `--forwarded-allow-ips` a la IP exacta del
 proxy para que un equipo interno no pueda falsear la suya. `api/tests/test_contrato.py` y `pruebas/edicion_php/test_contrato_php.py`

@@ -191,7 +191,7 @@ function rutas_admin(string $metodo, string $ruta): void
             falla(422, 'Indique el usuario (hasta 80 caracteres) y la contraseña.');
         }
         $usuario = trim($usuario);
-        $ip = ip_cliente();
+        $ip = gp_ip_cliente();
         if (($espera = segundos_bloqueo_ingreso($usuario, $ip)) > 0) {
             // Bloqueado: no se verifica la contraseña (ni la correcta) y el intento no cuenta como fallo nuevo
             bitacora($usuario, 'ingreso_bloqueado', '', $ip);

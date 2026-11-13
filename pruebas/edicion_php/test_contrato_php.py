@@ -220,3 +220,33 @@ def test_bloqueo_por_ip_frena_el_rociado_de_usuarios(api, sitio):
         r = c.post("/auth/ingresar", json=buena)
         assert r.status_code == 429 and r.json() == BLOQUEO and int(r.headers["retry-after"]) > 0
         assert otra.post("/auth/ingresar", json=buena).status_code == 200
+
+
+# ---------------------------------------------------------------- IP del cliente tras el nginx local (Plesk sin mod_remoteip)
+def _ip_registrada(api, usuario: str) -> str:
+    return next(e["detail"] for e in api.get("/admin/bitacora?limite=50").json() if e["action"] == "ingreso_fallido" and e["username"] == usuario)
+
+
+def test_ip_reenviada_por_el_proxy_local(api, sitio):
+    with _desde(sitio, "127.0.0.10") as c:
+        casos = [
+            ("ip-uno", {"X-Forwarded-For": "203.0.113.7"}, "203.0.113.7"),
+            # El cliente no puede falsearla: solo cuenta la última entrada, la que añade el nginx propio
+            ("ip-dos", {"X-Forwarded-For": "6.6.6.6, 203.0.113.7"}, "203.0.113.7"),
+            ("ip-tres", {"X-Forwarded-For": "basura"}, "127.0.0.10"),
+            ("ip-cuatro", {"X-Forwarded-For": "basura", "X-Real-IP": "198.51.100.9"}, "198.51.100.9"),
+            ("ip-cinco", {}, "127.0.0.10"),
+        ]
+        for usuario, cabeceras, esperada in casos:
+            assert c.post("/auth/ingresar", json={"username": usuario, "password": "x"}, headers=cabeceras).status_code == 401
+            assert _ip_registrada(api, usuario) == esperada, (usuario, cabeceras)
+
+
+def test_ips_reenviadas_distintas_se_cuentan_por_separado(api, sitio):
+    buena, mala = {"username": "admin", "password": CLAVE}, {"username": "admin", "password": "mala"}
+    una, otra = {"X-Forwarded-For": "203.0.113.20"}, {"X-Forwarded-For": "203.0.113.21"}
+    with _desde(sitio, "127.0.0.11") as c:  # mismo REMOTE_ADDR (el nginx local) para las dos
+        for _ in range(5):
+            assert c.post("/auth/ingresar", json=mala, headers=una).status_code == 401
+        assert c.post("/auth/ingresar", json=buena, headers=una).status_code == 429
+        assert c.post("/auth/ingresar", json=buena, headers=otra).status_code == 200
