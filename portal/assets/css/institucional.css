@@ -118,9 +118,14 @@ main[tabindex="-1"]:focus,
   left: 8px;
 }
 
+/* Texto solo para lectores de pantalla. Sin ancestro posicionado, el bloque contenedor es la página:
+   dentro de un contenedor con desplazamiento propio (tablas del administrador) el texto escapaba del
+   recorte y ensanchaba la página (598 px a 360 px). right: 0 lo pega al borde derecho de su bloque
+   contenedor y conserva su posición vertical junto al control; clip-path no lo evita y top/left: 0 lo
+   llevaría a la esquina de la página, lejos del control que nombra. */
 .sr-only {
   position: absolute;
-  right: 0; /* sin esto, dentro de una tabla desplazable escapaba del recorte y ensanchaba la página */
+  right: 0;
   width: 1px;
   height: 1px;
   overflow: hidden;
