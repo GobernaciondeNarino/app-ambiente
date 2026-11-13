@@ -85,7 +85,14 @@ Documentación interactiva en `/api/docs` (solo en la edición Python; la edici�
 rutas internas, con 400, 401 (con `WWW-Authenticate: Bearer`), 403, 404, 405 «Método no
 permitido.», 413 y 422 para datos no válidos: tipos incorrectos, `publicar=` ausente o no booleano,
 `category_id` inexistente, `data_date` fuera de `AAAA`, `AAAA-MM` o `AAAA-MM-DD` con fecha real, o
-correos no válidos. `api/tests/test_contrato.py` y `pruebas/edicion_php/test_contrato_php.py`
+correos no válidos. `POST /api/auth/ingresar` responde 429 con `Retry-After` tras 5 fallos del mismo
+usuario desde la misma IP, o 20 fallos desde la misma IP, en 15 minutos (contados en la bitácora,
+sin tablas nuevas). La IP del cliente es `REMOTE_ADDR` en PHP (con nginx delante de Apache, Apache
+debe restaurar la IP real con mod_remoteip; si no, todas las peticiones parecen venir del proxy
+local) y, en Python, la que entrega uvicorn con `--proxy-headers`: el `Dockerfile` solo
+confía en proxies de redes privadas y el servicio systemd solo en `127.0.0.1`. En una intranet
+cuyos equipos usan direcciones privadas, restrinja `--forwarded-allow-ips` a la IP exacta del
+proxy para que un equipo interno no pueda falsear la suya. `api/tests/test_contrato.py` y `pruebas/edicion_php/test_contrato_php.py`
 comprueban ese contrato en cada edición. Diferencias legítimas que se mantienen: la ingesta (GDAL en
 el servidor frente a conversión en el navegador), `/api/admin/configuracion` solo en PHP, el
 *preflight* CORS (200 en Python, 204 en PHP) y un `Range` mal formado (400 en Python, se ignora en

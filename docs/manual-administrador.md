@@ -10,6 +10,11 @@ geográfica en el geoportal.
 Ingrese en `https://<dominio-del-geoportal>/admin/` con su usuario y contraseña.
 La sesión dura 8 horas (configurable) y se cierra al cerrar la pestaña.
 
+Tras 5 intentos fallidos con un mismo usuario desde un mismo equipo (o 20 desde un mismo equipo
+con cualquier usuario) en 15 minutos, el ingreso se bloquea para ese equipo hasta que pasen esos
+15 minutos; desde otro equipo se puede seguir entrando. Los intentos fallidos y bloqueados quedan
+en la bitácora con la dirección IP.
+
 | Acción | Editor | Administrador |
 | --- | :---: | :---: |
 | Cargar geodatos y reemplazar archivos | ✔ | ✔ |
