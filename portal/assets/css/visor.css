@@ -84,6 +84,7 @@
 
 .buscador-mapa .buscador input:focus {
   background: var(--superficie);
+  border-color: var(--verde);
 }
 
 .atajo-buscar {
@@ -97,6 +98,11 @@
 
 .buscador-mapa input:focus ~ .atajo-buscar,
 .buscador-mapa input:not(:placeholder-shown) ~ .atajo-buscar {
+  display: none;
+}
+
+/* Chrome reserva sitio para la «×» de borrar aunque la caja esté vacía y cortaba el texto de ayuda */
+.buscador-mapa input:placeholder-shown::-webkit-search-cancel-button {
   display: none;
 }
 
@@ -143,6 +149,10 @@
   outline: none;
 }
 
+.resultados-busqueda li[role="option"]:focus {
+  box-shadow: inset 3px 0 0 var(--verde); /* el fondo verde claro solo no basta como foco */
+}
+
 .resultados-busqueda li .texto {
   flex: 1;
   min-width: 0;
@@ -164,6 +174,11 @@
 .resultados-busqueda li small {
   color: var(--gris-suave);
   font-size: 12.5px;
+  /* el detalle («… · clic para encenderla») puede ocupar dos líneas en pantallas angostas */
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .resultados-busqueda li .estado-accion {
@@ -234,7 +249,7 @@
 }
 
 .alternar-capas[aria-expanded="false"] .flecha,
-.categoria[aria-expanded="false"] .flecha,
+.alternar-categoria[aria-expanded="false"] .flecha,
 .leyenda-titulo[aria-expanded="false"] .flecha {
   transform: rotate(-45deg);
   margin-bottom: 0;
@@ -245,6 +260,7 @@
 }
 
 .panel-lista {
+  position: relative; /* los textos .sr-only (posición absoluta) quedan dentro de la lista desplazable */
   overflow-y: auto;
   padding: 2px 0 6px;
   border-top: 1px solid var(--borde-suave);
@@ -294,7 +310,7 @@
   font-weight: 400;
 }
 
-.categoria[aria-expanded="false"] .capas {
+.alternar-categoria[aria-expanded="false"] + .capas {
   display: none;
 }
 
@@ -397,7 +413,7 @@
   padding: 4px 12px 10px 40px;
   background: var(--superficie-2);
   font-size: 13px;
-  color: var(--gris-suave);
+  color: var(--gris-texto); /* gris suave sobre --superficie-2 no llega a 4,5:1 */
 }
 
 .capa.abierta .capa-detalle {
@@ -449,6 +465,12 @@
 
 .control-menu {
   position: relative;
+}
+
+/* El menú vive dentro de la columna de controles de MapLibre (z-index 2): se sube la columna
+   para que la leyenda (z-index 3) no quede encima del menú abierto */
+.mapa-contenedor .maplibregl-ctrl-top-right {
+  z-index: 4;
 }
 
 .control-menu .maplibregl-ctrl-group button svg {
@@ -512,7 +534,12 @@
   outline: none;
 }
 
-.menu-herramientas [aria-checked="true"] {
+.menu-herramientas [role="menuitem"]:focus-visible,
+.menu-herramientas [role="menuitemcheckbox"]:focus-visible {
+  box-shadow: inset 3px 0 0 var(--verde);
+}
+
+.menu-herramientas [role="menuitemcheckbox"][aria-checked="true"] {
   color: var(--verde-oscuro);
   font-weight: 600;
 }
@@ -567,12 +594,12 @@
   border-color: var(--verde);
 }
 
-.menu-base button[aria-pressed="true"] {
+.menu-base button[aria-checked="true"] {
   color: var(--verde-oscuro);
   font-weight: 700;
 }
 
-.menu-base button[aria-pressed="true"] span.mini {
+.menu-base button[aria-checked="true"] span.mini {
   border-color: var(--verde);
   box-shadow: 0 0 0 2px var(--verde-claro);
 }
@@ -583,7 +610,7 @@
   position: absolute;
   z-index: 3;
   right: 10px;
-  bottom: 32px;
+  bottom: calc(var(--atr-alto, 34px) + 6px); /* justo encima de la atribución, abierta o plegada */
   width: 250px;
   max-width: calc(100% - 20px);
   max-height: 45%;
@@ -708,6 +735,15 @@
   display: none;
 }
 
+/* Cuando la atribución pasa por debajo (mapa angosto o atribución larga), la píldora y la escala suben */
+.mapa-contenedor.atr-bajo-barra .barra-estado {
+  bottom: calc(var(--atr-alto) + 4px);
+}
+
+.mapa-contenedor.atr-bajo-escala .maplibregl-ctrl-bottom-left {
+  bottom: calc(var(--atr-alto) - 6px);
+}
+
 /* ---------------------------------------------------------------- medición */
 
 .panel-medicion {
@@ -780,10 +816,6 @@ body.solo-mapa .visor {
   height: 100vh;
   height: 100dvh;
   min-height: 0;
-}
-
-body.solo-mapa .leyenda {
-  bottom: 28px;
 }
 
 /* ---------------------------------------------------------------- diálogos del visor */
@@ -1079,7 +1111,7 @@ body.solo-mapa .leyenda {
 .tabla-conteo,
 .tabla-pagina {
   font-size: 13px;
-  color: var(--gris-suave);
+  color: var(--gris-texto); /* contraste AA sobre --superficie-2 */
   font-variant-numeric: tabular-nums;
 }
 
@@ -1145,6 +1177,10 @@ body.solo-mapa .leyenda {
   outline: none;
 }
 
+.tabla-datos-mapa tbody tr:focus-visible {
+  box-shadow: inset 3px 0 0 var(--verde);
+}
+
 .tabla-datos-mapa tbody tr.seleccionada {
   background: var(--amarillo-claro);
 }
@@ -1154,6 +1190,7 @@ body.solo-mapa .leyenda {
   display: flex;
   flex-direction: column;
   height: calc(100vh - var(--alto-govco) - var(--alto-encabezado));
+  height: calc(100dvh - var(--alto-govco) - var(--alto-encabezado)); /* sin dvh quedaba más alto que la pantalla en móviles con barra dinámica */
   min-height: 560px;
   background: var(--superficie);
 }
@@ -1545,11 +1582,6 @@ dl.metadatos > :nth-last-child(-n + 2) {
 }
 
 @media (max-width: 860px) {
-  .visor {
-    height: calc(100vh - var(--alto-govco) - 58px);
-    height: calc(100dvh - var(--alto-govco) - 58px);
-  }
-
   /* Una sola fila: búsqueda + botón de capas; la lista se abre debajo */
   .tarjeta-mapa {
     top: 8px;
@@ -1560,19 +1592,29 @@ dl.metadatos > :nth-last-child(-n + 2) {
     max-height: min(60vh, calc(100% - 70px));
     display: grid;
     grid-template-columns: 1fr auto;
+    grid-template-rows: auto minmax(0, 1fr); /* sin esto la lista se salía de la tarjeta y no se desplazaba */
   }
 
   .alternar-capas {
     width: auto;
     border-top: 0;
     border-left: 1px solid var(--borde-suave);
-    padding: 0 12px;
+    padding: 0 10px;
     border-radius: 0 12px 12px 0;
   }
 
-  .alternar-capas .titulo,
   .alternar-capas .flecha {
     display: none;
+  }
+
+  /* Oculto a la vista, no al lector de pantalla: el botón se sigue llamando «Capas» */
+  .alternar-capas .titulo {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   .alternar-capas .conteo {
@@ -1590,7 +1632,9 @@ dl.metadatos > :nth-last-child(-n + 2) {
   }
 
   .buscador-mapa .buscador input {
-    padding-right: 10px;
+    padding-left: 34px;
+    padding-right: 8px;
+    font-size: 16px; /* con menos de 16 px Safari en iOS acerca la página al enfocar la caja */
   }
 
   .resultados-busqueda {
@@ -1599,10 +1643,6 @@ dl.metadatos > :nth-last-child(-n + 2) {
 
   .menu-herramientas {
     max-height: calc(100vh - 200px);
-  }
-
-  .leyenda {
-    bottom: 46px;
   }
 
   /* Sin puntero no hay coordenadas que seguir: se ocultan (siguen en la búsqueda y en la impresión) */
@@ -1631,12 +1671,181 @@ dl.metadatos > :nth-last-child(-n + 2) {
     padding: 24px 16px 40px;
   }
 
-  .estudio {
-    height: calc(100vh - var(--alto-govco) - 58px);
-  }
-
   .estudio-detalle {
     display: none;
+  }
+}
+
+/* Pantallas táctiles y teléfonos: objetivos de 40 px o más */
+@media (pointer: coarse), (max-width: 600px) {
+  .maplibregl-ctrl-group button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .control-menu .maplibregl-ctrl-group button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .categoria > button,
+  .leyenda-titulo,
+  .capa-detalle .opacidad {
+    min-height: 40px;
+  }
+
+  .capa-fila {
+    min-height: 44px;
+  }
+
+  .capa-mas {
+    padding: 12px;
+  }
+
+  .capa-acciones {
+    gap: 6px;
+  }
+
+  .capa-acciones button {
+    min-height: 40px;
+    padding: 6px 12px;
+  }
+
+  .menu-herramientas [role="menuitem"],
+  .menu-herramientas [role="menuitemcheckbox"],
+  .resultados-busqueda li[role="option"] {
+    min-height: 44px;
+  }
+
+  .tabla-barra .btn,
+  .tabla-barra .btn-icono,
+  .dialogo-encabezado .btn-icono,
+  .panel-medicion .btn-icono,
+  .popup .popup-navegar .btn-icono {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .tabla-barra select,
+  .tabla-barra input[type="search"],
+  .tabla-filtrar-mapa,
+  .rejilla-insertar .check,
+  .rejilla-insertar input[type="text"],
+  .rejilla-insertar input[type="number"],
+  .fila-url .btn,
+  .acciones-dialogo .btn,
+  .url-servicio .btn,
+  .url-servicio input,
+  .ficha-tarjeta .acciones .btn,
+  .estudio-acciones .btn {
+    min-height: 40px;
+  }
+
+  .tabla-filtrar-mapa,
+  .rejilla-insertar .check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .maplibregl-popup-close-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .volver-geoportal {
+    padding: 12px 14px;
+  }
+}
+
+/* Teléfono: la tabla de atributos ocupa la mitad (el mapa conserva sus controles y la leyenda) y su barra se acomoda en tres filas */
+@media (max-width: 600px) {
+  .panel-atributos {
+    flex-basis: 50%;
+  }
+
+  .tabla-barra {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .tabla-barra > span[data-icono] {
+    display: none;
+  }
+
+  .tabla-barra > label:first-of-type {
+    order: 1;
+    flex: 1 1 0;
+    min-width: 50%; /* obliga a que el filtro pase a la segunda fila */
+  }
+
+  .tabla-barra select {
+    max-width: none;
+  }
+
+  .tabla-barra [data-csv] {
+    order: 2;
+  }
+
+  .tabla-barra [data-cerrar-tabla] {
+    order: 3;
+  }
+
+  .tabla-barra .buscador {
+    order: 4;
+    flex: 1 1 55%;
+    width: auto;
+  }
+
+  .tabla-conteo {
+    order: 5;
+  }
+
+  .tabla-filtrar-mapa {
+    order: 6;
+  }
+
+  .tabla-barra .separador {
+    order: 7;
+  }
+
+  .tabla-barra [data-anterior] {
+    order: 8;
+  }
+
+  .tabla-pagina {
+    order: 9;
+  }
+
+  .tabla-barra [data-siguiente] {
+    order: 10;
+  }
+
+  .estudio-barra {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  /* El panel de medición ocupa el ancho libre a la izquierda de los controles (centrado los tapaba a 360 px) */
+  .panel-medicion {
+    left: 8px;
+    right: 58px;
+    width: auto;
+    transform: none;
+  }
+}
+
+/* Teléfono apaisado: el visor cabe en la pantalla sin desplazar la página, y la leyenda
+   se aparta de la columna de controles (a esta altura se tocaban) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .visor {
+    min-height: 0;
+  }
+
+  .leyenda {
+    right: 60px;
   }
 }
 

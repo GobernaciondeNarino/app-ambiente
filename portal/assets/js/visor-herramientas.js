@@ -153,6 +153,14 @@
   let temporizadorBusqueda = null;
   let controlBusqueda = null;
   let seqBusqueda = 0;
+  let textoPintado = null; // texto cuyos resultados están en la lista (null: ninguno)
+
+  /** Muestra u oculta los resultados y lo anuncia en la caja (combobox). */
+  function verResultados(visible) {
+    $("#resultados-busqueda").hidden = !visible;
+    $("#buscar-mapa").setAttribute("aria-expanded", String(visible));
+    if (!visible) textoPintado = null;
+  }
 
   function cancelarBusqueda() {
     seqBusqueda++;
@@ -230,7 +238,6 @@
   }
 
   async function buscar(q) {
-    const lista = $("#resultados-busqueda");
     cancelarBusqueda();
     const n = seqBusqueda;
     const texto = q.trim();
@@ -238,6 +245,7 @@
     if (texto.length < 2 || texto.startsWith(">")) {
       // Sin texto: sugerencias de acciones (descubrir sin llenar el mapa de botones)
       pintarResultados([{ titulo: texto ? "Acciones" : "Acciones frecuentes", items: texto ? comandos.acciones : comandos.acciones.slice(0, 8) }], false);
+      textoPintado = q;
       return;
     }
     const secciones = [];
@@ -257,6 +265,7 @@
       });
     }
     pintarResultados(secciones, true);
+    textoPintado = q;
     const control = (controlBusqueda = new AbortController());
     let nota = null;
     try {
@@ -271,7 +280,7 @@
 
   function pintarResultados(secciones, cargando, nota) {
     const lista = $("#resultados-busqueda");
-    lista.hidden = false;
+    verResultados(true);
     let n = 0;
     lista.innerHTML =
       secciones.filter((s) => s.items.length).map((s) =>
@@ -282,7 +291,7 @@
             (it.detalle ? "<small>" + escapar(it.detalle) + "</small>" : "") + "</span>" +
             (it.estado ? '<span class="estado-accion">' + escapar(it.estado) + "</span>" : it.atajo ? "<kbd>" + escapar(it.atajo) + "</kbd>" : "") + "</li>";
         }).join(""),
-      ).join("") + (cargando ? '<li class="vacio" role="presentation">Buscando lugares…</li>' : (n ? "" : '<li class="vacio">Sin resultados.</li>')) +
+      ).join("") + (cargando ? '<li class="vacio" role="presentation">Buscando lugares…</li>' : (n ? "" : '<li class="vacio" role="presentation">Sin resultados.</li>')) +
       (nota ? '<li class="vacio" role="presentation">' + escapar(nota) + "</li>" : "");
     lista._items = secciones.filter((s) => s.items.length).flatMap((s) => s.items);
   }
@@ -343,10 +352,15 @@
     });
     entrada.addEventListener("focus", () => { if (lista.hidden) buscar(entrada.value); });
     entrada.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "Enter") {
+        // Quien escribe rápido y pulsa Enter no debe ejecutar los resultados del texto anterior:
+        // la parte local de la búsqueda (acciones, capas, coordenadas, entidades) se pinta al instante
+        if (textoPintado !== entrada.value) buscar(entrada.value);
+      }
       const opciones = [...lista.querySelectorAll("[data-i]")];
       if (e.key === "ArrowDown" && opciones.length) { e.preventDefault(); opciones[0].focus(); }
       if (e.key === "Enter" && opciones.length) { e.preventDefault(); elegir(opciones[0]); }
-      if (e.key === "Escape") { cancelarBusqueda(); lista.hidden = true; entrada.blur(); }
+      if (e.key === "Escape") { cancelarBusqueda(); verResultados(false); entrada.blur(); }
     });
     lista.addEventListener("keydown", (e) => {
       const opciones = [...lista.querySelectorAll("[data-i]")];
@@ -354,14 +368,14 @@
       if (e.key === "ArrowDown") { e.preventDefault(); (opciones[i + 1] || opciones[0]).focus(); }
       if (e.key === "ArrowUp") { e.preventDefault(); i <= 0 ? entrada.focus() : opciones[i - 1].focus(); }
       if (e.key === "Enter") elegir(document.activeElement);
-      if (e.key === "Escape") { cancelarBusqueda(); lista.hidden = true; entrada.focus(); }
+      if (e.key === "Escape") { cancelarBusqueda(); verResultados(false); entrada.focus(); }
     });
     lista.addEventListener("click", (e) => { const li = e.target.closest("[data-i]"); if (li) elegir(li); });
-    document.addEventListener("click", (e) => { if (!e.target.closest(".buscador-mapa")) { cancelarBusqueda(); lista.hidden = true; } });
+    document.addEventListener("click", (e) => { if (!e.target.closest(".buscador-mapa")) { cancelarBusqueda(); verResultados(false); } });
     function elegir(li) {
       cancelarBusqueda();
       const item = lista._items && lista._items[+li.dataset.i];
-      lista.hidden = true;
+      verResultados(false);
       entrada.blur();
       if (!item) return;
       if (item.comando) entrada.value = ""; // un comando no deja texto; un lugar o una entidad, sí
@@ -648,13 +662,17 @@
     const vista = filas.slice(tabla.pagina * POR_PAGINA, (tabla.pagina + 1) * POR_PAGINA);
     $("#tabla-conteo").textContent = formatoNumero(filas.length) + (filas.length !== total ? " de " + formatoNumero(total) : "") + " entidades";
     $("#tabla-pagina").textContent = "Página " + (tabla.pagina + 1) + " de " + paginas;
+    panel.querySelector("[data-anterior]").disabled = tabla.pagina === 0;
+    panel.querySelector("[data-siguiente]").disabled = tabla.pagina >= paginas - 1;
     const fmt = (v) => (v == null ? "" : typeof v === "number" ? new Intl.NumberFormat("es-CO", { maximumFractionDigits: 4 }).format(v) : String(v));
     panel.querySelector(".tabla-cuerpo").innerHTML =
       '<table class="tabla-datos-mapa"><thead><tr>' +
-      cols.map((c) => '<th scope="col"><button type="button" data-orden="' + escapar(c) + '">' + escapar(c) + (tabla.orden === c ? (tabla.desc ? " ▼" : " ▲") : "") + "</button></th>").join("") +
+      cols.map((c) => '<th scope="col"' + (tabla.orden === c ? ' aria-sort="' + (tabla.desc ? "descending" : "ascending") + '"' : "") + '><button type="button" data-orden="' + escapar(c) + '">' + escapar(c) +
+        (tabla.orden === c ? '<span aria-hidden="true">' + (tabla.desc ? " ▼" : " ▲") + "</span>" : "") + "</button></th>").join("") +
       "</tr></thead><tbody>" +
       vista.map(({ f, i }) => '<tr data-i="' + i + '" tabindex="0"' + (H.resaltada === f ? ' class="seleccionada"' : "") + ">" + cols.map((c) => "<td>" + escapar(fmt((f.properties || {})[c])) + "</td>").join("") + "</tr>").join("") +
-      "</tbody></table>";
+      "</tbody></table>" +
+      (filas.length ? "" : '<p class="vacio">Ninguna entidad coincide con el filtro.</p>');
   }
 
   function abrirTabla(slug) {
@@ -859,7 +877,9 @@
         notificar("Código copiado.");
       } catch (_) {
         campo.select();
-        notificar("Seleccione el código y cópielo con Ctrl + C.");
+        let copiado = false;
+        try { copiado = document.execCommand("copy"); } catch (_e) { /* no disponible */ }
+        notificar(copiado ? "Código copiado." : "Seleccione el código y cópielo con Ctrl + C.");
       }
     });
   }
@@ -882,6 +902,13 @@
       });
     }
     return ingestaPromesa;
+  }
+
+  const TEXTO_DATOS = "Los datos que añada se ven solo en este navegador: no se envían al servidor ni se publican.";
+
+  function abrirAnadir() {
+    estadoDatos(TEXTO_DATOS); // sin errores de un intento anterior
+    $("#anadir-datos").showModal();
   }
 
   function estadoDatos(texto, error) {
@@ -946,7 +973,7 @@
         capa = agregarVectorLocal(nombre, JSON.parse(await r.procesado.text()), "Archivo local");
       }
       if ($("#anadir-datos").open) $("#anadir-datos").close();
-      estadoDatos("Los datos que añada se ven solo en este navegador: no se envían al servidor ni se publican.");
+      estadoDatos(TEXTO_DATOS);
       notificar("«" + capa.title + "» añadida. Solo se ve en este navegador." + (r.advertencias && r.advertencias.length ? " " + r.advertencias[0] : ""));
     } catch (e) {
       estadoDatos(e.message || "No se pudo leer el archivo.", true);
@@ -986,6 +1013,7 @@
         return anadirArchivo(new File([blob], nombre + ".geojson"));
       }
       $("#anadir-datos").close();
+      estadoDatos(TEXTO_DATOS);
       notificar("Servicio añadido. Solo se ve en este navegador.");
     } catch (e) {
       estadoDatos(e.message, true);
@@ -1031,7 +1059,7 @@
     { id: "area", nombre: "Medir área", icono: "area", atajo: "A", claves: "superficie hectáreas polígono", activa: () => medicion.modo === "area" && !medicion.fija, ejecutar: () => iniciarMedicion("area") },
     { id: "terreno", nombre: "Terreno 3D", icono: "montana", atajo: "T", claves: "relieve elevación montañas", activa: () => terreno, ejecutar: () => alternarTerreno() },
     { id: "ubicacion", nombre: "Mi ubicación", icono: "ubicacion", claves: "gps localizar dónde estoy", ejecutar: irAMiUbicacion },
-    { id: "anadir", nombre: "Añadir datos…", icono: "anadir", claves: "cargar abrir archivo shapefile geojson kml gpx csv wms xyz", ejecutar: () => $("#anadir-datos").showModal() },
+    { id: "anadir", nombre: "Añadir datos…", icono: "anadir", claves: "cargar abrir archivo shapefile geojson kml gpx csv wms xyz", ejecutar: abrirAnadir },
     { sep: true },
     { id: "enlace", nombre: "Copiar enlace de esta vista", icono: "compartir", claves: "compartir url permanente", ejecutar: () => compartir() },
     { id: "insertar", nombre: "Insertar el mapa…", icono: "incrustar", claves: "iframe embeber incrustar página", ejecutar: abrirInsertar },
@@ -1090,6 +1118,10 @@
     const menu = $("#menu-herramientas");
     pintarMenu();
     menu.hidden = false;
+    // Alto disponible dentro del mapa (con o sin tabla de atributos): el resto se desplaza dentro del menú
+    const caja = $("#mapa-contenedor").getBoundingClientRect();
+    const libre = Math.min(caja.bottom, window.innerHeight) - menu.getBoundingClientRect().top - 10;
+    menu.style.maxHeight = Math.max(120, Math.round(libre)) + "px";
     $("#boton-herramientas").setAttribute("aria-expanded", "true");
     const primero = menu.querySelector("[data-accion-menu]");
     if (primero) primero.focus();

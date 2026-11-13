@@ -146,6 +146,14 @@
         "FullscreenControl.Exit": "Salir de pantalla completa",
         "ScaleControl.Meters": "m",
         "ScaleControl.Kilometers": "km",
+        // Textos que MapLibre dejaría en inglés (nombre accesible del lienzo, marcador, atribución y ventanas emergentes)
+        "Map.Title": "Mapa",
+        "Marker.Title": "Marcador",
+        "Popup.Close": "Cerrar ventana emergente",
+        "AttributionControl.ToggleAttribution": "Mostrar u ocultar la atribución",
+        "AttributionControl.MapFeedback": "Comentarios sobre el mapa",
+        "GeolocateControl.LocationNotAvailable": "Ubicación no disponible",
+        "LogoControl.Title": "Logotipo de MapLibre",
       },
     });
     // Solo acercar, alejar y brújula a la vista: lo demás está en el menú de herramientas y en la paleta (Ctrl + K)
@@ -167,7 +175,31 @@
       mapa.getCanvas().style.cursor = hay ? "pointer" : "";
     });
     mapa.on("click", mostrarPopup);
+    // La atribución cambia de tamaño (una o dos líneas, plegada o abierta): la leyenda, la escala
+    // y la píldora de coordenadas se apartan para no taparla
+    mapa.on("idle", evitarAtribucion);
+    mapa.on("resize", evitarAtribucion);
+    const atribucion = mapa.getContainer().querySelector(".maplibregl-ctrl-attrib");
+    if (atribucion) atribucion.addEventListener("toggle", () => requestAnimationFrame(evitarAtribucion));
     estado.mapa = mapa;
+  }
+
+  function evitarAtribucion() {
+    const cont = $("#mapa-contenedor");
+    if (!cont.offsetParent) return; // visor oculto (catálogo, Estudio): se mide al volver
+    const atr = cont.querySelector(".maplibregl-ctrl-attrib");
+    const caja = cont.getBoundingClientRect();
+    const r = atr && atr.offsetParent ? atr.getBoundingClientRect() : null;
+    const alto = r ? Math.max(0, Math.round(caja.bottom - r.top)) : 0;
+    const cruza = (el) => {
+      if (!r || !el || !el.offsetParent) return false;
+      const e = el.getBoundingClientRect();
+      return e.right > r.left && e.left < r.right;
+    };
+    const valor = alto + "px";
+    if (cont.style.getPropertyValue("--atr-alto") !== valor) cont.style.setProperty("--atr-alto", valor);
+    cont.classList.toggle("atr-bajo-escala", cruza(cont.querySelector(".maplibregl-ctrl-scale")));
+    cont.classList.toggle("atr-bajo-barra", cruza($("#barra-estado")));
   }
 
   function idsDe(capa) {
@@ -493,7 +525,7 @@
     const estudio = estado.config && estado.config.estudio && estado.config.estudio.activo && !c.local;
     const boton = (accion, ic, texto) => '<button type="button" data-accion="' + accion + '">' + icono(ic) + texto + "</button>";
     return (
-      '<li class="capa' + (activa ? " activa" : "") + (abierta ? " abierta" : "") + '" data-slug="' + escapar(c.slug) + '" role="treeitem">' +
+      '<li class="capa' + (activa ? " activa" : "") + (abierta ? " abierta" : "") + '" data-slug="' + escapar(c.slug) + '">' +
       '<div class="capa-fila">' +
       '<input type="checkbox" id="cb-' + escapar(c.slug) + '"' + (activa ? " checked" : "") + ">" +
       muestraHTML(c) +
@@ -531,11 +563,12 @@
         const clave = g.cat.slug || String(g.cat.id);
         const conActivas = g.capas.some((c) => estado.activas.includes(c.slug));
         const abierta = estado.categoriasAbiertas[clave] != null ? estado.categoriasAbiertas[clave] : pocas || conActivas;
+        const id = "categoria-" + clave.replace(/[^a-z0-9-]+/gi, "-");
         return (
-          '<div class="categoria" aria-expanded="' + abierta + '" role="treeitem" data-categoria="' + escapar(clave) + '">' +
-          '<button type="button" class="alternar-categoria"><span class="franja" style="background:' + escapar(g.cat.color) + '"></span>' +
-          "<span>" + escapar(g.cat.name) + '</span><span class="contador">' + g.capas.length + '</span><span class="flecha" aria-hidden="true"></span></button>' +
-          '<ul class="capas" role="group">' + g.capas.map(filaCapa).join("") + "</ul></div>"
+          '<div class="categoria" data-categoria="' + escapar(clave) + '">' +
+          '<button type="button" class="alternar-categoria" aria-expanded="' + abierta + '" aria-controls="' + escapar(id) + '"><span class="franja" style="background:' + escapar(g.cat.color) + '"></span>' +
+          "<span>" + escapar(g.cat.name) + '</span> <span class="contador">' + g.capas.length + '<span class="sr-only">' + (g.capas.length === 1 ? " capa" : " capas") + '</span></span><span class="flecha" aria-hidden="true"></span></button>' +
+          '<ul class="capas" id="' + escapar(id) + '">' + g.capas.map(filaCapa).join("") + "</ul></div>"
         );
       })
       .join("");
@@ -560,10 +593,9 @@
     lista.addEventListener("click", (e) => {
       const cat = e.target.closest(".alternar-categoria");
       if (cat) {
-        const nodo = cat.parentElement;
-        const abierta = nodo.getAttribute("aria-expanded") === "false";
-        nodo.setAttribute("aria-expanded", String(abierta));
-        estado.categoriasAbiertas[nodo.dataset.categoria] = abierta;
+        const abierta = cat.getAttribute("aria-expanded") === "false";
+        cat.setAttribute("aria-expanded", String(abierta));
+        estado.categoriasAbiertas[cat.parentElement.dataset.categoria] = abierta;
         return;
       }
       const b = e.target.closest("[data-accion]");
@@ -662,9 +694,15 @@
   function pintarMenuBase() {
     const menu = $("#menu-base"); // dentro del menú de herramientas
     if (!menu) return;
+    const botones = menu.querySelectorAll("[data-base]");
+    if (botones.length) {
+      // Solo se actualiza el estado: repintar haría perder el foco a quien usa el teclado
+      botones.forEach((b) => b.setAttribute("aria-checked", String(b.dataset.base === estado.base)));
+      return;
+    }
     menu.innerHTML = MAPAS_BASE.map(
       (b) =>
-        '<button type="button" data-base="' + b.id + '" aria-pressed="' + (b.id === estado.base) + '" title="' + escapar(b.nombre) +
+        '<button type="button" role="menuitemradio" data-base="' + b.id + '" aria-checked="' + (b.id === estado.base) + '" title="' + escapar(b.nombre) +
         '"><span class="mini" style="background:' + b.color + '"></span>' + escapar(b.corto || b.nombre) + "</button>",
     ).join("");
   }
@@ -802,7 +840,12 @@
         await navigator.clipboard.writeText(servicio);
         notificar("URL copiada al portapapeles.");
       } catch (_) {
-        $("#ficha-cuerpo .url-servicio input").select();
+        // Sin portapapeles (sitio sin https): se selecciona el campo y se intenta la copia clásica
+        const campo = $("#ficha-cuerpo .url-servicio input");
+        campo.select();
+        let copiado = false;
+        try { copiado = document.execCommand("copy"); } catch (_e) { /* no disponible */ }
+        notificar(copiado ? "URL copiada al portapapeles." : "Seleccione la URL y cópiela con Ctrl + C.");
       }
     });
     if (!d.open) d.showModal();
@@ -856,7 +899,9 @@
       if (b.dataset.accion === "info") abrirFicha(capa);
       else {
         irA("visor");
-        alternarCapa(capa.slug, true, true);
+        alternarCapa(capa.slug, true, false);
+        // Tras volver a mostrar el visor el lienzo recupera su tamaño; luego se encuadra la capa
+        setTimeout(() => { estado.mapa.resize(); acercarA(capa); }, 0);
       }
     });
   }
@@ -949,6 +994,8 @@
     document.dispatchEvent(new CustomEvent("visor:listo"));
     const enEstudio = estado.config && estado.config.estudio && estado.config.estudio.activo;
     $("#nav-estudio").hidden = !enEstudio;
+    // La documentación interactiva de la API (/api/docs) solo existe en la edición Python (Docker)
+    $("#api-docs").hidden = !estado.config || !estado.config.edicion || estado.config.edicion === "php";
     if (location.hash === "#estudio") mostrarRuta("estudio");
     $("#filtro-categoria").insertAdjacentHTML(
       "beforeend",

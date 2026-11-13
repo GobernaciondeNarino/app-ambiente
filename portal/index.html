@@ -64,7 +64,7 @@
               <label class="buscador">
                 <span class="sr-only">Buscar capas, lugares, coordenadas, entidades o acciones</span>
                 <span data-icono="buscar"></span>
-                <input type="search" id="buscar-mapa" placeholder="Buscar capas, lugares o acciones" autocomplete="off" aria-controls="resultados-busqueda" aria-autocomplete="list">
+                <input type="search" id="buscar-mapa" placeholder="Buscar capas o lugares" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="resultados-busqueda" aria-autocomplete="list">
                 <kbd class="atajo-buscar" aria-hidden="true">Ctrl K</kbd>
               </label>
               <ul class="resultados-busqueda" id="resultados-busqueda" role="listbox" aria-label="Resultados de búsqueda" hidden></ul>
@@ -75,7 +75,7 @@
               <span class="conteo" id="resumen-capas">Cargando…</span>
               <span class="flecha" aria-hidden="true"></span>
             </button>
-            <div class="panel-lista" id="lista-capas" role="tree" aria-label="Capas por categoría"></div>
+            <div class="panel-lista" id="lista-capas" role="group" aria-label="Capas por categoría"></div>
           </aside>
 
           <div id="mapa" role="region" aria-label="Mapa"></div>
@@ -177,7 +177,7 @@
           <h2>Sistema de referencia</h2>
           <p>Los geodatos se publican en WGS 84 (EPSG:4326) para su visualización web. La ficha de cada capa indica el sistema de referencia en el que fue producida (p. ej. MAGNA-SIRGAS Origen Nacional, EPSG:9377).</p>
           <h2>Servicios para desarrolladores</h2>
-          <p>Toda la información del catálogo está disponible mediante una API abierta en <code>/api/capas</code>, con documentación en <a href="api/docs">/api/docs</a>. El proyecto completo de GeoLibre está en <a href="api/proyecto.geolibre">/api/proyecto.geolibre</a>.</p>
+          <p>Toda la información del catálogo está disponible mediante una API abierta en <code>/api/capas</code><span id="api-docs" hidden>, con documentación en <a href="api/docs">/api/docs</a></span>. El proyecto completo de GeoLibre está en <a href="api/proyecto.geolibre">/api/proyecto.geolibre</a>.</p>
           <h2>Condiciones de uso</h2>
           <p>Salvo que la ficha indique otra licencia, los geodatos se publican bajo <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener">Creative Commons Atribución 4.0</a>: puede usarlos citando a la Gobernación de Nariño y a la fuente indicada. La información tiene carácter de referencia y no reemplaza los actos administrativos que la adoptan.</p>
         </div>
