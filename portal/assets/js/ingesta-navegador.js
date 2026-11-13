@@ -201,7 +201,8 @@
     try {
       obj = JSON.parse(texto);
     } catch (e) {
-      falla("El GeoJSON no es JSON válido: " + e.message);
+      console.warn("GeoJSON no válido:", e); // detalle técnico (en inglés) solo en la consola
+      falla("El GeoJSON no es JSON válido: revise el archivo (está incompleto o mal formado).");
     }
     const fc = normalizarFC(obj);
     const crs = fc.crs && fc.crs.properties ? codigoCRS(fc.crs.properties.name || fc.crs.properties.code) : null;
@@ -224,7 +225,8 @@
     try {
       resultado = await shp(buffer); // usa el .prj para reproyectar a WGS 84 y el .cpg para la codificación
     } catch (e) {
-      falla("No se pudo leer el Shapefile: " + e.message);
+      console.warn("Shapefile no legible:", e);
+      falla("No se pudo leer el Shapefile: compruebe que el ZIP trae el .shp, el .shx y el .dbf completos y sin dañar.");
     }
     const fc = normalizarFC(Array.isArray(resultado) ? resultado[0] : resultado);
     let etiqueta;
@@ -726,7 +728,8 @@
     try {
       imagen = await abrirTiff(archivo);
     } catch (e) {
-      falla("No se pudo leer el GeoTIFF: " + e.message);
+      console.warn("GeoTIFF no legible:", e);
+      falla("No se pudo leer el GeoTIFF: el archivo está dañado o no es un GeoTIFF que el navegador pueda abrir. Pruebe a exportarlo de nuevo como GeoTIFF (sin comprimir o con LZW o DEFLATE).");
     }
     let bbox;
     try {
