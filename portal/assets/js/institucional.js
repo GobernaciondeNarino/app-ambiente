@@ -48,6 +48,14 @@
     subirCapa: '<path d="m6 15 6-6 6 6"/>',
     bajarCapa: '<path d="m6 9 6 6 6-6"/>',
     teclado: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+    mas: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>',
+    herramientas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg>',
+    area: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 7 11 3l9 5-3 12-10 1Z" fill="currentColor" fill-opacity=".15"/></svg>',
+    imprimir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4v-7h16v7h-3"/><path d="M7 14h10v7H7z"/></svg>',
+    pantalla: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+    incrustar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>',
+    anadir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    enfoque: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>',
     ubicacion: '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
     facebook: '<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v2H7v4h3v7h4v-7h3l1-4h-4V8Z" fill="currentColor" stroke="none"/>',
     x: '<path d="M4 4l16 16M20 4 4 20" />',
@@ -188,7 +196,15 @@
   const ICONO_TEMA = { auto: "auto", claro: "sol", oscuro: "luna" };
   const consultaOscuro = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
 
+  /** Tema pedido en la dirección (?theme=dark|light o ?tema=oscuro|claro): vale para esta visita, no se guarda. */
+  function temaDeURL() {
+    const m = /[?&](?:theme|tema)=(dark|light|oscuro|claro)\b/.exec(location.search);
+    return m ? (m[1] === "dark" || m[1] === "oscuro" ? "oscuro" : "claro") : null;
+  }
+  let temaForzado = temaDeURL();
+
   function preferenciaTema() {
+    if (temaForzado) return temaForzado;
     try {
       const p = localStorage.getItem(CLAVE_TEMA);
       return p === "claro" || p === "oscuro" ? p : "auto";
@@ -219,6 +235,7 @@
   function alternarTema() {
     const orden = ["auto", "claro", "oscuro"];
     const siguiente = orden[(orden.indexOf(preferenciaTema()) + 1) % orden.length];
+    temaForzado = null; // la elección del usuario prevalece sobre la dirección
     try {
       localStorage.setItem(CLAVE_TEMA, siguiente);
     } catch (_) {

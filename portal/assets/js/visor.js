@@ -22,13 +22,13 @@
   }
 
   const MAPAS_BASE = [
-    { id: "calles", nombre: "Calles (OpenFreeMap)", color: "#e8efe4", estilo: "https://tiles.openfreemap.org/styles/liberty" },
-    { id: "claro", nombre: "Claro (Positron)", color: "#f3f3f1", estilo: "https://tiles.openfreemap.org/styles/positron" },
-    { id: "oscuro", nombre: "Oscuro (OpenFreeMap Dark)", color: "#1d2321", estilo: "https://tiles.openfreemap.org/styles/dark", oscuro: true },
-    { id: "fiord", nombre: "Nocturno azul (Fiord)", color: "#2b3b4d", estilo: "https://tiles.openfreemap.org/styles/fiord", oscuro: true },
+    { id: "calles", nombre: "Calles (OpenFreeMap)", corto: "Calles", color: "#e8efe4", estilo: "https://tiles.openfreemap.org/styles/liberty" },
+    { id: "claro", nombre: "Claro (Positron)", corto: "Claro", color: "#f3f3f1", estilo: "https://tiles.openfreemap.org/styles/positron" },
+    { id: "oscuro", nombre: "Oscuro (OpenFreeMap Dark)", corto: "Oscuro", color: "#1d2321", estilo: "https://tiles.openfreemap.org/styles/dark", oscuro: true },
+    { id: "fiord", nombre: "Nocturno azul (Fiord)", corto: "Azul", color: "#2b3b4d", estilo: "https://tiles.openfreemap.org/styles/fiord", oscuro: true },
     {
       id: "satelite",
-      nombre: "Imagen satelital (Esri)",
+      nombre: "Imagen satelital (Esri)", corto: "Satélite",
       color: "#41553b",
       estilo: estiloRaster(
         ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
@@ -37,7 +37,7 @@
     },
     {
       id: "topografico",
-      nombre: "Topográfico (OpenTopoMap)",
+      nombre: "Topográfico (OpenTopoMap)", corto: "Relieve",
       color: "#d9d2b0",
       estilo: estiloRaster(
         ["https://a.tile.opentopomap.org/{z}/{x}/{y}.png", "https://b.tile.opentopomap.org/{z}/{x}/{y}.png"],
@@ -47,7 +47,7 @@
     },
     {
       id: "osm",
-      nombre: "OpenStreetMap",
+      nombre: "OpenStreetMap", corto: "OSM",
       color: "#f2efe9",
       estilo: estiloRaster(["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "© Colaboradores de OpenStreetMap"),
     },
@@ -72,6 +72,8 @@
     base: window.Institucional.tema.actual() === "oscuro" ? "oscuro" : "calles",
     baseElegida: false, // si el usuario elige un mapa base, el tema ya no lo cambia
     datos: {}, // GeoJSON de las capas vectoriales cargadas (búsqueda y tabla de atributos)
+    abierta: null, // capa con el detalle desplegado en la lista
+    categoriasAbiertas: {}, // elección del usuario; si no hay, se decide por las capas encendidas
     mapa: null,
   };
 
@@ -146,9 +148,8 @@
         "ScaleControl.Kilometers": "km",
       },
     });
+    // Solo acercar, alejar y brújula a la vista: lo demás está en el menú de herramientas y en la paleta (Ctrl + K)
     mapa.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-    mapa.addControl(new maplibregl.FullscreenControl(), "top-right");
-    mapa.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-right");
     mapa.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
 
     mapa.on("style.load", () => {
@@ -171,7 +172,7 @@
 
   function idsDe(capa) {
     const p = "gp-" + capa.slug;
-    if (capa.kind === "raster") return [p + "-raster"];
+    if (capa.kind === "raster" || capa.kind === "teselas") return [p + "-raster"];
     if (capa.geometry_type === "Punto") return [p + "-punto", p + "-etiqueta"];
     if (capa.geometry_type === "Línea") return [p + "-linea", p + "-etiqueta"];
     return [p + "-relleno", p + "-borde", p + "-punto", p + "-etiqueta"];
@@ -194,10 +195,17 @@
     const e = estiloDe(capa);
     const op = estado.opacidad[capa.slug] != null ? estado.opacidad[capa.slug] : capa.opacity != null ? capa.opacity : 1;
 
+    if (capa.kind === "teselas") {
+      // Servicio añadido por el usuario (WMS o XYZ): solo en este navegador
+      m.addSource(src, { type: "raster", tiles: capa.teselas, tileSize: 256, attribution: escapar(capa.source || "") });
+      m.addLayer({ id: src + "-raster", type: "raster", source: src, paint: { "raster-opacity": op } });
+      return;
+    }
     if (capa.kind === "raster") {
       const esquinas = (capa.raster_info && capa.raster_info.corners) || null;
       if (!esquinas) return;
-      m.addSource(src, { type: "image", url: rutaCapa(capa, "vista-previa.png") + "?v=" + encodeURIComponent(capa.updated_at), coordinates: esquinas });
+      const url = capa.imagen_url || rutaCapa(capa, "vista-previa.png") + "?v=" + encodeURIComponent(capa.updated_at);
+      m.addSource(src, { type: "image", url, coordinates: esquinas });
       m.addLayer({ id: src + "-raster", type: "raster", source: src, paint: { "raster-opacity": op, "raster-fade-duration": 0 } });
       return;
     }
@@ -445,67 +453,98 @@
   // ------------------------------------------------------------------ panel
 
   function agrupar(capas) {
+    const locales = { cat: { slug: "local", name: "Mis datos", color: "#FFD500" }, capas: capas.filter((c) => c.local) };
     const grupos = estado.categorias.map((c) => ({ cat: c, capas: [] }));
     const otros = { cat: { slug: "otras", name: "Otras capas", color: "#767676" }, capas: [] };
-    capas.forEach((c) => {
+    capas.filter((c) => !c.local).forEach((c) => {
       const g = grupos.find((x) => x.cat.id === c.category_id);
       (g || otros).capas.push(c);
     });
-    return grupos.concat([otros]).filter((g) => g.capas.length);
+    return [locales].concat(grupos, [otros]).filter((g) => g.capas.length);
+  }
+
+  /** Capas publicadas en el servidor que están encendidas (las añadidas por el usuario no salen en enlaces ni proyectos). */
+  function activasPublicadas() {
+    return estado.activas.filter((s) => {
+      const c = capaPorSlug(s);
+      return c && !c.local;
+    });
+  }
+
+  function pintarResumen() {
+    const n = estado.capas.length;
+    const a = estado.activas.length;
+    $("#resumen-capas").textContent = !n ? "" : a ? a + " de " + n : String(n);
+    $("#alternar-panel").title = n
+      ? n + (n === 1 ? " capa disponible" : " capas disponibles") + (a ? ", " + a + (a === 1 ? " encendida" : " encendidas") : "")
+      : "No hay capas publicadas";
+  }
+
+  function detalleCapa(c) {
+    if (c.kind === "teselas") return c.detalle || "Servicio de teselas";
+    if (c.kind === "raster") return "Ráster";
+    return (c.geometry_type || "Vector") + " · " + formatoNumero(c.feature_count) + (c.feature_count === 1 ? " entidad" : " entidades");
+  }
+
+  function filaCapa(c) {
+    const activa = estado.activas.includes(c.slug);
+    const abierta = estado.abierta === c.slug;
+    const op = estado.opacidad[c.slug] != null ? estado.opacidad[c.slug] : c.opacity != null ? c.opacity : 1;
+    const estudio = estado.config && estado.config.estudio && estado.config.estudio.activo && !c.local;
+    const boton = (accion, ic, texto) => '<button type="button" data-accion="' + accion + '">' + icono(ic) + texto + "</button>";
+    return (
+      '<li class="capa' + (activa ? " activa" : "") + (abierta ? " abierta" : "") + '" data-slug="' + escapar(c.slug) + '" role="treeitem">' +
+      '<div class="capa-fila">' +
+      '<input type="checkbox" id="cb-' + escapar(c.slug) + '"' + (activa ? " checked" : "") + ">" +
+      muestraHTML(c) +
+      '<label for="cb-' + escapar(c.slug) + '" title="' + escapar(c.title) + '">' + escapar(c.title) + "</label>" +
+      '<button type="button" class="capa-mas" data-accion="mas" aria-expanded="' + abierta + '" title="Opciones de la capa">' + icono("mas") +
+      '<span class="sr-only">Opciones de ' + escapar(c.title) + "</span></button>" +
+      "</div>" +
+      '<div class="capa-detalle">' + escapar(detalleCapa(c)) + (c.local ? " · solo en este navegador" : "") +
+      '<div class="opacidad"><span>Opacidad</span><input type="range" min="0" max="1" step="0.05" value="' + op + '" aria-label="Opacidad de ' + escapar(c.title) + '"></div>' +
+      '<div class="capa-acciones">' +
+      (c.bbox ? boton("zoom", "zoom", "Acercar") : "") +
+      (c.local ? "" : boton("info", "info", "Ficha")) +
+      (c.kind === "vector" ? boton("tabla", "tabla", "Tabla") : "") +
+      (estudio ? boton("estudio", "estudio", "Estudio SIG") : "") +
+      boton("subir", "subirCapa", "Subir") +
+      boton("bajar", "bajarCapa", "Bajar") +
+      (c.local ? boton("quitar", "eliminar", "Quitar") : "") +
+      "</div></div>" +
+      "</li>"
+    );
   }
 
   function pintarPanel() {
-    const texto = ($("#buscar").value || "").trim().toLowerCase();
-    const filtradas = estado.capas.filter(
-      (c) =>
-        !texto ||
-        [c.title, c.description, c.source, (c.keywords || []).join(" "), c.category && c.category.name]
-          .join(" ")
-          .toLowerCase()
-          .includes(texto),
-    );
     const lista = $("#lista-capas");
+    pintarResumen();
     if (!estado.capas.length) {
       lista.innerHTML = '<p class="vacio">Aún no hay capas publicadas.</p>';
       return;
     }
-    if (!filtradas.length) {
-      lista.innerHTML = '<p class="vacio">No se encontraron capas para «' + escapar(texto) + "».</p>";
-      return;
-    }
-    lista.innerHTML = agrupar(filtradas)
-      .map(
-        (g) =>
-          '<div class="categoria" aria-expanded="true" role="treeitem">' +
+    const grupos = agrupar(estado.capas);
+    // Divulgación progresiva: con muchas capas solo se abren las categorías que tienen algo encendido
+    const pocas = estado.capas.length <= 12;
+    lista.innerHTML = grupos
+      .map((g) => {
+        const clave = g.cat.slug || String(g.cat.id);
+        const conActivas = g.capas.some((c) => estado.activas.includes(c.slug));
+        const abierta = estado.categoriasAbiertas[clave] != null ? estado.categoriasAbiertas[clave] : pocas || conActivas;
+        return (
+          '<div class="categoria" aria-expanded="' + abierta + '" role="treeitem" data-categoria="' + escapar(clave) + '">' +
           '<button type="button" class="alternar-categoria"><span class="franja" style="background:' + escapar(g.cat.color) + '"></span>' +
-          "<span>" + escapar(g.cat.name) + '</span><span class="contador">' + g.capas.length + '</span><span class="flecha">▼</span></button>' +
-          '<ul class="capas" role="group">' +
-          g.capas
-            .map((c) => {
-              const activa = estado.activas.includes(c.slug);
-              const op = estado.opacidad[c.slug] != null ? estado.opacidad[c.slug] : c.opacity != null ? c.opacity : 1;
-              const detalle = c.kind === "raster" ? "Ráster" : (c.geometry_type || "Vector") + " · " + formatoNumero(c.feature_count) + " entidades";
-              return (
-                '<li class="capa' + (activa ? " activa" : "") + '" data-slug="' + escapar(c.slug) + '" role="treeitem">' +
-                '<div class="capa-fila">' +
-                '<input type="checkbox" id="cb-' + escapar(c.slug) + '"' + (activa ? " checked" : "") + ">" +
-                muestraHTML(c) +
-                '<label for="cb-' + escapar(c.slug) + '">' + escapar(c.title) + "<small>" + escapar(detalle) + "</small></label>" +
-                '<button class="btn-icono" data-accion="zoom" title="Acercar a la capa">' + icono("zoom") + '<span class="sr-only">Acercar</span></button>' +
-                '<button class="btn-icono" data-accion="info" title="Ficha de metadatos">' + icono("info") + '<span class="sr-only">Ficha</span></button>' +
-                "</div>" +
-                '<div class="capa-opciones"><span>Opacidad</span><input type="range" min="0" max="1" step="0.05" value="' + op + '" aria-label="Opacidad de ' + escapar(c.title) + '">' +
-                '<button class="btn-icono" data-accion="subir" title="Dibujar encima">' + icono("subirCapa") + '<span class="sr-only">Subir</span></button>' +
-                '<button class="btn-icono" data-accion="bajar" title="Dibujar debajo">' + icono("bajarCapa") + '<span class="sr-only">Bajar</span></button>' +
-                (c.kind === "vector" ? '<button class="btn-icono" data-accion="tabla" title="Tabla de atributos">' + icono("tabla") + '<span class="sr-only">Tabla de atributos</span></button>' : "") +
-                "</div>" +
-                "</li>"
-              );
-            })
-            .join("") +
-          "</ul></div>",
-      )
+          "<span>" + escapar(g.cat.name) + '</span><span class="contador">' + g.capas.length + '</span><span class="flecha" aria-hidden="true"></span></button>' +
+          '<ul class="capas" role="group">' + g.capas.map(filaCapa).join("") + "</ul></div>"
+        );
+      })
       .join("");
+  }
+
+  function plegarPanel(plegar) {
+    const v = $("#vista-visor");
+    v.classList.toggle("panel-oculto", plegar);
+    $("#alternar-panel").setAttribute("aria-expanded", String(!plegar));
   }
 
   function eventosPanel() {
@@ -522,35 +561,72 @@
       const cat = e.target.closest(".alternar-categoria");
       if (cat) {
         const nodo = cat.parentElement;
-        nodo.setAttribute("aria-expanded", nodo.getAttribute("aria-expanded") === "false" ? "true" : "false");
+        const abierta = nodo.getAttribute("aria-expanded") === "false";
+        nodo.setAttribute("aria-expanded", String(abierta));
+        estado.categoriasAbiertas[nodo.dataset.categoria] = abierta;
         return;
       }
       const b = e.target.closest("[data-accion]");
       if (!b) return;
       const capa = capaPorSlug(b.closest(".capa").dataset.slug);
       const accion = b.dataset.accion;
-      if (accion === "zoom") {
+      const H = window.VisorHerramientas;
+      if (accion === "mas") {
+        estado.abierta = estado.abierta === capa.slug ? null : capa.slug;
+        lista.querySelectorAll(".capa").forEach((li) => {
+          const abierta = li.dataset.slug === estado.abierta;
+          li.classList.toggle("abierta", abierta);
+          li.querySelector(".capa-mas").setAttribute("aria-expanded", String(abierta));
+        });
+      } else if (accion === "zoom") {
         if (!estado.activas.includes(capa.slug)) alternarCapa(capa.slug, true, false);
         acercarA(capa);
       } else if (accion === "subir") moverCapa(capa.slug, 1);
       else if (accion === "bajar") moverCapa(capa.slug, -1);
-      else if (accion === "tabla") window.VisorHerramientas && window.VisorHerramientas.abrirTabla(capa.slug);
+      else if (accion === "tabla") {
+        if (!estado.activas.includes(capa.slug)) alternarCapa(capa.slug, true, false);
+        H && H.abrirTabla(capa.slug);
+      } else if (accion === "estudio") H && H.verEnEstudio(capa);
+      else if (accion === "quitar") quitarCapaLocal(capa.slug);
       else abrirFicha(capa);
     });
-    $("#buscar").addEventListener("input", pintarPanel);
     $("#plegar-leyenda").addEventListener("click", () => {
-      const ley = $("#leyenda");
-      const plegada = ley.classList.toggle("plegada");
+      const plegada = $("#leyenda").classList.toggle("plegada");
       $("#plegar-leyenda").setAttribute("aria-expanded", String(!plegada));
-      $("#plegar-leyenda").title = plegada ? "Desplegar leyenda" : "Plegar leyenda";
+      try { localStorage.setItem("geoportal.leyenda", plegada ? "plegada" : "abierta"); } catch (_) { /* sin almacenamiento */ }
     });
-    $("#apagar-todo").addEventListener("click", () => estado.activas.slice().forEach((s) => alternarCapa(s, false)));
-    $("#alternar-panel").addEventListener("click", () => {
-      const v = $("#vista-visor");
-      const oculto = v.classList.toggle("panel-oculto");
-      $("#alternar-panel").setAttribute("aria-expanded", String(!oculto));
-      setTimeout(() => estado.mapa && estado.mapa.resize(), 220);
-    });
+    $("#alternar-panel").addEventListener("click", () => plegarPanel(!$("#vista-visor").classList.contains("panel-oculto")));
+  }
+
+  // ------------------------------------------------------------------ capas del usuario (solo en este navegador)
+
+  /**
+   * Añade al visor una capa que no está en el servidor: un archivo local ya convertido
+   * a GeoJSON, una imagen georreferenciada o un servicio de teselas (WMS, XYZ).
+   */
+  function agregarCapaLocal(capa, datos) {
+    const base = "local-" + (capa.slug || "capa").replace(/[^a-z0-9-]+/gi, "-").toLowerCase().slice(0, 40);
+    let slug = base;
+    for (let n = 2; capaPorSlug(slug); n++) slug = base + "-" + n;
+    const nueva = Object.assign({ kind: "vector", opacity: 1, style: {}, attributes: [], category_id: "local" }, capa, { slug, local: true });
+    if (datos) estado.datos[slug] = datos;
+    estado.capas.push(nueva);
+    estado.categoriasAbiertas.local = true;
+    alternarCapa(slug, true, true);
+    pintarPanel();
+    if ($("#vista-visor").classList.contains("panel-oculto") && !document.body.classList.contains("solo-mapa")) plegarPanel(false);
+    return nueva;
+  }
+
+  function quitarCapaLocal(slug) {
+    const capa = capaPorSlug(slug);
+    if (!capa || !capa.local) return;
+    alternarCapa(slug, false);
+    if (capa.imagen_url && capa.imagen_url.startsWith("blob:")) URL.revokeObjectURL(capa.imagen_url);
+    delete estado.datos[slug];
+    estado.capas = estado.capas.filter((c) => c.slug !== slug);
+    if (estado.abierta === slug) estado.abierta = null;
+    pintarPanel();
   }
 
   // ------------------------------------------------------------------ leyenda
@@ -575,6 +651,7 @@
             ')"></span><span class="valores"><span>' + fmt(min) + "</span><span>" + fmt(max) + "</span></span></li>"
           );
         }
+        if (c.kind === "teselas") return '<li><span class="muestra raster" style="background:var(--borde-control)"></span><span>' + escapar(c.title) + "</span></li>";
         return "<li>" + muestraHTML(c) + "<span>" + escapar(c.title) + "</span></li>";
       })
       .join("");
@@ -583,33 +660,13 @@
   // ------------------------------------------------------------------ mapas base
 
   function pintarMenuBase() {
-    $("#menu-base").innerHTML = MAPAS_BASE.map(
+    const menu = $("#menu-base"); // dentro del menú de herramientas
+    if (!menu) return;
+    menu.innerHTML = MAPAS_BASE.map(
       (b) =>
-        '<button type="button" data-base="' + b.id + '" aria-pressed="' + (b.id === estado.base) + '"><span class="mini" style="background:' +
-        b.color + '"></span>' + escapar(b.nombre) + "</button>",
+        '<button type="button" data-base="' + b.id + '" aria-pressed="' + (b.id === estado.base) + '" title="' + escapar(b.nombre) +
+        '"><span class="mini" style="background:' + b.color + '"></span>' + escapar(b.corto || b.nombre) + "</button>",
     ).join("");
-  }
-
-  function eventosBase() {
-    const boton = $("#boton-base");
-    const menu = $("#menu-base");
-    boton.addEventListener("click", () => {
-      menu.hidden = !menu.hidden;
-      boton.setAttribute("aria-expanded", String(!menu.hidden));
-    });
-    menu.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-base]");
-      if (!b) return;
-      cambiarBase(b.dataset.base, true);
-      menu.hidden = true;
-      boton.setAttribute("aria-expanded", "false");
-    });
-    document.addEventListener("click", (e) => {
-      if (!e.target.closest("#control-base")) {
-        menu.hidden = true;
-        boton.setAttribute("aria-expanded", "false");
-      }
-    });
   }
 
   // ------------------------------------------------------------------ GeoLibre
@@ -644,8 +701,14 @@
     return url + (visor ? "&layout=viewer" : "");
   }
 
+  /** Descarga del proyecto .geolibre con las capas publicadas encendidas (o todas, si no hay ninguna). */
+  function urlDescargaProyecto() {
+    const slugs = activasPublicadas();
+    return API + "/proyecto.geolibre" + (slugs.length ? "?capas=" + slugs.map(encodeURIComponent).join(",") : "");
+  }
+
   function actualizarEnlaces() {
-    const slugs = estado.activas.slice();
+    const slugs = activasPublicadas();
     const g = $("#abrir-geolibre");
     const local = estado.config && estado.config.estudio && estado.config.estudio.activo;
     g.hidden = !!local; // con GeoLibre integrado el menú muestra «Estudio SIG»
@@ -654,10 +717,8 @@
       g.target = "_blank";
       g.title = slugs.length ? "Abrir las " + slugs.length + " capas activas en GeoLibre" : "Abrir todas las capas publicadas en GeoLibre";
     }
+    pintarResumen();
     if (window.VisorHerramientas) window.VisorHerramientas.actualizarEnlacePermanente();
-    const d = $("#descargar-proyecto");
-    d.href = API + "/proyecto.geolibre" + (slugs.length ? "?capas=" + slugs.map(encodeURIComponent).join(",") : "");
-    d.setAttribute("download", "geoportal-ambiental-narino.geolibre");
   }
 
   // ------------------------------------------------------------------ ficha
@@ -831,17 +892,36 @@
     );
     window.addEventListener("hashchange", () => mostrarRuta(location.hash.slice(1)));
     mostrarRuta(location.hash.slice(1) || "visor");
-    if (window.matchMedia("(max-width: 860px)").matches) {
-      // En pantallas pequeñas el mapa aparece primero; el panel se abre con el botón
-      $("#vista-visor").classList.add("panel-oculto");
-      $("#alternar-panel").setAttribute("aria-expanded", "false");
-      $("#leyenda").classList.add("plegada");
-      $("#plegar-leyenda").setAttribute("aria-expanded", "false");
+
+    // Parámetros de presentación, con los mismos nombres que GeoLibre y sus equivalentes en español:
+    //   ?maponly (o ?solomapa)        solo el mapa, para incrustarlo en otra página
+    //   ?panels=collapsed (o ?paneles=plegados)   la lista de capas empieza plegada
+    //   ?theme=dark|light (o ?tema=oscuro|claro)  tema para esta visita (lo aplica institucional.js)
+    //   ?lat=&lon=&zoom=              vista inicial (además de ?mapa=lat,lon,zoom,rumbo,inclinación)
+    const params = new URLSearchParams(location.search);
+    const activo = (...nombres) => nombres.some((n) => params.has(n) && !["0", "false", "no"].includes(params.get(n)));
+    const paneles = params.get("panels") || params.get("paneles") || "";
+    if (activo("maponly", "solomapa")) {
+      document.body.classList.add("solo-mapa");
+      const sin = new URLSearchParams(params);
+      ["maponly", "solomapa"].forEach((n) => sin.delete(n));
+      const volver = $("#volver-geoportal");
+      volver.href = location.pathname + (sin.toString() ? "?" + sin.toString().replace(/%2C/g, ",") : "") + "#visor";
+      volver.hidden = false;
+    }
+    estado.base = window.Institucional.tema.actual() === "oscuro" ? "oscuro" : "calles";
+    if (window.matchMedia("(max-width: 860px)").matches || ["collapsed", "plegados"].includes(paneles) || document.body.classList.contains("solo-mapa")) {
+      // En pantallas pequeñas (o si se pide) el mapa aparece primero; la lista se abre con el botón
+      plegarPanel(true);
+    }
+    let leyendaAbierta = false;
+    try { leyendaAbierta = localStorage.getItem("geoportal.leyenda") === "abierta"; } catch (_) { /* sin almacenamiento */ }
+    if (leyendaAbierta && !document.body.classList.contains("solo-mapa") && !window.matchMedia("(max-width: 860px)").matches) {
+      $("#leyenda").classList.remove("plegada");
+      $("#plegar-leyenda").setAttribute("aria-expanded", "true");
     }
     eventosPanel();
-    eventosBase();
     eventosCatalogo();
-    pintarMenuBase();
 
     try {
       const [config, categorias, capas] = await Promise.all([obtener("/config"), obtener("/categorias"), obtener("/capas")]);
@@ -850,29 +930,25 @@
       estado.capas = capas;
     } catch (err) {
       console.error(err);
+      $("#resumen-capas").textContent = "";
       if (err.instalar) {
-        $("#resumen-capas").innerHTML = 'El geoportal todavía no está instalado. <a href="' + escapar(err.instalar) + '">Abrir el asistente de instalación</a>.';
-        $("#lista-capas").innerHTML = "";
+        $("#lista-capas").innerHTML = '<p class="vacio">El geoportal todavía no está instalado. <a href="' + escapar(err.instalar) + '">Abrir el asistente de instalación</a>.</p>';
         iniciarMapa();
         return;
       }
-      $("#resumen-capas").textContent = "No fue posible conectar con el servicio de datos.";
+      $("#lista-capas").innerHTML = '<p class="vacio">No fue posible conectar con el servicio de datos.</p>';
       notificar("No fue posible cargar el catálogo de capas. Intente de nuevo más tarde.", "error");
     }
     iniciarMapa();
     window.Visor = {
       estado, $, capaPorSlug, alternarCapa, acercarA, abrirFicha, rutaCapa, moverCapa, cambiarBase, baseActual,
-      urlGeoLibre, urlProyecto, irA, mostrarRuta, idsDe, MAPAS_BASE, NARINO,
+      urlGeoLibre, urlProyecto, irA, mostrarRuta, idsDe, MAPAS_BASE, NARINO, RAMPAS,
+      pintarPanel, pintarMenuBase, plegarPanel, activasPublicadas, urlDescargaProyecto, agregarCapaLocal, quitarCapaLocal, estiloDe, muestraHTML,
     };
     document.dispatchEvent(new CustomEvent("visor:listo"));
     const enEstudio = estado.config && estado.config.estudio && estado.config.estudio.activo;
     $("#nav-estudio").hidden = !enEstudio;
     if (location.hash === "#estudio") mostrarRuta("estudio");
-    const n = estado.capas.length;
-    const nc = estado.categorias.length;
-    $("#resumen-capas").textContent = n
-      ? n + (n === 1 ? " capa publicada" : " capas publicadas") + (nc ? " en " + nc + (nc === 1 ? " categoría" : " categorías") : "")
-      : "No hay capas publicadas todavía.";
     $("#filtro-categoria").insertAdjacentHTML(
       "beforeend",
       estado.categorias.map((c) => '<option value="' + c.id + '">' + escapar(c.name) + "</option>").join(""),
@@ -882,15 +958,14 @@
     actualizarEnlaces();
 
     // Capas iniciales: ?capa=slug o las marcadas como visibles por defecto
-    const params = new URLSearchParams(location.search);
     const pedidas = (params.get("capa") || params.get("capas") || "").split(",").filter(Boolean);
     const iniciales = pedidas.length ? pedidas : estado.capas.filter((c) => c.visible_by_default).map((c) => c.slug);
     estado.mapa.once("load", () => {
       iniciales.forEach((s) => alternarCapa(s, true, false));
-      if (params.get("mapa")) return; // la vista viene en el enlace permanente
+      if (params.get("mapa") || params.get("lat")) return; // la vista viene en el enlace
       if (pedidas.length === 1 && capaPorSlug(pedidas[0])) {
         acercarA(capaPorSlug(pedidas[0]));
-        abrirFicha(capaPorSlug(pedidas[0]));
+        if (!document.body.classList.contains("solo-mapa")) abrirFicha(capaPorSlug(pedidas[0])); // incrustado: sin ficha emergente
       }
     });
   }

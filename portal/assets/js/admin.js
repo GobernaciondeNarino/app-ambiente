@@ -48,7 +48,7 @@
   };
 
   const estado = { token: null, usuario: null, categorias: [], capa: null, mapa: null, sucio: false, ingesta: "servidor", edicion: "" };
-  const ACEPTA_NAVEGADOR = ".geojson,.json,.zip,.gpkg,.kml,.kmz,.csv,.tif,.tiff";
+  const ACEPTA_NAVEGADOR = ".geojson,.json,.zip,.gpkg,.kml,.kmz,.gpx,.csv,.tif,.tiff";
 
   // ------------------------------------------------------------------ sesión
 
@@ -155,7 +155,7 @@
     if (estado.ingesta === "navegador") {
       $("#archivo").setAttribute("accept", ACEPTA_NAVEGADOR);
       $("#zona-ayuda").textContent =
-        "GeoJSON · Shapefile (.zip con .shp, .shx, .dbf y .prj) · GeoPackage · KML/KMZ · CSV · GeoTIFF/COG" +
+        "GeoJSON · Shapefile (.zip con .shp, .shx, .dbf y .prj) · GeoPackage · KML/KMZ · GPX · CSV · GeoTIFF/COG" +
         (estado.maxCargaMb ? " · máximo " + estado.maxCargaMb + " MB" : "") + ". El archivo se procesa en su navegador antes de subirlo.";
     }
     await cargarCategorias();

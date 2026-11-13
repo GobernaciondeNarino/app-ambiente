@@ -78,11 +78,14 @@
     if (b && ultimo) b.textContent = textoCoordenadas(ultimo);
   }
 
+  /** Metros por píxel de pantalla (MapLibre usa teselas de 512 px). */
+  const metrosPorPixel = (lat, zoom) => (78271.51696 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom);
+
   function pintarVista() {
     const m = V.estado.mapa;
     const z = m.getZoom();
     const lat = m.getCenter().lat;
-    const escala = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, z) * 3779.5;
+    const escala = metrosPorPixel(lat, z) * 3779.5; // 96 ppp
     let t = "Zoom " + NUM(z, 1) + " · 1:" + formatoNumero(Math.round(escala / (escala > 10000 ? 1000 : 10)) * (escala > 10000 ? 1000 : 10));
     if (Math.abs(m.getBearing()) > 0.5) t += " · Rumbo " + NUM(m.getBearing(), 0) + "°";
     if (m.getPitch() > 0.5) t += " · Inclinación " + NUM(m.getPitch(), 0) + "°";
@@ -177,6 +180,7 @@
         const p = f.properties || {};
         return {
           etiqueta: p.name || p.street || "Lugar",
+          icono: "ubicacion",
           detalle: [p.city || p.county, p.state, p.country].filter(Boolean).join(", "),
           accion: () => irALugar(p.extent ? [p.extent[0], p.extent[3], p.extent[2], p.extent[1]] : null, f.geometry.coordinates),
         };
@@ -195,23 +199,59 @@
     }
   }
 
+  /** Acciones y capas que coinciden con el texto (paleta de comandos). */
+  function buscarComandos(q) {
+    const nq = normalizar(q.replace(/^>/, "").trim());
+    const palabras = nq.split(/[^a-z0-9ñ]+/).filter(Boolean);
+    // Todas las palabras escritas deben aparecer, en cualquier orden («volcanes kml», «base satelite»)
+    const coincide = (texto) => { const t = normalizar(texto); return palabras.every((w) => t.includes(w)); };
+    const acciones = accionesDisponibles(true)
+      .filter((a) => coincide(a.nombre + " " + (a.claves || "")))
+      .map((a) => ({ etiqueta: a.nombre, icono: a.icono, atajo: a.atajo, estado: a.activa && a.activa() ? "activo" : "", accion: a.ejecutar, comando: true }));
+    if (nq) {
+      V.MAPAS_BASE.filter((b) => coincide("mapa base " + b.nombre)).forEach((b) =>
+        acciones.push({ etiqueta: "Mapa base: " + b.nombre, icono: "base", estado: b.id === V.estado.base ? "activo" : "", accion: () => V.cambiarBase(b.id, true), comando: true }));
+    }
+    const capas = !nq ? [] : V.estado.capas
+      .filter((c) => coincide([c.title, c.description, c.source, (c.keywords || []).join(" "), c.category && c.category.name].join(" ")))
+      .slice(0, 8)
+      .map((c) => {
+        const activa = V.estado.activas.includes(c.slug);
+        return {
+          etiqueta: c.title,
+          detalle: (c.category ? c.category.name + " · " : "") + (activa ? "clic para apagarla" : "clic para encenderla"),
+          icono: "capas",
+          estado: activa ? "encendida" : "",
+          comando: true,
+          accion: () => V.alternarCapa(c.slug, !activa, !activa),
+        };
+      });
+    return { acciones, capas };
+  }
+
   async function buscar(q) {
     const lista = $("#resultados-busqueda");
     cancelarBusqueda();
     const n = seqBusqueda;
-    if (q.trim().length < 2) {
-      lista.hidden = true;
+    const texto = q.trim();
+    const comandos = buscarComandos(texto);
+    if (texto.length < 2 || texto.startsWith(">")) {
+      // Sin texto: sugerencias de acciones (descubrir sin llenar el mapa de botones)
+      pintarResultados([{ titulo: texto ? "Acciones" : "Acciones frecuentes", items: texto ? comandos.acciones : comandos.acciones.slice(0, 8) }], false);
       return;
     }
     const secciones = [];
     const c = interpretarCoordenada(q);
-    if (c) secciones.push({ titulo: "Coordenada", items: [{ etiqueta: "Ir a " + NUM(c.lat, 5) + ", " + NUM(c.lon, 5), accion: () => irACoordenada(c) }] });
+    if (c) secciones.push({ titulo: "Coordenada", items: [{ etiqueta: "Ir a " + NUM(c.lat, 5) + ", " + NUM(c.lon, 5), icono: "ubicacion", accion: () => irACoordenada(c) }] });
+    if (comandos.capas.length) secciones.push({ titulo: "Capas", items: comandos.capas });
+    if (comandos.acciones.length) secciones.push({ titulo: "Acciones", items: comandos.acciones.slice(0, 6) });
     for (const g of buscarEnCapas(q)) {
       secciones.push({
-        titulo: g.capa.title,
+        titulo: "Entidades de " + g.capa.title,
         items: g.items.map((h) => ({
           etiqueta: String(h.titulo),
           detalle: h.campo + ": " + h.valor,
+          icono: "zoom",
           accion: () => irAEntidad(h.f),
         })),
       });
@@ -234,16 +274,17 @@
     lista.hidden = false;
     let n = 0;
     lista.innerHTML =
-      secciones.map((s) =>
+      secciones.filter((s) => s.items.length).map((s) =>
         '<li class="grupo" role="presentation">' + escapar(s.titulo) + "</li>" +
         s.items.map((it) => {
           const id = n++;
-          return '<li role="option" tabindex="-1" data-i="' + id + '"><strong>' + escapar(it.etiqueta) + "</strong>" +
-            (it.detalle ? "<small>" + escapar(it.detalle) + "</small>" : "") + "</li>";
+          return '<li role="option" tabindex="-1" data-i="' + id + '">' + icono(it.icono || "ubicacion") + '<span class="texto"><strong>' + escapar(it.etiqueta) + "</strong>" +
+            (it.detalle ? "<small>" + escapar(it.detalle) + "</small>" : "") + "</span>" +
+            (it.estado ? '<span class="estado-accion">' + escapar(it.estado) + "</span>" : it.atajo ? "<kbd>" + escapar(it.atajo) + "</kbd>" : "") + "</li>";
         }).join(""),
       ).join("") + (cargando ? '<li class="vacio" role="presentation">Buscando lugares…</li>' : (n ? "" : '<li class="vacio">Sin resultados.</li>')) +
       (nota ? '<li class="vacio" role="presentation">' + escapar(nota) + "</li>" : "");
-    lista._acciones = secciones.flatMap((s) => s.items.map((it) => it.accion));
+    lista._items = secciones.filter((s) => s.items.length).flatMap((s) => s.items);
   }
 
   function irACoordenada(c) {
@@ -300,6 +341,7 @@
       cancelarBusqueda();
       temporizadorBusqueda = setTimeout(() => buscar(entrada.value), 300);
     });
+    entrada.addEventListener("focus", () => { if (lista.hidden) buscar(entrada.value); });
     entrada.addEventListener("keydown", (e) => {
       const opciones = [...lista.querySelectorAll("[data-i]")];
       if (e.key === "ArrowDown" && opciones.length) { e.preventDefault(); opciones[0].focus(); }
@@ -318,9 +360,12 @@
     document.addEventListener("click", (e) => { if (!e.target.closest(".buscador-mapa")) { cancelarBusqueda(); lista.hidden = true; } });
     function elegir(li) {
       cancelarBusqueda();
-      const accion = lista._acciones && lista._acciones[+li.dataset.i];
-      if (accion) accion();
+      const item = lista._items && lista._items[+li.dataset.i];
       lista.hidden = true;
+      entrada.blur();
+      if (!item) return;
+      if (item.comando) entrada.value = ""; // un comando no deja texto; un lugar o una entidad, sí
+      item.accion();
     }
   }
 
@@ -476,7 +521,9 @@
     const c = m.getCenter();
     const p = new URLSearchParams(location.search);
     p.delete("capa");
-    if (V.estado.activas.length) p.set("capas", V.estado.activas.join(",")); else p.delete("capas");
+    const publicadas = V.activasPublicadas(); // las capas añadidas por el usuario no viajan en el enlace
+    ["lat", "lon", "zoom", "maponly", "solomapa", "theme", "tema"].forEach((k) => p.delete(k));
+    if (publicadas.length) p.set("capas", publicadas.join(",")); else p.delete("capas");
     p.set("mapa", [NUM5(c.lat), NUM5(c.lng), m.getZoom().toFixed(2), Math.round(m.getBearing()), Math.round(m.getPitch())].join(","));
     if (V.estado.baseElegida) p.set("base", V.estado.base); else p.delete("base");
     if (terreno) p.set("3d", "1"); else p.delete("3d");
@@ -510,7 +557,9 @@
     vistaRestaurada = true;
     if (p.get("base")) V.cambiarBase(p.get("base"), true);
     const v = (p.get("mapa") || "").split(",").map(Number);
+    const ll = [Number(p.get("lat")), Number(p.get("lon") || p.get("lng"))];
     if (v.length >= 3 && v.every(Number.isFinite)) m.jumpTo({ center: [v[1], v[0]], zoom: v[2], bearing: v[3] || 0, pitch: v[4] || 0 });
+    else if (p.get("lat") && ll.every(Number.isFinite)) m.jumpTo({ center: [ll[1], ll[0]], zoom: Number(p.get("zoom")) || 12 }); // como en GeoLibre
     if (p.get("3d") === "1") m.once("idle", () => !terreno && alternarTerreno());
   }
 
@@ -618,12 +667,14 @@
     $("#vista-visor").classList.add("con-tabla");
     setTimeout(() => V.estado.mapa.resize(), 50);
     pintarTabla();
+    aplicarFiltroMapa();
   }
 
   function cerrarTabla() {
     $("#tabla-atributos").hidden = true;
     $("#vista-visor").classList.remove("con-tabla");
     setTimeout(() => V.estado.mapa.resize(), 50);
+    aplicarFiltroMapa();
   }
 
   function exportarCSV() {
@@ -640,7 +691,9 @@
   function eventosTabla() {
     const panel = $("#tabla-atributos");
     $("#tabla-capa").addEventListener("change", (e) => abrirTabla(e.target.value));
-    $("#tabla-filtro").addEventListener("input", (e) => { tabla.filtro = e.target.value; tabla.pagina = 0; pintarTabla(); });
+    $("#tabla-filtro").addEventListener("input", (e) => { tabla.filtro = e.target.value; tabla.pagina = 0; pintarTabla(); aplicarFiltroMapa(); });
+    $("#tabla-en-mapa").addEventListener("change", aplicarFiltroMapa);
+    document.addEventListener("visor:estilo", () => { filtroMapa.originales = {}; filtroMapa.slug = null; aplicarFiltroMapa(); });
     panel.querySelector("[data-cerrar-tabla]").addEventListener("click", cerrarTabla);
     panel.querySelector("[data-csv]").addEventListener("click", exportarCSV);
     panel.querySelector("[data-anterior]").addEventListener("click", () => { tabla.pagina = Math.max(0, tabla.pagina - 1); pintarTabla(); });
@@ -666,41 +719,407 @@
     });
   }
 
-  // ================================================================== control de herramientas
+  // ================================================================== tabla: filtrar también el mapa
 
-  function marcarBotones() {
-    document.querySelectorAll("[data-herramienta]").forEach((b) => {
-      const h = b.dataset.herramienta;
-      const activo = (h === "distancia" || h === "area") ? medicion.modo === h && !medicion.fija : h === "terreno" ? terreno : false;
-      b.classList.toggle("activo", activo);
-      b.setAttribute("aria-pressed", String(activo));
+  const filtroMapa = { slug: null, originales: {} };
+
+  function quitarFiltroMapa() {
+    const m = V.estado.mapa;
+    Object.entries(filtroMapa.originales).forEach(([id, f]) => m.getLayer(id) && m.setFilter(id, f));
+    filtroMapa.slug = null;
+    filtroMapa.originales = {};
+  }
+
+  /** Muestra en el mapa solo las filas que pasan el filtro de la tabla (las entidades llevan su índice como id). */
+  function aplicarFiltroMapa() {
+    const m = V.estado.mapa;
+    const capa = V.capaPorSlug(tabla.slug);
+    const pedir = $("#tabla-en-mapa").checked && !$("#tabla-atributos").hidden && tabla.filtro.trim() && capa;
+    if (filtroMapa.slug && (!pedir || filtroMapa.slug !== tabla.slug)) quitarFiltroMapa();
+    if (!pedir) return;
+    const ids = filasFiltradas().map(({ i }) => i);
+    V.idsDe(capa).forEach((id) => {
+      if (!m.getLayer(id)) return;
+      if (!(id in filtroMapa.originales)) filtroMapa.originales[id] = m.getFilter(id) || null;
+      const propio = ["in", ["id"], ["literal", ids]];
+      m.setFilter(id, filtroMapa.originales[id] ? ["all", filtroMapa.originales[id], propio] : propio);
+    });
+    filtroMapa.slug = tabla.slug;
+  }
+
+  // ================================================================== ubicación, pantalla completa y modo «solo el mapa»
+
+  function irAMiUbicacion() {
+    if (!navigator.geolocation) return notificar("Este navegador no permite conocer la ubicación.", "error");
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const c = [p.coords.longitude, p.coords.latitude];
+        V.estado.mapa.flyTo({ center: c, zoom: Math.max(V.estado.mapa.getZoom(), 14) });
+        marcador(c);
+      },
+      () => notificar("No fue posible obtener su ubicación. Revise el permiso del navegador.", "error"),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
+  function pantallaCompleta() {
+    const el = $("#mapa-contenedor");
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (el.requestFullscreen) el.requestFullscreen().catch(() => notificar("El navegador no permitió la pantalla completa.", "error"));
+  }
+
+  // Incrustado (?maponly): el enlace lleva al geoportal completo. Modo enfoque (tecla F): vuelve a mostrar la interfaz.
+  let incrustado = false; // se fija al iniciar el visor, que es quien lee ?maponly
+
+  function alternarEnfoque() {
+    if (incrustado) return;
+    const activo = document.body.classList.toggle("solo-mapa");
+    const volver = $("#volver-geoportal");
+    volver.hidden = !activo;
+    volver.textContent = "Mostrar la interfaz (F)";
+    volver.removeAttribute("target");
+    volver.href = "#visor";
+    cerrarMenu();
+    setTimeout(() => V.estado.mapa.resize(), 60);
+    if (activo) notificar("Solo el mapa. Pulse F o «Mostrar la interfaz» para volver.");
+    marcarBotones();
+  }
+
+  // ================================================================== imprimir
+
+  function numeroRedondo(v) {
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    const d = v / p;
+    return (d >= 5 ? 5 : d >= 2 ? 2 : 1) * p;
+  }
+
+  /** Hoja A4 horizontal con encabezado institucional, mapa, norte, escala gráfica, leyenda y fuente. */
+  function imprimir() {
+    const m = V.estado.mapa;
+    m.once("render", () => {
+      const lienzo = m.getCanvas();
+      const c = m.getCenter();
+      const anchoCss = lienzo.clientWidth || lienzo.width;
+      const mpp = metrosPorPixel(c.lat, m.getZoom());
+      const barra = numeroRedondo(mpp * anchoCss * 0.2);
+      const capas = V.estado.activas.map(V.capaPorSlug).filter(Boolean);
+      const titulo = capas.filter((x) => !x.local).map((x) => x.title).slice(0, 3).join(" · ") || "Mapa";
+      const fecha = new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeStyle: "short", timeZone: "America/Bogota" }).format(new Date());
+      const fuentes = [...new Set(capas.map((x) => x.source).filter(Boolean))].slice(0, 4).join("; ");
+      const leyenda = $("#leyenda-items").innerHTML;
+      const hoja = $("#hoja-impresion");
+      hoja.innerHTML =
+        '<div class="hoja-encabezado"><img src="assets/img/logo-gobernacion-narino.png" alt="Gobernación de Nariño">' +
+        "<div><h1>" + escapar(titulo) + "</h1><p>Geoportal Ambiental · Secretaría de Ambiente y Desarrollo Sostenible · Gobernación de Nariño</p></div></div>" +
+        '<div class="hoja-cuerpo' + (leyenda ? "" : " sin-leyenda") + '">' +
+        '<div class="hoja-mapa"><img class="hoja-captura" alt="Mapa" src="' + lienzo.toDataURL("image/png") + '">' +
+        '<div class="hoja-norte" style="transform:rotate(' + -m.getBearing() + 'deg)">N↑</div></div>' +
+        (leyenda ? '<div class="hoja-leyenda"><h2>Leyenda</h2><ul>' + leyenda + "</ul></div>" : "") +
+        "</div>" +
+        '<div class="hoja-pie"><span><span style="display:inline-block;vertical-align:middle;height:5px;width:' + ((barra / (mpp * anchoCss)) * 180).toFixed(1) +
+        'mm;border:1px solid #383838;border-top:0;margin-right:4px"></span>' + (barra >= 1000 ? NUM(barra / 1000, 0) + " km" : NUM(barra, 0) + " m") +
+        " · Centro " + NUM(c.lat, 4) + ", " + NUM(c.lng, 4) + " (WGS 84) · Mapa base: " + escapar(V.baseActual().nombre) + "</span>" +
+        "<span>" + (fuentes ? "Fuente: " + escapar(fuentes) + " · " : "") + escapar(fecha) + "</span></div>";
+      document.body.classList.add("imprimiendo");
+      const fin = () => {
+        document.body.classList.remove("imprimiendo");
+        hoja.innerHTML = "";
+        window.removeEventListener("afterprint", fin);
+      };
+      window.addEventListener("afterprint", fin);
+      const imagen = hoja.querySelector(".hoja-captura");
+      (imagen.decode ? imagen.decode() : Promise.resolve()).catch(() => {}).then(() => window.print());
+    });
+    m.triggerRepaint();
+  }
+
+  // ================================================================== insertar el mapa en otra página
+
+  function codigoInsertar() {
+    const u = new URL(enlacePermanente(), location.href);
+    if ($("#insertar-solo-mapa").checked) u.searchParams.set("maponly", "1");
+    const ancho = ($("#insertar-ancho").value || "100%").replace(/[^0-9%a-z.]/gi, "") || "100%";
+    const alto = Math.max(200, Math.min(2000, parseInt($("#insertar-alto").value, 10) || 480));
+    return '<iframe src="' + escapar(u.href.replace(/%2C/g, ",")) + '" width="' + ancho + '" height="' + alto +
+      '" style="border:0" loading="lazy" allowfullscreen title="Geoportal Ambiental — Gobernación de Nariño"></iframe>';
+  }
+
+  function abrirInsertar() {
+    $("#insertar-codigo").value = codigoInsertar();
+    $("#insertar-mapa").showModal();
+  }
+
+  function eventosInsertar() {
+    ["#insertar-ancho", "#insertar-alto", "#insertar-solo-mapa"].forEach((sel) =>
+      $(sel).addEventListener("input", () => ($("#insertar-codigo").value = codigoInsertar())));
+    $("#insertar-copiar").addEventListener("click", async () => {
+      const campo = $("#insertar-codigo");
+      try {
+        await navigator.clipboard.writeText(campo.value);
+        notificar("Código copiado.");
+      } catch (_) {
+        campo.select();
+        notificar("Seleccione el código y cópielo con Ctrl + C.");
+      }
     });
   }
 
-  class ControlHerramientas {
+  // ================================================================== añadir datos propios (solo en este navegador)
+
+  const COLORES_LOCALES = ["#E4572E", "#2E86AB", "#8E44AD", "#D17A00", "#17807E", "#C2185B"];
+  let coloresUsados = 0;
+  let ingestaPromesa = null;
+
+  function cargarIngesta() {
+    if (window.IngestaNavegador) return Promise.resolve(window.IngestaNavegador);
+    if (!ingestaPromesa) {
+      ingestaPromesa = new Promise((ok, mal) => {
+        const sc = document.createElement("script");
+        sc.src = new URL("assets/js/ingesta-navegador.js", location.href).href;
+        sc.onload = () => ok(window.IngestaNavegador);
+        sc.onerror = () => mal(new Error("No se pudo cargar el lector de archivos."));
+        document.head.appendChild(sc);
+      });
+    }
+    return ingestaPromesa;
+  }
+
+  function estadoDatos(texto, error) {
+    const e = $("#anadir-estado");
+    e.textContent = texto;
+    e.classList.toggle("aviso", !!error);
+    e.classList.toggle("error", !!error);
+  }
+
+  function tipoGeometria(fc) {
+    const tipos = new Set(fc.features.map((f) => (f.geometry ? f.geometry.type.replace("Multi", "") : "")));
+    tipos.delete("");
+    if (tipos.size === 1) return { Point: "Punto", LineString: "Línea", Polygon: "Polígono" }[[...tipos][0]] || "Mixta";
+    return "Mixta";
+  }
+
+  function cajaFC(fc) {
+    const b = [Infinity, Infinity, -Infinity, -Infinity];
+    fc.features.forEach((f) => {
+      if (!f.geometry) return;
+      const g = cajaGeom(f.geometry);
+      b[0] = Math.min(b[0], g[0]); b[1] = Math.min(b[1], g[1]); b[2] = Math.max(b[2], g[2]); b[3] = Math.max(b[3], g[3]);
+    });
+    return b.every(Number.isFinite) ? b : null;
+  }
+
+  function agregarVectorLocal(nombre, fc, fuente) {
+    if (!fc.features.length) throw new Error("El archivo no contiene entidades.");
+    const color = COLORES_LOCALES[coloresUsados++ % COLORES_LOCALES.length];
+    return V.agregarCapaLocal({
+      slug: nombre, title: nombre, kind: "vector", geometry_type: tipoGeometria(fc), feature_count: fc.features.length, bbox: cajaFC(fc),
+      style: { fillColor: color, strokeColor: color, strokeWidth: 2, fillOpacity: 0.3, circleRadius: 6 }, source: fuente,
+    }, fc);
+  }
+
+  async function anadirArchivo(archivo, opciones) {
+    const nombre = archivo.name.replace(/\.[^.]+$/, "");
+    try {
+      if (archivo.size > 200 * 1048576) throw new Error("El archivo supera 200 MB: es demasiado grande para abrirlo en el navegador.");
+      estadoDatos("Leyendo «" + archivo.name + "»…");
+      const I = await cargarIngesta();
+      let r;
+      try {
+        r = await I.procesar(archivo, opciones || {});
+      } catch (e) {
+        // Sin sistema de referencia declarado: se pregunta el EPSG una vez
+        if (e instanceof I.ErrorIngesta && /EPSG/.test(e.message) && !(opciones && opciones.epsg)) {
+          const epsg = prompt(e.message + "\n\nEscriba el código EPSG de los datos (por ejemplo 9377 para MAGNA-SIRGAS Origen Nacional):");
+          if (epsg && /^\d{4,6}$/.test(epsg.trim())) return anadirArchivo(archivo, { epsg: epsg.trim() });
+        }
+        throw e;
+      }
+      let capa;
+      if (r.info.kind === "raster") {
+        const ri = r.info.raster_info;
+        const xs = ri.corners.map((p) => p[0]), ys = ri.corners.map((p) => p[1]);
+        capa = V.agregarCapaLocal({
+          slug: nombre, title: nombre, kind: "raster", raster_info: ri, imagen_url: URL.createObjectURL(r.procesado),
+          bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)], source: "Archivo local",
+        });
+      } else {
+        capa = agregarVectorLocal(nombre, JSON.parse(await r.procesado.text()), "Archivo local");
+      }
+      if ($("#anadir-datos").open) $("#anadir-datos").close();
+      estadoDatos("Los datos que añada se ven solo en este navegador: no se envían al servidor ni se publican.");
+      notificar("«" + capa.title + "» añadida. Solo se ve en este navegador." + (r.advertencias && r.advertencias.length ? " " + r.advertencias[0] : ""));
+    } catch (e) {
+      estadoDatos(e.message || "No se pudo leer el archivo.", true);
+      if (!$("#anadir-datos").open) notificar(e.message || "No se pudo leer el archivo.", "error");
+    }
+  }
+
+  async function anadirDesdeURL(tipo, direccion, capaWms) {
+    let u;
+    try {
+      u = new URL(direccion.trim());
+      if (!/^https?:$/.test(u.protocol)) throw new Error();
+    } catch (_) {
+      return estadoDatos("Escriba una dirección http(s) válida.", true);
+    }
+    try {
+      if (tipo === "xyz") {
+        const plantilla = direccion.trim();
+        if (!/\{z\}/.test(plantilla) || !/\{x\}/.test(plantilla) || !/\{-?y\}/.test(plantilla)) throw new Error("La dirección de teselas debe incluir {z}, {x} e {y}.");
+        V.agregarCapaLocal({ slug: u.hostname, title: "Teselas de " + u.hostname, kind: "teselas", teselas: [plantilla], detalle: "Teselas XYZ", source: u.hostname });
+      } else if (tipo === "wms") {
+        const capa = (capaWms || u.searchParams.get("layers") || u.searchParams.get("LAYERS") || "").trim();
+        if (!capa) throw new Error("Indique el nombre de la capa WMS.");
+        // Se conservan los parámetros propios del servicio (map=, token…) y se fijan los de GetMap
+        [...u.searchParams.keys()].forEach((k) => /^(service|version|request|layers|styles|format|transparent|srs|crs|width|height|bbox)$/i.test(k) && u.searchParams.delete(k));
+        const base = u.href + (u.search ? "&" : "?");
+        const teselas = base + "SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=" + encodeURIComponent(capa) +
+          "&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A3857&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}";
+        V.agregarCapaLocal({ slug: capa, title: capa, kind: "teselas", teselas: [teselas], detalle: "WMS · " + u.hostname, source: u.hostname });
+      } else {
+        estadoDatos("Descargando los datos…");
+        const r = await fetch(u.href).catch(() => { throw new Error("No se pudo descargar: el servidor no responde o no permite leer sus datos desde otro sitio (CORS)."); });
+        if (!r.ok) throw new Error("El servidor respondió " + r.status + ".");
+        const blob = await r.blob();
+        if (blob.size > 200 * 1048576) throw new Error("Los datos superan 200 MB.");
+        const nombre = (u.pathname.split("/").pop() || "datos").replace(/\.[^.]+$/, "") || "datos";
+        return anadirArchivo(new File([blob], nombre + ".geojson"));
+      }
+      $("#anadir-datos").close();
+      notificar("Servicio añadido. Solo se ve en este navegador.");
+    } catch (e) {
+      estadoDatos(e.message, true);
+    }
+  }
+
+  function eventosDatos() {
+    const zona = $("#zona-soltar");
+    const campo = $("#archivo-local");
+    campo.addEventListener("change", () => { if (campo.files[0]) anadirArchivo(campo.files[0]); campo.value = ""; });
+    const tieneArchivos = (e) => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+    ["dragenter", "dragover"].forEach((t) => zona.addEventListener(t, (e) => { if (tieneArchivos(e)) { e.preventDefault(); zona.classList.add("encima"); } }));
+    ["dragleave", "drop"].forEach((t) => zona.addEventListener(t, () => zona.classList.remove("encima")));
+    zona.addEventListener("drop", (e) => { e.preventDefault(); if (e.dataTransfer.files[0]) anadirArchivo(e.dataTransfer.files[0]); });
+    // Arrastrar un archivo directamente sobre el mapa
+    const mapa = $("#mapa-contenedor");
+    mapa.addEventListener("dragover", (e) => { if (tieneArchivos(e)) { e.preventDefault(); mapa.classList.add("soltando"); } });
+    mapa.addEventListener("dragleave", (e) => { if (!mapa.contains(e.relatedTarget)) mapa.classList.remove("soltando"); });
+    mapa.addEventListener("drop", (e) => {
+      mapa.classList.remove("soltando");
+      if (!tieneArchivos(e)) return;
+      e.preventDefault();
+      [...e.dataTransfer.files].slice(0, 5).forEach((a) => anadirArchivo(a));
+    });
+    $("#tipo-url").addEventListener("change", (e) => {
+      $("#capa-wms").hidden = e.target.value !== "wms";
+      $("#url-datos").placeholder = { geojson: "https://…/datos.geojson", wms: "https://…/wms", xyz: "https://…/{z}/{x}/{y}.png" }[e.target.value];
+    });
+    $("#form-url-datos").addEventListener("submit", (e) => {
+      e.preventDefault();
+      anadirDesdeURL($("#tipo-url").value, $("#url-datos").value, $("#capa-wms").value);
+    });
+  }
+
+  // ================================================================== acciones: un solo menú y la paleta de comandos
+
+  const NARINO_VISTA = () => V.estado.mapa.fitBounds([[V.NARINO.limites[0], V.NARINO.limites[1]], [V.NARINO.limites[2], V.NARINO.limites[3]]], { padding: 20, bearing: 0, pitch: 0 });
+
+  // Todo lo que el visor sabe hacer. El menú «Herramientas» muestra las principales;
+  // la paleta (Ctrl + K) las encuentra todas, también las marcadas «soloPaleta».
+  const ACCIONES = [
+    { id: "distancia", nombre: "Medir distancia", icono: "regla", atajo: "M", claves: "regla longitud", activa: () => medicion.modo === "distancia" && !medicion.fija, ejecutar: () => iniciarMedicion("distancia") },
+    { id: "area", nombre: "Medir área", icono: "area", atajo: "A", claves: "superficie hectáreas polígono", activa: () => medicion.modo === "area" && !medicion.fija, ejecutar: () => iniciarMedicion("area") },
+    { id: "terreno", nombre: "Terreno 3D", icono: "montana", atajo: "T", claves: "relieve elevación montañas", activa: () => terreno, ejecutar: () => alternarTerreno() },
+    { id: "ubicacion", nombre: "Mi ubicación", icono: "ubicacion", claves: "gps localizar dónde estoy", ejecutar: irAMiUbicacion },
+    { id: "anadir", nombre: "Añadir datos…", icono: "anadir", claves: "cargar abrir archivo shapefile geojson kml gpx csv wms xyz", ejecutar: () => $("#anadir-datos").showModal() },
+    { sep: true },
+    { id: "enlace", nombre: "Copiar enlace de esta vista", icono: "compartir", claves: "compartir url permanente", ejecutar: () => compartir() },
+    { id: "insertar", nombre: "Insertar el mapa…", icono: "incrustar", claves: "iframe embeber incrustar página", ejecutar: abrirInsertar },
+    { id: "imagen", nombre: "Descargar imagen", icono: "imagen", claves: "png exportar captura", ejecutar: () => exportarImagen() },
+    { id: "imprimir", nombre: "Imprimir…", icono: "imprimir", atajo: "P", claves: "pdf hoja papel", ejecutar: imprimir },
+    { id: "proyecto", nombre: "Descargar proyecto .geolibre", icono: "descargar", claves: "geolibre proyecto", soloPaleta: true, ejecutar: () => { const a = document.createElement("a"); a.href = V.urlDescargaProyecto(); a.download = "geoportal-ambiental-narino.geolibre"; a.click(); } },
+    { sep: true },
+    { id: "pantalla", nombre: "Pantalla completa", icono: "pantalla", claves: "fullscreen", activa: () => !!document.fullscreenElement, ejecutar: pantallaCompleta },
+    { id: "enfoque", nombre: "Solo el mapa", icono: "enfoque", atajo: "F", claves: "ocultar interfaz enfoque limpio", activa: () => document.body.classList.contains("solo-mapa"), ejecutar: alternarEnfoque, disponible: () => !incrustado },
+    { id: "apagar", nombre: "Apagar todas las capas", icono: "ojoNo", claves: "quitar limpiar ocultar", soloPaleta: true, ejecutar: () => V.estado.activas.slice().forEach((sl) => V.alternarCapa(sl, false)) },
+    { id: "atajos", nombre: "Atajos de teclado", icono: "teclado", atajo: "?", claves: "ayuda teclas", ejecutar: () => $("#atajos").showModal() },
+    { id: "tema", nombre: "Cambiar tema: claro, oscuro o automático", icono: "luna", claves: "modo oscuro dark noche", soloPaleta: true, ejecutar: () => window.Institucional.tema.alternar() },
+    { id: "estudio", nombre: "Abrir el Estudio SIG", icono: "estudio", claves: "geolibre análisis geoprocesamiento editar", soloPaleta: true, ejecutar: () => V.irA("estudio"), disponible: () => !!(V.estado.config && V.estado.config.estudio && V.estado.config.estudio.activo) },
+    { id: "catalogo", nombre: "Ir al catálogo de geodatos", icono: "catalogo", claves: "lista fichas metadatos descargas", soloPaleta: true, ejecutar: () => V.irA("catalogo") },
+    { id: "narino", nombre: "Ver todo Nariño", icono: "mapa", atajo: "R", claves: "inicio restablecer vista", soloPaleta: true, ejecutar: NARINO_VISTA },
+    { id: "norte", nombre: "Orientar al norte", icono: "ubicacion", atajo: "N", claves: "rumbo brújula", soloPaleta: true, ejecutar: () => V.estado.mapa.easeTo({ bearing: 0, pitch: 0 }) },
+    { id: "capas", nombre: "Plegar o desplegar la lista de capas", icono: "capas", atajo: "L", claves: "panel", soloPaleta: true, ejecutar: () => $("#alternar-panel").click() },
+  ];
+
+  function accionesDisponibles(paraPaleta) {
+    return ACCIONES.filter((a) => !a.sep && (paraPaleta || !a.soloPaleta) && (!a.disponible || a.disponible()));
+  }
+
+  function pintarMenu() {
+    const menu = $("#menu-herramientas");
+    if (!menu) return;
+    menu.innerHTML =
+      '<h3 id="titulo-mapa-base">Mapa base</h3><div class="menu-base" id="menu-base" role="group" aria-labelledby="titulo-mapa-base"></div><hr>' +
+      ACCIONES.filter((a) => a.sep || (!a.soloPaleta && (!a.disponible || a.disponible())))
+        .map((a) =>
+          a.sep
+            ? "<hr>"
+            : '<button type="button" role="' + (a.activa ? "menuitemcheckbox" : "menuitem") + '" data-accion-menu="' + a.id + '"' +
+              (a.activa ? ' aria-checked="' + !!a.activa() + '"' : "") + ">" + icono(a.icono) + "<span>" + escapar(a.nombre) + "</span>" +
+              (a.atajo ? "<kbd>" + a.atajo + "</kbd>" : "") + "</button>",
+        )
+        .join("");
+    V.pintarMenuBase();
+  }
+
+  function marcarBotones() {
+    document.querySelectorAll("[data-accion-menu]").forEach((b) => {
+      const a = ACCIONES.find((x) => x.id === b.dataset.accionMenu);
+      if (a && a.activa) b.setAttribute("aria-checked", String(!!a.activa()));
+    });
+  }
+
+  function cerrarMenu() {
+    const menu = $("#menu-herramientas");
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    $("#boton-herramientas").setAttribute("aria-expanded", "false");
+  }
+
+  function abrirMenu() {
+    const menu = $("#menu-herramientas");
+    pintarMenu();
+    menu.hidden = false;
+    $("#boton-herramientas").setAttribute("aria-expanded", "true");
+    const primero = menu.querySelector("[data-accion-menu]");
+    if (primero) primero.focus();
+  }
+
+  class ControlMenu {
     onAdd() {
       const div = document.createElement("div");
-      div.className = "maplibregl-ctrl maplibregl-ctrl-group control-herramientas";
-      const botones = [
-        ["distancia", "regla", "Medir distancia (M)"],
-        ["area", "imagen", "Medir área (A)"],
-        ["terreno", "montana", "Terreno 3D (T)"],
-        ["compartir", "compartir", "Copiar enlace de esta vista"],
-        ["imagen", "descargar", "Descargar el mapa como imagen"],
-        ["atajos", "teclado", "Atajos de teclado (?)"],
-      ];
-      div.innerHTML = botones.map(([id, ic, t]) => '<button type="button" data-herramienta="' + id + '" title="' + t + '" aria-label="' + t + '">' + icono(ic) + "</button>").join("");
-      div.querySelector('[data-herramienta="area"]').innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 7 11 3l9 5-3 12-10 1Z" fill="currentColor" fill-opacity=".15"/></svg>';
+      div.className = "maplibregl-ctrl control-menu";
+      div.innerHTML =
+        '<div class="maplibregl-ctrl-group"><button type="button" id="boton-herramientas" aria-haspopup="menu" aria-expanded="false" aria-controls="menu-herramientas" title="Herramientas (H)" aria-label="Herramientas">' +
+        icono("herramientas") + '</button></div><div class="menu-herramientas" id="menu-herramientas" role="menu" aria-label="Herramientas del mapa" hidden></div>';
+      div.querySelector("#boton-herramientas").addEventListener("click", () => (div.querySelector("#menu-herramientas").hidden ? abrirMenu() : cerrarMenu()));
       div.addEventListener("click", (e) => {
-        const b = e.target.closest("[data-herramienta]");
+        const base = e.target.closest("[data-base]");
+        if (base) { V.cambiarBase(base.dataset.base, true); return; }
+        const b = e.target.closest("[data-accion-menu]");
         if (!b) return;
-        const h = b.dataset.herramienta;
-        if (h === "distancia" || h === "area") iniciarMedicion(h);
-        else if (h === "terreno") alternarTerreno();
-        else if (h === "compartir") compartir();
-        else if (h === "imagen") exportarImagen();
-        else if (h === "atajos") $("#atajos").showModal();
+        const a = ACCIONES.find((x) => x.id === b.dataset.accionMenu);
+        cerrarMenu();
+        if (a) a.ejecutar();
       });
+      div.addEventListener("keydown", (e) => {
+        const items = [...div.querySelectorAll("#menu-herramientas button")];
+        const i = items.indexOf(document.activeElement);
+        if (e.key === "ArrowDown" && items.length) { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+        if (e.key === "ArrowUp" && items.length) { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+        if (e.key === "Escape") { e.stopPropagation(); cerrarMenu(); div.querySelector("#boton-herramientas").focus(); }
+      });
+      document.addEventListener("click", (e) => { if (!e.target.closest(".control-menu")) cerrarMenu(); });
       return div;
     }
     onRemove() {}
@@ -715,7 +1134,9 @@
         if (location.hash === "#estudio") return; // GeoLibre usa Ctrl+K para su paleta de comandos
         e.preventDefault();
         if (location.hash && location.hash !== "#visor") V.irA("visor");
+        if (document.body.classList.contains("solo-mapa") && !incrustado) alternarEnfoque();
         $("#buscar-mapa").focus();
+        $("#buscar-mapa").select();
         return;
       }
       if (enCampo || e.ctrlKey || e.metaKey || e.altKey || document.querySelector("dialog[open]")) return;
@@ -725,17 +1146,22 @@
       if (k === "Escape") {
         if (medicion.modo && !medicion.fija) terminarMedicion(true);
         else if (!$("#tabla-atributos").hidden) cerrarTabla();
+        else if (document.body.classList.contains("solo-mapa") && !incrustado) alternarEnfoque();
         return;
       }
       if (k === "Enter" && medicion.modo && !medicion.fija) return terminarMedicion(false);
+      if (incrustado) return; // incrustado en otra página: sin atajos que cambien la interfaz
       const acciones = {
         n: () => m.easeTo({ bearing: 0 }),
         u: () => m.easeTo({ pitch: 0 }),
-        r: () => m.fitBounds([[V.NARINO.limites[0], V.NARINO.limites[1]], [V.NARINO.limites[2], V.NARINO.limites[3]]], { padding: 20, bearing: 0, pitch: 0 }),
+        r: NARINO_VISTA,
         m: () => iniciarMedicion("distancia"),
         a: () => iniciarMedicion("area"),
-        t: alternarTerreno,
+        t: () => alternarTerreno(),
         l: () => $("#alternar-panel").click(),
+        h: () => ($("#menu-herramientas").hidden ? abrirMenu() : cerrarMenu()),
+        f: alternarEnfoque,
+        p: imprimir,
         "?": () => $("#atajos").showModal(),
       };
       const f = acciones[k.toLowerCase()] || acciones[k];
@@ -847,8 +1273,16 @@
 
   document.addEventListener("visor:listo", () => {
     V = window.Visor;
+    incrustado = document.body.classList.contains("solo-mapa");
     const m = V.estado.mapa;
-    m.addControl(new ControlHerramientas(), "top-right");
+    m.addControl(new ControlMenu(), "top-right");
+    if (matchMedia("(pointer: coarse)").matches) m.addControl(new maplibregl.GeolocateControl({ trackUserLocation: false }), "top-right");
+    $("#volver-geoportal").addEventListener("click", (e) => {
+      if (incrustado) return; // abre el geoportal completo en otra pestaña
+      e.preventDefault();
+      alternarEnfoque();
+    });
+    document.addEventListener("fullscreenchange", marcarBotones);
     const boton = $("#boton-coordenadas");
     boton.title = "Formato: " + FORMATOS.find((f) => f[0] === formato)[1] + " (clic para cambiar)";
     boton.addEventListener("click", () => {
@@ -875,5 +1309,7 @@
     eventosTabla();
     eventosTeclado();
     eventosEstudio();
+    eventosInsertar();
+    eventosDatos();
   });
 })();

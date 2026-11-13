@@ -251,6 +251,15 @@
     return { fc, crs: etiquetaCRS("EPSG:4326", " (KML)") };
   }
 
+  async function leerGPX(texto, avisos) {
+    const tg = await cargar("togeojson");
+    const doc = new DOMParser().parseFromString(texto, "text/xml");
+    if (doc.getElementsByTagName("parsererror").length) falla("El GPX no es XML válido.");
+    const fc = normalizarFC(tg.gpx(doc));
+    await aWGS84(fc, "EPSG:4326", {}, avisos);
+    return { fc, crs: etiquetaCRS("EPSG:4326", " (GPX)") };
+  }
+
   // GeoPackage: geometrías en «GP» + WKB
   function leerWKB(dv, pos) {
     const le = dv.getUint8(pos) === 1;
@@ -784,7 +793,7 @@
   // ---------------------------------------------------------------- entrada
 
   const NOMBRES = { geojson: "GeoJSON", json: "GeoJSON", kml: "KML", kmz: "KMZ", gpkg: "GeoPackage", csv: "CSV", tif: "GeoTIFF", tiff: "GeoTIFF" };
-  const FORMATOS = [".geojson", ".json", ".zip", ".kml", ".kmz", ".gpkg", ".csv", ".tif", ".tiff"];
+  const FORMATOS = [".geojson", ".json", ".zip", ".kml", ".kmz", ".gpx", ".gpkg", ".csv", ".tif", ".tiff"];
   const NO_DISPONIBLES = {
     fgb: "FlatGeobuf", parquet: "GeoParquet", geoparquet: "GeoParquet", gml: "GML", shp: "Shapefile suelto",
     img: "ERDAS Imagine", asc: "ASCII Grid", jp2: "JPEG 2000", vrt: "VRT",
@@ -800,6 +809,7 @@
     }
     if (ext === "geojson" || ext === "json") return { kind: "vector", formato: "GeoJSON", ...(await leerGeoJSON(await texto(), opciones, avisos)) };
     if (ext === "kml") return { kind: "vector", formato: "KML", ...(await leerKML(await texto(), avisos)) };
+    if (ext === "gpx") return { kind: "vector", formato: "GPX", ...(await leerGPX(await texto(), avisos)) };
     if (ext === "csv") return { kind: "vector", formato: "CSV", ...(await leerCSV(await buffer(), opciones, avisos)) };
     if (ext === "gpkg") return { kind: "vector", formato: "GeoPackage", ...(await leerGeoPackage(await buffer(), opciones, avisos)) };
     if (ext === "tif" || ext === "tiff") {

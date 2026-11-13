@@ -15,6 +15,8 @@
       (function (d) {
         var p = "auto";
         try { p = localStorage.getItem("geoportal.tema") || "auto"; } catch (e) {}
+        var q = /[?&](?:theme|tema)=(dark|light|oscuro|claro)\b/.exec(location.search); // tema pedido en la dirección
+        if (q) p = q[1] === "dark" || q[1] === "oscuro" ? "oscuro" : "claro";
         var oscuro = p === "oscuro" || (p !== "claro" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
         d.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
       })(document);
@@ -53,39 +55,36 @@
 
     <main id="contenido">
       <!-- ============================ VISOR ============================ -->
+      <!-- Interfaz minimalista: el mapa ocupa toda la vista; una tarjeta (búsqueda + capas) y un botón de herramientas -->
       <section class="vista visor" id="vista-visor" aria-label="Visor geográfico">
-        <aside class="panel" id="panel" aria-label="Capas disponibles">
-          <div class="panel-cabecera">
-            <h1>Capas ambientales</h1>
-            <p class="panel-resumen" id="resumen-capas">Cargando información…</p>
-            <label class="buscador">
-              <span class="sr-only">Buscar capas</span>
-              <span data-icono="buscar"></span>
-              <input type="search" id="buscar" placeholder="Buscar capa, tema o fuente" autocomplete="off">
-            </label>
-          </div>
-          <div class="panel-lista" id="lista-capas" role="tree" aria-label="Capas por categoría"></div>
-          <div class="panel-pie">
-            <button class="btn btn-secundario btn-chico" type="button" id="apagar-todo">Apagar todas</button>
-            <a class="btn btn-secundario btn-chico" id="descargar-proyecto" href="#" download data-icono="descargar">Proyecto .geolibre</a>
-          </div>
-        </aside>
-
-        <button class="alternar-panel" type="button" id="alternar-panel" aria-controls="panel" aria-expanded="true" title="Mostrar u ocultar el panel de capas">
-          <span data-icono="capas"></span><span class="sr-only">Panel de capas</span>
-        </button>
-
-        <div class="mapa-contenedor">
+        <div class="mapa-contenedor" id="mapa-contenedor">
           <div id="mapa" role="region" aria-label="Mapa"></div>
 
-          <div class="buscador-mapa" role="search">
-            <label class="buscador">
-              <span class="sr-only">Buscar lugares, coordenadas o entidades de las capas activas</span>
-              <span data-icono="buscar"></span>
-              <input type="search" id="buscar-mapa" placeholder="Buscar lugar, coordenada o entidad (Ctrl+K)" autocomplete="off" aria-controls="resultados-busqueda" aria-autocomplete="list">
-            </label>
-            <ul class="resultados-busqueda" id="resultados-busqueda" role="listbox" aria-label="Resultados de búsqueda" hidden></ul>
-          </div>
+          <aside class="tarjeta-mapa" id="panel" aria-label="Búsqueda y capas">
+            <div class="buscador-mapa" role="search">
+              <label class="buscador">
+                <span class="sr-only">Buscar capas, lugares, coordenadas, entidades o acciones</span>
+                <span data-icono="buscar"></span>
+                <input type="search" id="buscar-mapa" placeholder="Buscar capas, lugares o acciones" autocomplete="off" aria-controls="resultados-busqueda" aria-autocomplete="list">
+                <kbd class="atajo-buscar" aria-hidden="true">Ctrl K</kbd>
+              </label>
+              <ul class="resultados-busqueda" id="resultados-busqueda" role="listbox" aria-label="Resultados de búsqueda" hidden></ul>
+            </div>
+            <button type="button" class="alternar-capas" id="alternar-panel" aria-expanded="true" aria-controls="lista-capas">
+              <span data-icono="capas"></span>
+              <span class="titulo">Capas</span>
+              <span class="conteo" id="resumen-capas">Cargando…</span>
+              <span class="flecha" aria-hidden="true"></span>
+            </button>
+            <div class="panel-lista" id="lista-capas" role="tree" aria-label="Capas por categoría"></div>
+          </aside>
+
+          <section class="leyenda plegada" id="leyenda" aria-label="Leyenda" hidden>
+            <button type="button" class="leyenda-titulo" id="plegar-leyenda" aria-expanded="false" aria-controls="leyenda-items">
+              <span data-icono="leyenda"></span><span>Leyenda</span><span class="flecha" aria-hidden="true"></span>
+            </button>
+            <ul id="leyenda-items"></ul>
+          </section>
 
           <section class="panel-medicion" id="panel-medicion" aria-live="polite" hidden>
             <header><h2>Medir distancia</h2>
@@ -94,22 +93,12 @@
             <p class="resultado"></p>
           </section>
 
-          <div class="control-mapa control-base" id="control-base">
-            <button type="button" class="btn-icono" id="boton-base" aria-expanded="false" title="Mapa base"><span data-icono="base"></span><span class="sr-only">Mapa base</span></button>
-            <div class="menu-base" id="menu-base" hidden></div>
-          </div>
-
-          <section class="leyenda" id="leyenda" aria-label="Leyenda" hidden>
-            <header><h2>Leyenda</h2>
-              <button class="btn-icono" type="button" id="plegar-leyenda" aria-expanded="true" title="Plegar leyenda"><span data-icono="leyenda"></span><span class="sr-only">Plegar o desplegar la leyenda</span></button>
-            </header>
-            <ul id="leyenda-items"></ul>
-          </section>
-
           <div class="barra-estado" id="barra-estado">
             <button type="button" class="coordenadas" id="boton-coordenadas" aria-live="off">Lat —  Lon —</button>
             <span class="info-vista" id="info-vista"></span>
           </div>
+
+          <a class="volver-geoportal" id="volver-geoportal" href="./" target="_blank" rel="noopener" hidden>Geoportal Ambiental · Gobernación de Nariño</a>
         </div>
 
         <section class="panel-atributos" id="tabla-atributos" aria-label="Tabla de atributos" hidden>
@@ -118,6 +107,7 @@
             <label><span class="sr-only">Capa</span><select id="tabla-capa"></select></label>
             <label class="buscador"><span class="sr-only">Filtrar filas</span><span data-icono="buscar"></span><input type="search" id="tabla-filtro" placeholder="Filtrar filas" autocomplete="off"></label>
             <span class="tabla-conteo" id="tabla-conteo"></span>
+            <label class="check tabla-filtrar-mapa"><input type="checkbox" id="tabla-en-mapa"> Filtrar también el mapa</label>
             <span class="separador"></span>
             <button class="btn-icono" type="button" data-anterior title="Página anterior">‹<span class="sr-only">Página anterior</span></button>
             <span class="tabla-pagina" id="tabla-pagina"></span>
@@ -213,8 +203,11 @@
       </div>
       <div class="dialogo-cuerpo">
         <dl class="lista-atajos">
-          <dt><kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Buscar lugar, coordenada o entidad</dd>
-          <dt><kbd>L</kbd></dt><dd>Mostrar u ocultar el panel de capas</dd>
+          <dt><kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Buscar capas, lugares, coordenadas, entidades o acciones</dd>
+          <dt><kbd>L</kbd></dt><dd>Plegar o desplegar la lista de capas</dd>
+          <dt><kbd>H</kbd></dt><dd>Abrir el menú de herramientas</dd>
+          <dt><kbd>F</kbd></dt><dd>Solo el mapa (ocultar o mostrar la interfaz)</dd>
+          <dt><kbd>P</kbd></dt><dd>Imprimir el mapa</dd>
           <dt><kbd>M</kbd></dt><dd>Medir distancia</dd>
           <dt><kbd>A</kbd></dt><dd>Medir área</dd>
           <dt><kbd>T</kbd></dt><dd>Activar o desactivar el terreno 3D</dd>
@@ -229,6 +222,54 @@
         <p class="nota">En el Estudio SIG rigen los atajos propios de GeoLibre (por ejemplo, <kbd>Ctrl</kbd> + <kbd>K</kbd> abre su paleta de comandos).</p>
       </div>
     </dialog>
+
+    <!-- Añadir datos propios (se quedan en el navegador; no se suben al servidor) -->
+    <dialog class="dialogo dialogo-chico" id="anadir-datos" aria-labelledby="anadir-titulo">
+      <div class="dialogo-encabezado">
+        <h2 id="anadir-titulo" style="flex:1">Añadir datos</h2>
+        <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
+      </div>
+      <div class="dialogo-cuerpo">
+        <label class="zona-soltar" id="zona-soltar" for="archivo-local">
+          <strong>Suelte un archivo aquí o haga clic para elegirlo</strong>
+          <span>GeoJSON, Shapefile (.zip), GeoPackage, KML/KMZ, GPX, CSV o GeoTIFF</span>
+          <input type="file" id="archivo-local" accept=".geojson,.json,.zip,.gpkg,.kml,.kmz,.gpx,.csv,.tif,.tiff" hidden>
+        </label>
+        <p class="separador-o"><span>o desde una dirección</span></p>
+        <form id="form-url-datos" class="fila-url" novalidate>
+          <select id="tipo-url" aria-label="Tipo de servicio">
+            <option value="geojson">GeoJSON</option>
+            <option value="wms">WMS</option>
+            <option value="xyz">Teselas XYZ</option>
+          </select>
+          <input type="url" id="url-datos" placeholder="https://…" aria-label="Dirección de los datos" required>
+          <input type="text" id="capa-wms" placeholder="Capa WMS" aria-label="Nombre de la capa WMS" hidden>
+          <button class="btn btn-primario btn-chico" type="submit">Añadir</button>
+        </form>
+        <p class="nota" id="anadir-estado" role="status">Los datos que añada se ven solo en este navegador: no se envían al servidor ni se publican.</p>
+      </div>
+    </dialog>
+
+    <!-- Insertar el mapa en otra página -->
+    <dialog class="dialogo dialogo-chico" id="insertar-mapa" aria-labelledby="insertar-titulo">
+      <div class="dialogo-encabezado">
+        <h2 id="insertar-titulo" style="flex:1">Insertar el mapa</h2>
+        <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
+      </div>
+      <div class="dialogo-cuerpo">
+        <p>Copie este código en la página donde quiera mostrar el mapa con la vista y las capas actuales.</p>
+        <div class="rejilla-insertar">
+          <label>Ancho <input type="text" id="insertar-ancho" value="100%"></label>
+          <label>Alto (px) <input type="number" id="insertar-alto" value="480" min="200" max="2000"></label>
+          <label class="check"><input type="checkbox" id="insertar-solo-mapa" checked> Solo el mapa</label>
+        </div>
+        <textarea id="insertar-codigo" class="codigo-insertar" rows="5" readonly aria-label="Código para insertar"></textarea>
+        <div class="acciones-dialogo"><button class="btn btn-primario" type="button" id="insertar-copiar">Copiar código</button></div>
+      </div>
+    </dialog>
+
+    <!-- Hoja de impresión (solo visible al imprimir) -->
+    <div class="hoja-impresion" id="hoja-impresion" aria-hidden="true"></div>
 
     <div data-pie></div>
 
