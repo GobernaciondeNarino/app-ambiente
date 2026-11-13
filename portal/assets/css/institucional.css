@@ -15,7 +15,7 @@
   --amarillo-claro: #fff8d1;
   --gris-titulo: #383838;
   --gris-texto: #4d4d4d;
-  --gris-suave: #767676;
+  --gris-suave: #6b6b6b; /* ≥ 4,5:1 sobre todas las superficies claras (#767676 bajaba a 3,97:1) */
   --borde: #dfe3df;
   --fondo: #f5f7f5;
   --superficie: #ffffff;
@@ -24,7 +24,7 @@
   --superficie-2: #f7f9f7;
   --superficie-3: #f0f2f0;
   --borde-suave: #eef0ee;
-  --borde-control: #c9cfc9;
+  --borde-control: #858c86; /* borde de campos: ≥ 3:1 frente a fondo y superficie (WCAG 1.4.11) */
   --fondo-mapa: #e9ece9;
   --vidrio: rgba(255, 255, 255, 0.96);
   --enlace: #0b7a2c;
@@ -90,6 +90,20 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* En claro el amarillo sobre blanco no llega a 3:1: un anillo oscuro entre el control y el
+   contorno amarillo hace visible el foco. Especificidad mínima (:where) para no pisar los
+   estilos de foco propios de campos y componentes; los destinos de foco programático
+   (tabindex="-1") quedan fuera. */
+:where(:root:not([data-tema="oscuro"])) :focus-visible:where(:not([tabindex="-1"])) {
+  box-shadow: 0 0 0 2px var(--gris-titulo);
+}
+
+/* Destinos de «Saltar al contenido» y «Contacto»: reciben el foco sin recuadro */
+main[tabindex="-1"]:focus,
+.pie[tabindex="-1"]:focus {
+  outline: none;
+}
+
 .saltar-contenido {
   position: absolute;
   left: -9999px;
@@ -106,6 +120,7 @@ a:hover {
 
 .sr-only {
   position: absolute;
+  right: 0; /* sin esto, dentro de una tabla desplazable escapaba del recorte y ensanchaba la página */
   width: 1px;
   height: 1px;
   overflow: hidden;
@@ -199,9 +214,11 @@ a:hover {
   height: 40px;
   width: auto;
   display: block;
+  flex: none;
 }
 
 .marca .dependencia {
+  min-width: 0;
   border-left: 2px solid var(--borde);
   padding-left: 14px;
   font-family: var(--fuente-titulos);
@@ -235,6 +252,7 @@ a:hover {
   font-size: 15px;
   color: var(--gris-titulo);
   text-decoration: none;
+  white-space: nowrap;
   padding: 8px 12px;
   border-radius: 6px;
   border: 0;
@@ -264,6 +282,10 @@ a:hover {
   color: var(--verde-oscuro);
   box-shadow: inset 0 -3px 0 var(--verde);
   border-radius: 0;
+}
+
+:root:not([data-tema="oscuro"]) .navegacion a[aria-current="page"]:focus-visible {
+  box-shadow: inset 0 -3px 0 var(--verde), 0 0 0 2px var(--gris-titulo);
 }
 
 .boton-menu svg {
@@ -382,6 +404,20 @@ a:hover {
 .btn-icono[disabled] {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Pantallas táctiles: botones de 40 px como mínimo (objetivo táctil; con .btn-chico medían 27-32 px) */
+@media (pointer: coarse) {
+  .btn,
+  .btn-icono {
+    min-height: 40px;
+  }
+
+  .btn-icono {
+    min-width: 40px;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 label {
@@ -517,6 +553,7 @@ textarea {
   flex-direction: column;
   gap: 8px;
   max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none; /* solo los avisos reciben clics: los huecos no tapan los controles del mapa */
 }
 
 .notificacion {
@@ -528,6 +565,8 @@ textarea {
   font-size: 14px;
   border-left: 4px solid var(--amarillo);
   animation: entrar 0.2s ease-out;
+  pointer-events: auto;
+  cursor: pointer; /* un clic lo cierra */
 }
 
 .notificacion.error {
@@ -675,14 +714,14 @@ dialog.dialogo::backdrop {
 }
 
 .pie-hora small {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.1;
   text-transform: uppercase;
 }
 
 .pie-creditos {
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--gris-suave);
   margin-top: 10px;
 }
@@ -702,23 +741,60 @@ dialog.dialogo::backdrop {
   }
 }
 
+/* Objetivos táctiles de 44 px en la barra GOV.CO sin cambiar su tamaño visible
+   (enlace GOV.CO 96×23 y botón de tema 37×25 px) */
+@media (max-width: 860px), (pointer: coarse) {
+  .barra-govco a.govco-logo,
+  .barra-govco .boton-tema {
+    position: relative;
+  }
+
+  .barra-govco a.govco-logo::after,
+  .barra-govco .boton-tema::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Entre 861 y 1100 px la navegación completa no deja sitio al subtítulo: partía el encabezado
+   en tres líneas (74 px frente a los 60 de --alto-encabezado) y el visor se desbordaba. */
+@media (max-width: 1100px) {
+  .marca .dependencia span {
+    display: none;
+  }
+}
+
 @media (max-width: 860px) {
+  /* visor.css resta 58 px fijos al alto del visor en este ancho: el encabezado mide eso mismo */
+  :root {
+    --alto-encabezado: 58px;
+  }
+
   .barra-govco {
     padding: 0 16px;
   }
+
 
   .barra-govco .govco-enlaces {
     display: none;
   }
 
   .encabezado {
-    padding: 8px 16px;
+    padding: 7px 16px;
+    gap: 12px;
     flex-wrap: wrap;
   }
 
+  /* Base 0: el botón de menú no baja a una segunda fila en 360 px */
   .marca {
     gap: 10px;
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-height: 42px;
   }
 
   .marca img {
@@ -741,16 +817,35 @@ dialog.dialogo::backdrop {
     display: inline-flex;
   }
 
+  /* Menú desplegable sobre el contenido: el encabezado conserva su alto y el visor no se mueve */
   .navegacion {
     display: none;
-    width: 100%;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     flex-direction: column;
     align-items: stretch;
-    padding-bottom: 8px;
+    padding: 6px 16px 12px;
+    background: var(--superficie);
+    border-bottom: 1px solid var(--borde);
+    box-shadow: var(--sombra);
   }
 
   .navegacion.abierta {
     display: flex;
+  }
+
+  .navegacion a,
+  .navegacion button.enlace {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .navegacion a.btn-acento {
+    margin: 6px 0 0;
+    justify-content: center;
   }
 
   .navegacion a[aria-current="page"] {
@@ -759,6 +854,21 @@ dialog.dialogo::backdrop {
 
   .pie {
     padding: 24px 16px 16px;
+  }
+
+  .pie-legal {
+    gap: 0;
+  }
+
+  .pie-legal a {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
+
+  .redes a {
+    width: 40px;
+    height: 40px;
   }
 }
 
@@ -773,55 +883,61 @@ dialog.dialogo::backdrop {
 /* Modo oscuro                                                         */
 /* data-tema="oscuro" en <html> lo pone el script de arranque según la */
 /* preferencia del usuario (automático, claro u oscuro).               */
+/* Solo en pantalla: al imprimir rigen los colores claros (texto oscuro */
+/* sobre papel blanco) aunque la página se vea en oscuro.              */
 /* ------------------------------------------------------------------ */
 
-:root[data-tema="oscuro"] {
-  color-scheme: dark;
-  --fondo: #0f1411;
-  --superficie: #161c18;
-  --superficie-2: #1b221e;
-  --superficie-3: #232c26;
-  --borde: #2e3932;
-  --borde-suave: #252f29;
-  --borde-control: #3d4a42;
-  --gris-titulo: #eef2ef;
-  --gris-texto: #c9d1cb;
-  --gris-suave: #9aa59d;
-  --verde-claro: rgba(16, 161, 59, 0.18);
-  --verde-oscuro: #5fd08a; /* acentos de texto: contraste AA sobre fondo oscuro */
-  --amarillo-claro: rgba(255, 213, 0, 0.14);
-  --peligro: #ff8a80;
-  --peligro-claro: rgba(179, 38, 30, 0.22);
-  --info: #6ab4e8;
-  --fondo-mapa: #0b0f0c;
-  --vidrio: rgba(22, 28, 24, 0.95);
-  --enlace: #6fd896;
-  --boton-primario: #0b7a2c;
-  --notificacion: #2b352f;
-  --placa-logo: #ffffff;
-  --sombra: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.45);
-}
+@media not print {
+  :root[data-tema="oscuro"] {
+    color-scheme: dark;
+    --fondo: #0f1411;
+    --superficie: #161c18;
+    --superficie-2: #1b221e;
+    --superficie-3: #232c26;
+    --borde: #2e3932;
+    --borde-suave: #252f29;
+    --borde-control: #6b7a70; /* ≥ 3:1 frente a las superficies oscuras */
+    --gris-titulo: #eef2ef;
+    --gris-texto: #c9d1cb;
+    --gris-suave: #9aa59d;
+    --verde-claro: rgba(16, 161, 59, 0.18);
+    --verde-oscuro: #5fd08a; /* acentos de texto: contraste AA sobre fondo oscuro */
+    --amarillo-claro: rgba(255, 213, 0, 0.14);
+    --peligro: #ff8a80;
+    --peligro-claro: rgba(179, 38, 30, 0.22);
+    --info: #6ab4e8;
+    --fondo-mapa: #0b0f0c;
+    --vidrio: rgba(22, 28, 24, 0.95);
+    --enlace: #6fd896;
+    --boton-primario: #0b7a2c;
+    --notificacion: #2b352f;
+    --placa-logo: #ffffff;
+    --sombra: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.45);
+  }
 
-:root[data-tema="oscuro"] .insignia.amarilla { color: #f3d75b; }
-:root[data-tema="oscuro"] .aviso { background: rgba(14, 107, 168, 0.18); color: #cfe6f7; }
-:root[data-tema="oscuro"] .aviso.error { background: var(--peligro-claro); color: #ffd6d2; }
-:root[data-tema="oscuro"] .aviso.exito { background: var(--verde-claro); color: #c9f2d6; }
-:root[data-tema="oscuro"] .aviso.advertencia { background: var(--amarillo-claro); color: #fbeaa6; }
-:root[data-tema="oscuro"] .barra-govco .govco-logo { color: #8fb0ff; }
-:root[data-tema="oscuro"] .barra-govco .govco-separador { background: #8fb0ff; }
-:root[data-tema="oscuro"] .btn-acento,
-:root[data-tema="oscuro"] .navegacion a.btn-acento { color: #1f1f1f; }
-:root[data-tema="oscuro"] .notificacion { border: 1px solid var(--borde); }
+  :root[data-tema="oscuro"] .insignia.amarilla { color: #f3d75b; }
+  :root[data-tema="oscuro"] .aviso { background: rgba(14, 107, 168, 0.18); color: #cfe6f7; }
+  :root[data-tema="oscuro"] .aviso.error { background: var(--peligro-claro); color: #ffd6d2; }
+  :root[data-tema="oscuro"] .aviso.exito { background: var(--verde-claro); color: #c9f2d6; }
+  :root[data-tema="oscuro"] .aviso.advertencia { background: var(--amarillo-claro); color: #fbeaa6; }
+  :root[data-tema="oscuro"] .barra-govco .govco-logo { color: #8fb0ff; }
+  :root[data-tema="oscuro"] .barra-govco .govco-separador { background: #8fb0ff; }
+  :root[data-tema="oscuro"] .btn-acento,
+  :root[data-tema="oscuro"] .navegacion a.btn-acento { color: #1f1f1f; }
+  :root[data-tema="oscuro"] .notificacion { border: 1px solid var(--borde); }
+  /* --gris-titulo es claro en oscuro: el blanco de los íconos de redes desaparecía (1,1:1) */
+  :root[data-tema="oscuro"] .redes a { background: var(--superficie-3); color: var(--gris-titulo); border: 1px solid var(--borde-control); }
 
-/* El manual pide el logo sobre fondo claro: en oscuro va sobre una placa blanca */
-:root[data-tema="oscuro"] .marca img,
-:root[data-tema="oscuro"] .logo-pie,
-:root[data-tema="oscuro"] .ingreso-tarjeta img,
-:root[data-tema="oscuro"] .instalador .logo {
-  background: var(--placa-logo);
-  border-radius: 8px;
-  padding: 4px 8px;
-  box-sizing: content-box;
+  /* El manual pide el logo sobre fondo claro: en oscuro va sobre una placa blanca */
+  :root[data-tema="oscuro"] .marca img,
+  :root[data-tema="oscuro"] .logo-pie,
+  :root[data-tema="oscuro"] .ingreso-tarjeta img,
+  :root[data-tema="oscuro"] .instalador .logo {
+    background: var(--placa-logo);
+    border-radius: 8px;
+    padding: 3px 8px; /* 3 px: con 4 px el encabezado medía 61 px, uno más que --alto-encabezado */
+    box-sizing: content-box;
+  }
 }
 
 /* Botón de tema */
@@ -858,4 +974,22 @@ dialog.dialogo::backdrop {
 
 @media print {
   :root[data-tema="oscuro"] { color-scheme: light; }
+
+  /* Encabezado y pie impresos: identidad sí, controles no */
+  .saltar-contenido,
+  .barra-govco .govco-derecha,
+  .boton-menu,
+  .navegacion,
+  .notificaciones {
+    display: none !important;
+  }
+
+  .barra-govco,
+  .encabezado {
+    break-inside: avoid;
+  }
+
+  .pie {
+    break-inside: avoid;
+  }
 }
