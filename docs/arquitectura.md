@@ -161,6 +161,45 @@ el mapa insertado (`?maponly`) o el modo de consulta, `layout=viewer`. Con una i
 `http`/`https` y con o sin `www.`. Si GeoLibre se copió a mano y trae el
 `deployment.json` vacío del paquete, `/api/config` genera el del geoportal.
 
+### Servicio de compartir
+
+GeoLibre publica proyectos con un servicio HTTP (contrato v1, `docs/server-api.md` de GeoLibre). El
+público `share.geolibre.app` solo acepta los dominios de GeoLibre, así que el geoportal aloja el suyo,
+en las dos ediciones (`portal/api/lib/compartir.php` y `api/app/routers/compartir.py`) y en su base de
+datos (tablas `compartir_tokens`, `compartir_proyectos` y `compartir_versiones`).
+`sharing.shareUrl` = `<URL pública>/api/compartir`. GeoLibre solo acepta un servicio en `https` (o en
+`localhost`).
+
+| Método y ruta (relativa a la base) | Autenticación | Respuesta |
+| --- | --- | --- |
+| `GET /api/users/me` | token | `{user, sessionId: null, scopes}` |
+| `GET /api/projects?limit&offset&featured&mine&shared_with_me` | opcional (`mine` lo exige) | `{projects, limit, offset, total}`; sin `mine`, solo públicos; `featured`, públicos de administradores |
+| `POST /api/projects` `{filename, content, visibility}` | token | 201 `{project}` con `projectUrl` (`<geoportal>/?compartido=usuario/proyecto#mapa`) y `rawJsonUrl`; el título sale del documento |
+| `GET /api/users/{usuario}/projects` | opcional | Proyectos de ese usuario (el dueño ve también los no listados y privados) |
+| `GET /api/projects/{id}` | opcional | `{project}` |
+| `PUT /api/projects/{id}/content` `{content, expectedVersion}` | dueño | 201 `{project, version}`; con `expectedVersion` desfasado se guarda igual y añade `warning`, como el contrato |
+| `GET /api/projects/{id}/versions[/{n}]` | dueño / opcional | Lista de versiones (se conservan 20) o el documento de una versión |
+| `DELETE /api/projects/{id}` | dueño o administrador | 204 |
+| `GET /{usuario}/{proyecto}.geolibre.json` | opcional (privado: su dueño) | Documento; públicos y no listados con `ETag` y 304 |
+| `GET /{usuario}/{proyecto}` | opcional | 302 a la portada con `?compartido=` |
+| `GET /settings` | — | 302 a *Mi cuenta* del administrador («Obtener token de API» de GeoLibre) |
+| `GET /api/collections/browse` | — | `{collections: []}` |
+| `/api/shares…`, `/api/organizations…`, `/api/groups…`, `/api/transfers…` | — | 404 «no disponible» (GeoLibre oculta esas funciones) |
+
+Errores `{"error": "…", "detail": "…"}` con 401 (`WWW-Authenticate: Bearer`), 403, 404, 405, 413,
+422 y 429 (`Retry-After`). Límites: 10 MB por proyecto (en PHP, además, según `memory_limit` y
+`max_allowed_packet`), 60 publicaciones por usuario y hora, 20 versiones por proyecto.
+
+**Tokens personales** (`gpc_` + 48 caracteres hexadecimales; solo se guarda su SHA-256): los
+administradores y editores los emiten en *Mi cuenta*. Rutas del administrador, con la sesión normal:
+`GET /api/admin/compartir/tokens[?todos=true]`, `POST /api/admin/compartir/tokens`
+`{name, expires_in_days}` (el token se muestra una sola vez) y `DELETE /api/admin/compartir/tokens/{id}`.
+Un token revocado, vencido o de un usuario inactivo da 401; el token de sesión no sirve en
+`/api/compartir` ni el personal en `/api/admin`.
+
+No se implementan los enlaces con rol, vencimiento o contraseña, las miniaturas, las bifurcaciones,
+las organizaciones ni los grupos (GeoLibre muestra esos ajustes como no disponibles).
+
 ## Despliegue en producción
 
 1. Servidor Linux con Docker y Docker Compose.

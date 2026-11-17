@@ -17,7 +17,7 @@ toda la vista, bajo la barra GOV.CO y el encabezado de la Gobernación:
 - **Compartir** y **Abrir desde la galería** con el servicio de compartir del propio geoportal.
 
 El inventario completo, comprobado en web.geolibre.app con REA, está en el
-[anexo de inventario](anexo-inventario-geolibre.md).
+[inventario de web.geolibre.app](inventario-web-geolibre.md).
 
 No es una copia ni una modificación: se instala la **compilación web oficial** que GeoLibre
 publica en su paquete de Python (PyPI), con la suma SHA-256 verificada, en la carpeta `geolibre/`
@@ -136,9 +136,12 @@ geoportal:
 - **Ver** los proyectos públicos en *Proyecto → Abrir desde la galería* no requiere cuenta.
 - **Publicar** requiere un token personal: cada usuario del administrador (administrador o editor)
   lo crea en *Mi cuenta → Tokens para compartir desde GeoLibre* y lo pega en GeoLibre
-  (*Configuración → Variables de entorno → shareToken*). Con la apariencia institucional activa,
-  GeoLibre no guarda ese ajuste entre visitas: use **Nueva ventana** o desactive la opción si los
-  usuarios publican con frecuencia.
+  (*Configuración → Entorno → Token de API* y **Guardar configuración**; el diálogo *Compartir* lo
+  ofrece con «Configurar token local», y «Obtener token de API» lleva a *Mi cuenta*). Con la
+  apariencia institucional activa, GeoLibre no conserva ese ajuste entre visitas: use **Nueva
+  ventana** o desactive la opción si los usuarios publican con frecuencia.
+- **Requiere HTTPS:** GeoLibre solo acepta un servicio de compartir en `https` (o en `localhost`);
+  por `http` muestra *Galería* y *Compartir* deshabilitados.
 - El enlace de un proyecto compartido es `<geoportal>/?compartido=usuario/proyecto`.
 
 El detalle del contrato implementado está en [arquitectura](arquitectura.md#servicio-de-compartir).
@@ -167,7 +170,8 @@ GeoLibre no recoge analítica.
 | La portada dice «El mapa interactivo no está instalado» | GeoLibre no está instalado y no hay instancia externa: *Administrador → Mapa (GeoLibre)*. |
 | «Este servidor no puede instalar GeoLibre automáticamente» | Falta la extensión `zip`, la salida HTTPS o el permiso de escritura: use el paquete «con GeoLibre» o suba la carpeta `geolibre/` por FTP o el Administrador de archivos. |
 | «Ver en el mapa» no enciende la capa | El origen del portal cambió (otro dominio o `http`/`https`): guarde de nuevo los ajustes del mapa para regenerar `embedOrigins`, o fije la URL pública en *Configuración*. |
-| Compartir dice que falta el token | Cree uno en *Mi cuenta* del administrador y péguelo en *Configuración → Variables de entorno → shareToken* de GeoLibre. |
+| Compartir dice que falta el token | Cree uno en *Mi cuenta* del administrador y péguelo en *Configuración → Entorno → Token de API* de GeoLibre (**Guardar configuración**). |
+| Galería y Compartir aparecen deshabilitados | El geoportal se sirve por `http`: active SSL/TLS (GeoLibre exige `https` para el servicio de compartir). |
 | Un ráster aparece como imagen | Su GeoTIFF no está teselado o está en otro sistema de referencia: súbalo como COG en EPSG:4326 o 3857 para analizar sus valores. |
 | Cambios del administrador que no se ven | GeoLibre lee la política al abrir: recargue la página. |
 
@@ -183,5 +187,10 @@ En el Plesk simulado (nginx → Apache → PHP-FPM con `open_basedir`, MySQL 8):
   `setLayerVisibility`, `setView`), parámetros de la dirección, solo el mapa, insertar, tema y
   sitio sin GeoLibre o sin instalar, en 360, 390 (táctil), 768, 1024, 1440 y 1857 px de ancho,
   en claro y oscuro;
-- pruebas automáticas de ambas ediciones (`api/tests/test_estudio.py`,
-  `pruebas/edicion_php/test_edicion_php.py::test_estudio_sig` y las del servicio de compartir).
+- compartir y galería por HTTPS con la interfaz real de GeoLibre: token creado en *Mi cuenta*,
+  pegado en *Configuración*, *Compartir…* publica y entrega el enlace, la *Galería* lo lista y lo
+  abre, el enlace `?compartido=` abre el mapa y revocar el token lo invalida;
+- el cliente de compartir de GeoLibre 3.9.0 (`share-geolibre.ts`, `share-gallery.ts`) contra las
+  dos ediciones de la API;
+- pruebas automáticas de ambas ediciones (`api/tests/test_estudio.py`, `test_compartir.py`,
+  `pruebas/edicion_php/test_edicion_php.py::test_estudio_sig` y `test_compartir_php.py`).

@@ -3,15 +3,16 @@
 Revisión de [GeoLibre](https://github.com/opengeos/GeoLibre) para decidir qué se ofrece en el
 Geoportal Ambiental, dónde y con qué interfaz. De aquí salen el
 [plan de implementación](plan-implementacion.md) y el
-[plan de interfaz minimalista](plan-interfaz-minimalista.md).
+[plan de interfaz minimalista](plan-interfaz-minimalista.md) (histórico: desde el 17 de noviembre de 2026 el
+mapa del geoportal es GeoLibre completo, ver [GeoLibre: el mapa del geoportal](estudio-sig.md)).
 
 | | |
 | --- | --- |
 | Qué se revisó | Repositorio `opengeos/GeoLibre`, rama `main` en el commit `646b530` (12 de noviembre de 2026) |
-| Versión publicada | 3.7.0 (PyPI), la misma que el geoportal tiene fijada en `portal/api/geolibre-version.json`; `main` lleva cambios sin publicar |
+| Versión publicada | Revisión hecha sobre la 3.7.0; el geoportal tiene fijada hoy la **3.9.0** (`portal/api/geolibre-version.json`), compatible con la integración: `deployment.json`, archivo de interfaz, API de incrustación y parámetros no cambian |
 | Fuentes | `docs/features.md`, las 30 guías de `docs/user-guide/`, `ui-profiles.md`, `deployment-policy.md`, `deployment-capabilities.md`, `network-endpoints.md`, `data-formats.md`, `self-hosting.md` y, donde la documentación no alcanza, el código de `apps/` y `packages/` |
 | Comprobado en la práctica | Lo marcado «probado» se ejecutó en el geoportal con la compilación web 3.7.0 (Plesk simulado y edición Docker) |
-| Inventario completo | [Anexo: inventario de funciones de GeoLibre](anexo-inventario-geolibre.md), con la fuente de cada dato |
+| Inventario completo | [Inventario de web.geolibre.app (3.9.0)](inventario-web-geolibre.md), observado con REA, y [anexo de la 3.7.0](anexo-inventario-geolibre.md), con la fuente de cada dato en el código |
 
 ## 1. Qué es GeoLibre
 

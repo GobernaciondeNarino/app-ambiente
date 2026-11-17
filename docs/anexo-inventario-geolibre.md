@@ -1,5 +1,8 @@
 # Inventario de funciones de GeoLibre 3.7.0 (rama `main`)
 
+> **Versión vigente:** el geoportal usa GeoLibre **3.9.0**; su inventario, comprobado en web.geolibre.app con REA, está en
+> [inventario de web.geolibre.app](inventario-web-geolibre.md). Este anexo queda como referencia de la 3.7.0 y de las fuentes del código.
+>
 > Anexo de la [revisión de GeoLibre](revision-geolibre.md). Compilado el 13 de noviembre de 2026 a partir del commit `646b530` del repositorio oficial, con la fuente de cada dato entre paréntesis. Los recuentos de menús, elementos y fuentes de datos se contrastaron con el código; lo que se probó en el geoportal se indica en la revisión.
 
 Fuente: documentación oficial del repositorio `opengeos/GeoLibre` (`docs/`) y, donde dice «código», los fuentes bajo `apps/` y `packages/` (rutas de código relativas a `apps/geolibre-desktop/src/` salvo las que empiezan por `packages/` o `scripts/`). Citas: `(archivo § sección)`; `ug/` = `docs/user-guide/`, el resto cuelga de `docs/`. «no documentado» = no aparece en la documentación ni en el código revisado.

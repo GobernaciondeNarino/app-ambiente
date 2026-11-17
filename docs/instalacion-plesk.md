@@ -94,6 +94,8 @@ se crea dentro de la instalación con un nombre aleatorio y protegida con `.htac
    suba la carpeta `geolibre/` (de `scripts/descargar-geolibre.sh`) con el Administrador de
    archivos. En la misma sección se configuran marca, idioma, color, menús, permisos,
    complementos, servicios y opciones para compartir: ver [GeoLibre: el mapa del geoportal](estudio-sig.md).
+   *Compartir* y *Galería* de GeoLibre usan el servicio del propio geoportal y exigen HTTPS:
+   active SSL/TLS (Let's Encrypt) en el dominio.
 4. **Configuración:** el administrador tiene la sección *Configuración* (nombre, URL pública,
    tamaño máximo de carga, duración de la sesión).
 5. **Tamaño de carga:** la API incluye un `.user.ini` que eleva los límites de PHP a 512 MB. Si su

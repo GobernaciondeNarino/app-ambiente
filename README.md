@@ -115,7 +115,7 @@ metros) el administrador permite indicar el EPSG de origen.
 
 - [Manual del administrador](docs/manual-administrador.md): cómo cargar, documentar, simbolizar y publicar geodatos.
 - [GeoLibre: el mapa del geoportal](docs/estudio-sig.md): la portada, instalación, todos sus ajustes, compartir y galería, y lo que no incluye.
-- [Revisión de GeoLibre](docs/revision-geolibre.md) y su [inventario de funciones](docs/anexo-inventario-geolibre.md): qué ofrece GeoLibre y cómo queda cubierto.
+- [Revisión de GeoLibre](docs/revision-geolibre.md), el [inventario de web.geolibre.app](docs/inventario-web-geolibre.md) (3.9.0, observado con REA) y el [anexo de la 3.7.0](docs/anexo-inventario-geolibre.md): qué ofrece GeoLibre y cómo queda cubierto.
 - [Plan de implementación](docs/plan-implementacion.md): fases, criterios y estado. El [plan de interfaz minimalista](docs/plan-interfaz-minimalista.md) queda como histórico: su visor se reemplazó por GeoLibre completo.
 - [Arquitectura y despliegue](docs/arquitectura.md): componentes, API, integración con GeoLibre, producción y respaldos.
 - [Instalación en Plesk subiendo archivos](docs/instalacion-plesk.md): edición PHP + MySQL con asistente de instalación.

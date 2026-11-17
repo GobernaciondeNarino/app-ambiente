@@ -193,7 +193,9 @@ Para que un usuario del administrador publique proyectos desde GeoLibre (*Proyec
 
 1. En **Mi cuenta → Tokens para compartir desde GeoLibre**, cree un token con un nombre que lo
    identifique (por ejemplo «portátil de la oficina»). Cópielo: solo se muestra una vez.
-2. En GeoLibre, abra *Configuración → Variables de entorno* y péguelo en **shareToken**.
+2. En GeoLibre, abra *Configuración → Entorno*, péguelo en **Token de API** y pulse **Guardar
+   configuración** (el diálogo *Proyecto → Compartir…* lo ofrece con «Configurar token local»). El
+   geoportal debe servirse por HTTPS.
 3. *Proyecto → Compartir* publica el proyecto en el geoportal; el enlace que entrega
    (`<geoportal>/?compartido=usuario/proyecto`) abre el mapa con ese proyecto. Los proyectos
    públicos aparecen en *Proyecto → Abrir desde la galería* para cualquier visitante.
