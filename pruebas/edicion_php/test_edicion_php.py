@@ -226,9 +226,10 @@ def test_estudio_sig(sitio):
     acao = "access-control-allow-origin"
     with httpx.Client(timeout=30) as c:
         d = c.get(url + "api/admin/geolibre", headers=h).json()
-        assert d["estado"]["instalado"] is False and d["estado"]["version_disponible"] == "3.7.0"
+        assert d["estado"]["instalado"] is False and d["estado"]["version_disponible"] == "3.9.0"
         assert d["integrado"] is False and d["ajustes"]["idioma"] == "es"
-        assert d["politica"]["sharing"] == {"shareUrl": "off", "embedOrigins": [origen, origen.replace("http://", "https://")]}
+        # Compartir y Galería con el servicio propio (share.geolibre.app no responde a otros dominios)
+        assert d["politica"]["sharing"] == {"shareUrl": url + "api/compartir", "embedOrigins": [origen, origen.replace("http://", "https://")]}
         assert d["politica"]["ai"] == {"enabled": False}
         for malo in ({"nivel": "experto"}, {"idioma": "xx"}, {"color_acento": "verde"}, {"url_colaboracion": "http://relé"},
                      {"geolens_url": "http://inseguro"}, {"servicios": [{"name": "Sin URL", "kind": "wms"}]},
@@ -239,7 +240,7 @@ def test_estudio_sig(sitio):
         carpeta = sitio["raiz"] / "geolibre"
         carpeta.mkdir()
         (carpeta / "index.html").write_text("<!doctype html><title>GeoLibre</title>")
-        (carpeta / ".version-geoportal").write_text("3.7.0")
+        (carpeta / ".version-geoportal").write_text("3.9.0")
         r = c.put(url + "api/admin/geolibre", headers=h, json={
             "usar_integrado": True, "nombre": "Estudio Ambiental", "menus_ocultos": ["help", "x"], "capacidades": ["project:edit", "data:add"],
             "servicios": [{"name": "IDEAM", "kind": "wms", "fields": {"url": "https://ideam.example/wms", "layers": "a"}},
@@ -261,29 +262,34 @@ def test_estudio_sig(sitio):
         c.get(url + "api/config")
         assert json.loads((carpeta / "deployment.json").read_text())["branding"]["appName"] == "Estudio Ambiental"
         interfaz = c.get(url + "geolibre/geoportal-ajustes.json").json()
-        # Presentación minimalista por defecto: barra con iconos, lista compacta, solo Capas y Estilo
-        minimo = {"toolbarLabels": False, "showProjectInfo": False, "compactLayerList": True, "layerPanelVisible": True,
-                  "browserPanelVisible": False, "stylePanelVisible": True, "commentsPanelVisible": False}
-        assert interfaz == {"type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "custom", "customColor": "#10A13B"}, "layout": minimo}
-        assert json.loads((carpeta / "deployment.json").read_text())["interface"]["level"] == "intermediate"
-        # Un archivo de interfaz de una versión anterior (sin «layout») se regenera
+        # Por defecto, la disposición completa de web.geolibre.app: menús con texto y todos los paneles
+        completo = {"toolbarLabels": True, "showProjectInfo": True, "compactLayerList": False, "layerPanelVisible": True,
+                    "browserPanelVisible": True, "stylePanelVisible": True, "commentsPanelVisible": True, "bottomPanelsUnderMap": True}
+        assert interfaz == {"type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "custom", "customColor": "#10A13B"}, "layout": completo}
+        assert json.loads((carpeta / "deployment.json").read_text())["interface"]["level"] == "advanced"
+        # Un archivo de interfaz que no coincide con los ajustes (versión anterior, sin «layout») se regenera
         (carpeta / "geoportal-ajustes.json").write_text('{"type":"geolibre-interface","version":1,"language":"es"}')
-        assert c.get(url + "api/config").json()["estudio"]["paneles_plegados"] is True
-        assert json.loads((carpeta / "geoportal-ajustes.json").read_text())["layout"] == minimo
+        assert c.get(url + "api/config").json()["estudio"]["paneles_plegados"] is False
+        assert json.loads((carpeta / "geoportal-ajustes.json").read_text())["layout"] == completo
 
         cfg = c.get(url + "api/config").json()
-        assert cfg["estudio"]["activo"] is True and cfg["estudio"]["version"] == "3.7.0"
+        assert cfg["estudio"]["activo"] is True and cfg["estudio"]["version"] == "3.9.0"
         assert cfg["geolibre_url"] == url + "geolibre"
         assert cfg["geolibre_editor_url"].startswith(url + "geolibre/?url=") and "settingsUrl=" in cfg["geolibre_editor_url"]
-        assert "&panels=collapsed" in cfg["geolibre_editor_url"]
-        # Preajuste «Completo»: todo GeoLibre a la vista
-        r = c.put(url + "api/admin/geolibre", headers=h, json={"nivel": "advanced", "paneles_plegados": False, "lista_compacta": False, "etiquetas_barra": True,
-                                                              "info_proyecto": True, "panel_explorador": True, "panel_comentarios": True})
-        assert r.json()["politica"]["interface"]["level"] == "advanced"
-        assert c.get(url + "geolibre/geoportal-ajustes.json").json()["layout"]["toolbarLabels"] is True
-        assert "panels=collapsed" not in c.get(url + "api/config").json()["geolibre_editor_url"]
-        c.put(url + "api/admin/geolibre", headers=h, json={"nivel": "intermediate", "paneles_plegados": True, "lista_compacta": True, "etiquetas_barra": False,
-                                                          "info_proyecto": False, "panel_explorador": False, "panel_comentarios": False})
+        assert "panels=collapsed" not in cfg["geolibre_editor_url"]
+        # Preajuste «Esencial» (compacto): barra con iconos, lista compacta y paneles plegados
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"nivel": "intermediate", "paneles_plegados": True, "lista_compacta": True, "etiquetas_barra": False,
+                                                              "info_proyecto": False, "panel_explorador": False, "panel_comentarios": False})
+        assert r.json()["politica"]["interface"]["level"] == "intermediate"
+        assert c.get(url + "geolibre/geoportal-ajustes.json").json()["layout"]["toolbarLabels"] is False
+        assert "&panels=collapsed" in c.get(url + "api/config").json()["geolibre_editor_url"]
+        # Sin la apariencia institucional no se envía ?settingsUrl= (GeoLibre guarda los ajustes del visitante)
+        c.put(url + "api/admin/geolibre", headers=h, json={"apariencia_institucional": False})
+        cfg = c.get(url + "api/config").json()
+        assert cfg["estudio"]["ajustes_url"] is None and "settingsUrl=" not in cfg["geolibre_editor_url"]
+        # Vuelta a la interfaz completa (la de web.geolibre.app)
+        c.put(url + "api/admin/geolibre", headers=h, json={"nivel": "advanced", "paneles_plegados": False, "lista_compacta": False, "etiquetas_barra": True,
+                                                          "info_proyecto": True, "panel_explorador": True, "panel_comentarios": True, "apariencia_institucional": True})
         # La instancia externa de respaldo sigue con CORS
         assert c.get(url + "api/capas", headers={"Origin": "https://web.geolibre.app"}).headers.get(acao) == "https://web.geolibre.app"
 

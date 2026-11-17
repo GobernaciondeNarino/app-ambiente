@@ -100,7 +100,7 @@ function url_geolibre(string $proyecto, ?bool $visor = null): string
     $visor ??= $ajustes['modo'] === 'visor';
     if (geolibre_local()) {
         $base = gp_url_publica() . '/geolibre/';
-        $extra = '&settingsUrl=' . rawurlencode($base . 'geoportal-ajustes.json');
+        $extra = ($ajustes['apariencia_institucional'] ?? true) ? '&settingsUrl=' . rawurlencode($base . 'geoportal-ajustes.json') : '';
     } else {
         $base = rtrim(function_exists('gl_url_externa') ? gl_url_externa() : 'https://web.geolibre.app', '/') . '/';
         $extra = '&welcome=0';

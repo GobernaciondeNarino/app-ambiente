@@ -46,7 +46,7 @@
     usuario_creado: "Usuario creado",
     usuario_editado: "Usuario editado",
     cambio_clave: "Cambio de contraseña",
-    geolibre_configuracion: "Configuración del Estudio SIG",
+    geolibre_configuracion: "Configuración del mapa (GeoLibre)",
     geolibre_instalacion: "Instalación de GeoLibre",
     configuracion: "Configuración del sitio",
     instalacion: "Instalación",
@@ -1394,7 +1394,7 @@
   });
 
 
-  // ------------------------------------------------------------------ Estudio SIG (GeoLibre integrado)
+  // ------------------------------------------------------------------ Mapa del geoportal (GeoLibre integrado)
 
   const NOMBRES_IDIOMA = {
     es: "Español", en: "English", pt: "Português", fr: "Français", de: "Deutsch", it: "Italiano", nl: "Nederlands",
@@ -1417,12 +1417,13 @@
   const NOMBRES_SERVICIO = { wms: "WMS", wfs: "WFS", wmts: "WMTS", xyz: "Teselas XYZ", arcgis: "ArcGIS REST", csw: "Catálogo CSW" };
 
   // Presentación del Estudio: disposición (archivo de interfaz de GeoLibre) y preajustes que la rellenan
-  const CAMPOS_DISPOSICION = ["paneles_plegados", "lista_compacta", "etiquetas_barra", "info_proyecto", "panel_estilo", "panel_explorador", "panel_comentarios"];
+  const CAMPOS_DISPOSICION = ["paneles_plegados", "lista_compacta", "etiquetas_barra", "info_proyecto", "panel_estilo", "panel_explorador", "panel_comentarios", "paneles_inferiores"];
   const PREAJUSTES = {
-    esencial: { nivel: "beginner", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false },
-    estandar: { nivel: "intermediate", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: true, panel_explorador: false, panel_comentarios: false },
-    completo: { nivel: "advanced", modo: "completo", paneles_plegados: false, lista_compacta: false, etiquetas_barra: true, info_proyecto: true, panel_estilo: true, panel_explorador: true, panel_comentarios: true },
-    consulta: { nivel: "beginner", modo: "visor", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false },
+    // «Completo» es la interfaz de web.geolibre.app y la que trae el geoportal por defecto
+    completo: { nivel: "advanced", modo: "completo", paneles_plegados: false, lista_compacta: false, etiquetas_barra: true, info_proyecto: true, panel_estilo: true, panel_explorador: true, panel_comentarios: true, paneles_inferiores: true },
+    estandar: { nivel: "intermediate", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: true, panel_explorador: false, panel_comentarios: false, paneles_inferiores: true },
+    esencial: { nivel: "beginner", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false, paneles_inferiores: true },
+    consulta: { nivel: "beginner", modo: "visor", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false, paneles_inferiores: true },
   };
 
   function marcarPreajuste() {
@@ -1472,10 +1473,35 @@
       notificar("GeoLibre " + r.instalado.version + " instalado (" + r.instalado.archivos + " archivos).");
       verEstudio();
     } catch (ex) {
+      // Un proxy (el nginx de Plesk corta a los 60 s) puede responder 502/504 o cerrar la conexión
+      // mientras el servidor sigue instalando: se comprueba si la instalación terminó antes de dar error.
+      const corte = !/^Error 4\d\d|exige|permite|Sesión/.test(ex.message);
+      const version = corte ? await esperarInstalacion(b) : null;
+      if (version) {
+        notificar("GeoLibre " + version + " instalado.");
+        verEstudio();
+        return;
+      }
       notificar(ex.message, "error");
       b.disabled = false;
       b.textContent = "Reintentar la instalación";
     }
+  }
+
+  /** Consulta el estado cada 5 s durante 10 minutos; devuelve la versión instalada o null. */
+  async function esperarInstalacion(boton) {
+    const objetivo = estado.estudio && estado.estudio.estado && estado.estudio.estado.version_disponible;
+    boton.textContent = "Comprobando si la instalación terminó…";
+    for (let i = 0; i < 120; i++) {
+      await new Promise((ok) => setTimeout(ok, 5000));
+      try {
+        const r = await api("/admin/geolibre");
+        if (r.estado.instalado && (!objetivo || r.estado.version_instalada === objetivo)) return r.estado.version_instalada;
+      } catch (_) {
+        // el servidor sigue ocupado: se vuelve a intentar
+      }
+    }
+    return null;
   }
 
   function filaServicio(s) {
@@ -1552,7 +1578,8 @@
     f.servicios_predeterminados.checked = !!a.servicios_predeterminados;
     f.mapas_regionales.checked = !!a.mapas_regionales;
     $("#est-servicios").innerHTML = a.servicios.map(filaServicio).join("");
-    f.compartir_publico.checked = !!a.compartir_publico;
+    f.compartir_propio.checked = !!a.compartir_propio;
+    f.apariencia_institucional.checked = a.apariencia_institucional !== false;
     f.url_compartir.value = a.url_compartir;
     f.url_colaboracion.value = a.url_colaboracion;
     f.overpass_url.value = a.overpass_url;
@@ -1640,7 +1667,8 @@
       servicios_predeterminados: f.servicios_predeterminados.checked,
       mapas_regionales: f.mapas_regionales.checked,
       servicios: leerServicios(),
-      compartir_publico: f.compartir_publico.checked,
+      compartir_propio: f.compartir_propio.checked,
+      apariencia_institucional: f.apariencia_institucional.checked,
       url_compartir: f.url_compartir.value.trim(),
       url_colaboracion: f.url_colaboracion.value.trim(),
       overpass_url: f.overpass_url.value.trim(),
@@ -1651,7 +1679,7 @@
       const r = await api("/admin/geolibre", { method: "PUT", json: datos });
       notificar(r.archivos_escritos === false
         ? "Ajustes guardados. GeoLibre no está instalado: se aplicarán al instalarlo."
-        : "Ajustes del Estudio SIG guardados. Se aplican la próxima vez que se abra el Estudio.");
+        : "Ajustes del mapa guardados. Se aplican la próxima vez que se abra el mapa.");
       verEstudio();
     } catch (ex) {
       notificar(errorDelServidor(f, ex.message), "error");
@@ -1669,7 +1697,7 @@
     }
     try {
       await api("/admin/geolibre", { method: "PUT", json: { usar_integrado: integrado, url_externa: f.url_externa.value.trim() } });
-      notificar(integrado ? "El geoportal usa el Estudio SIG integrado." : "El geoportal abre GeoLibre en la instancia externa.");
+      notificar(integrado ? "El geoportal usa el GeoLibre instalado en este servidor." : "El geoportal abre GeoLibre en la instancia externa.");
       verEstudio();
     } catch (ex) {
       notificar(ex.message, "error");

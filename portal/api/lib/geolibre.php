@@ -15,10 +15,17 @@ const GL_CAPACIDADES = ['project:edit', 'data:add', 'processing:run', 'export:da
 const GL_MENUS = ['project', 'edit', 'view', 'addData', 'processing', 'controls', 'plugins', 'help'];
 const GL_NIVELES = ['beginner', 'intermediate', 'advanced'];
 const GL_ACENTOS = ['blue', 'violet', 'emerald', 'rose', 'amber', 'custom'];
-const GL_IDIOMAS = ['es', 'en', 'pt', 'fr', 'de', 'it', 'nl', 'ar', 'az', 'fa', 'he', 'hi', 'id', 'ja', 'ka', 'ko', 'ru', 'th', 'tr', 'vi', 'zh'];
+const GL_IDIOMAS = ['es', 'en', 'pt', 'fr', 'de', 'it', 'nl', 'ar', 'az', 'fa', 'he', 'hi', 'id', 'ja', 'ka', 'ko', 'ru', 'th', 'tr', 'vi', 'zh', 'zh-TW', 'zh-HK', 'zh-MO'];
 const GL_TIPOS_SERVICIO = ['wms', 'wfs', 'wmts', 'xyz', 'arcgis', 'csw'];
+/**
+ * Revisión de los ajustes guardados. La 2 corresponde a GeoLibre como interfaz principal con su
+ * disposición completa (como https://web.geolibre.app): los ajustes de revisiones anteriores pierden
+ * los valores de la presentación compacta (GL_CLAVES_DISPOSICION) y conservan todo lo demás.
+ */
+const GL_REVISION_AJUSTES = 2;
+const GL_CLAVES_DISPOSICION = ['nivel', 'etiquetas_barra', 'info_proyecto', 'lista_compacta', 'paneles_plegados', 'panel_explorador', 'panel_estilo', 'panel_comentarios'];
 
-/** Valores por defecto: todo GeoLibre disponible, en español y con la identidad institucional. */
+/** Valores por defecto: GeoLibre completo, como web.geolibre.app, en español y con el acento institucional. */
 function gl_ajustes_defecto(): array
 {
     return [
@@ -28,16 +35,20 @@ function gl_ajustes_defecto(): array
         'idioma' => 'es',
         'acento' => 'custom',
         'color_acento' => '#10A13B',
-        'nivel' => 'intermediate',       // nivel de interfaz de GeoLibre (beginner | intermediate | advanced)
+        'nivel' => 'advanced',           // nivel de interfaz de GeoLibre (beginner | intermediate | advanced): todo visible
         'bloquear_nivel' => false,
-        // Presentación minimalista (archivo de interfaz y parámetro panels=collapsed de GeoLibre)
-        'etiquetas_barra' => false,      // false = barra superior solo con iconos
-        'info_proyecto' => false,        // nombre y ruta del proyecto en la barra
-        'lista_compacta' => true,        // lista de capas compacta
-        'paneles_plegados' => true,      // Capas y Estilo empiezan plegados en sus rieles
-        'panel_explorador' => false,     // panel Browser
+        // Disposición (archivo de interfaz y parámetro panels=collapsed de GeoLibre); por defecto, la de web.geolibre.app
+        'etiquetas_barra' => true,       // menús de la barra superior con texto (false = solo iconos)
+        'info_proyecto' => true,         // nombre del proyecto en la barra
+        'lista_compacta' => false,       // lista de capas compacta
+        'paneles_plegados' => false,     // Capas y Estilo empiezan plegados en sus rieles
+        'panel_explorador' => true,      // panel Browser
         'panel_estilo' => true,          // panel Style
-        'panel_comentarios' => false,    // panel Comments
+        'panel_comentarios' => true,     // panel Comments
+        'paneles_inferiores' => true,    // paneles inferiores (tabla de atributos…) bajo el mapa
+        // Archivo de interfaz con el idioma y el acento institucional (?settingsUrl=). Mientras se usa,
+        // GeoLibre no guarda los ajustes que cambie el visitante (claves, tokens, preferencias).
+        'apariencia_institucional' => true,
         'menus_ocultos' => [],
         'elementos_ocultos' => [],       // ids de elementos de menú, p. ej. «help.diagnostics»
         'fuentes_ocultas' => [],
@@ -53,18 +64,27 @@ function gl_ajustes_defecto(): array
         'mapas_regionales' => false,     // mapas base servidos desde China continental
         'servicios_predeterminados' => true,
         'servicios' => [],               // catálogo curado: [{id, name, kind, category, fields:{url,…}}]
-        'compartir_publico' => false,    // Share y Galería en el servicio público de GeoLibre
-        'url_compartir' => '',           // servidor de proyectos propio (contrato v1)
+        'compartir_propio' => true,      // Compartir y Galería con el servicio del propio geoportal (api/compartir)
+        'url_compartir' => '',           // otro servidor de proyectos (contrato v1); tiene prioridad
         'url_colaboracion' => '',        // relé wss:// propio
         'overpass_url' => '',
         'geolens_url' => 'off',
+        'revision' => GL_REVISION_AJUSTES,
     ];
 }
 
 function gl_ajustes(): array
 {
     $guardados = json_decode((string) gp_opcion('geolibre', '{}'), true);
-    return array_merge(gl_ajustes_defecto(), is_array($guardados) ? $guardados : []);
+    $guardados = is_array($guardados) ? $guardados : [];
+    if ($guardados && (int) ($guardados['revision'] ?? 1) < GL_REVISION_AJUSTES) {
+        foreach (GL_CLAVES_DISPOSICION as $k) {
+            unset($guardados[$k]);
+        }
+        unset($guardados['compartir_publico']); // share.geolibre.app no responde a otros dominios
+        $guardados['revision'] = GL_REVISION_AJUSTES;
+    }
+    return array_merge(gl_ajustes_defecto(), $guardados);
 }
 
 function gl_lista(mixed $v, ?array $permitidos = null, int $max = 200): array
@@ -103,8 +123,9 @@ function gl_validar_ajustes(array $d): array
         if (mb_strlen($n) < 2 || mb_strlen($n) > 60) falla(422, 'Nombre de la aplicación: entre 2 y 60 caracteres.');
         $a['nombre'] = $n;
     }
-    foreach (['bienvenida', 'bloquear_nivel', 'instalar_complementos', 'mapas_regionales', 'servicios_predeterminados', 'compartir_publico', 'restringir_complementos',
-        'etiquetas_barra', 'info_proyecto', 'lista_compacta', 'paneles_plegados', 'panel_explorador', 'panel_estilo', 'panel_comentarios'] as $b) {
+    $a['revision'] = GL_REVISION_AJUSTES;
+    foreach (['bienvenida', 'bloquear_nivel', 'instalar_complementos', 'mapas_regionales', 'servicios_predeterminados', 'compartir_propio', 'restringir_complementos',
+        'etiquetas_barra', 'info_proyecto', 'lista_compacta', 'paneles_plegados', 'panel_explorador', 'panel_estilo', 'panel_comentarios', 'paneles_inferiores', 'apariencia_institucional'] as $b) {
         if (array_key_exists($b, $d)) $a[$b] = (bool) $d[$b];
     }
     if (array_key_exists('idioma', $d)) $a['idioma'] = in_array($d['idioma'], GL_IDIOMAS, true) ? $d['idioma'] : falla(422, 'Idioma no disponible en GeoLibre.');
@@ -202,7 +223,8 @@ function gl_politica(array $a, string $origenPortal): array
     if ($a['registro_complementos'] !== '') $complementos['registryUrl'] = $a['registro_complementos'];
     if ($a['panel_inicial'] !== '') $complementos['openPanel'] = $a['panel_inicial'];
     $compartir = [
-        'shareUrl' => $a['url_compartir'] !== '' ? $a['url_compartir'] : ($a['compartir_publico'] ? 'https://share.geolibre.app' : 'off'),
+        // El servicio público share.geolibre.app no responde CORS a otros dominios: se usa el propio
+        'shareUrl' => $a['url_compartir'] !== '' ? $a['url_compartir'] : ($a['compartir_propio'] ? gl_url_compartir() : 'off'),
         // El geoportal controla GeoLibre (vista, capas) con su API de incrustación
         'embedOrigins' => gl_origenes_incrustacion($origenPortal),
     ];
@@ -244,13 +266,23 @@ function gl_origenes_incrustacion(string $origen): array
     return array_values(array_unique($out));
 }
 
-/** ¿El deployment.json instalado es el que genera el geoportal? (no el vacío que trae GeoLibre) */
-function gl_politica_vigente(): bool
+/** Base del servicio de compartir del propio geoportal (contrato v1 de GeoLibre). */
+function gl_url_compartir(): string
 {
+    return gp_url_publica() . '/api/compartir';
+}
+
+/**
+ * ¿Los archivos instalados son exactamente los que generan los ajustes vigentes? Si no (GeoLibre
+ * copiado a mano trae un deployment.json vacío, cambió la URL pública o la revisión de ajustes), se
+ * regeneran.
+ */
+function gl_politica_vigente(?array $a = null): bool
+{
+    $a ??= gl_ajustes();
     $d = json_decode((string) @file_get_contents(gl_carpeta() . '/deployment.json'), true);
     $i = json_decode((string) @file_get_contents(gl_carpeta() . '/geoportal-ajustes.json'), true);
-    // El archivo de interfaz de versiones anteriores no traía «layout»: se regenera
-    return is_array($d) && ($d['version'] ?? null) === 1 && !empty($d['sharing']['embedOrigins']) && is_array($i) && isset($i['layout']);
+    return $d == gl_politica($a, gp_origen(gp_url_publica())) && $i == gl_interfaz($a);
 }
 
 /** Archivo de interfaz para ?settingsUrl=: idioma, color de acento y disposición (qué muestra la barra y qué paneles). */
@@ -269,6 +301,7 @@ function gl_interfaz(array $a): array
             'browserPanelVisible' => (bool) $a['panel_explorador'],
             'stylePanelVisible' => (bool) $a['panel_estilo'],
             'commentsPanelVisible' => (bool) $a['panel_comentarios'],
+            'bottomPanelsUnderMap' => (bool) $a['paneles_inferiores'],
         ],
     ];
 }
@@ -418,7 +451,7 @@ function gl_config_publica(): array
     $a = gl_ajustes();
     $estado = gl_estado();
     // GeoLibre copiado a mano (script o FTP) trae un deployment.json vacío: se genera el del geoportal
-    if ($estado['instalado'] && !gl_politica_vigente()) {
+    if ($estado['instalado'] && !gl_politica_vigente($a)) {
         gl_escribir_archivos($a);
     }
     $base = gp_url_publica();
@@ -426,7 +459,7 @@ function gl_config_publica(): array
         'instalado' => $estado['instalado'],
         'version' => $estado['version_instalada'],
         'url' => $base . '/geolibre/',
-        'ajustes_url' => $base . '/geolibre/geoportal-ajustes.json',
+        'ajustes_url' => $a['apariencia_institucional'] ? $base . '/geolibre/geoportal-ajustes.json' : null,
         'modo' => $a['modo'],
         'idioma' => $a['idioma'],
         'paneles_plegados' => (bool) $a['paneles_plegados'],

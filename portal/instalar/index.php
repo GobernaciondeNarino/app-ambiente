@@ -301,7 +301,7 @@ if ($paso === 'sitio' && $configExiste && $esPost && !$errores) {
                 $hechas = gp_crear_instalacion($pdo, $prefijo, $admin, [
                     'nombre_portal' => $nombrePortal,
                     'url_publica' => $urlPublica,
-                    // «local» = GeoLibre integrado en la carpeta geolibre/ (Estudio SIG)
+                    // «local» = GeoLibre integrado en la carpeta geolibre/ (el mapa del geoportal)
                     'geolibre_url' => $geolibre === '' ? 'local' : $geolibre,
                     'datos_dir' => $datosDir,
                     'max_carga_mb' => '200',
@@ -460,7 +460,7 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
           <td><strong><?= h($n) ?></strong><br><span class="ayuda"><?= h($det) ?></span></td></tr>
       <?php endforeach; ?>
       <tr><td class="<?= $esHttps ? 'ok' : 'op' ?>"><span aria-hidden="true"><?= $esHttps ? '✔' : '!' ?></span><span class="sr-only"><?= $esHttps ? 'Cumple' : 'Advertencia' ?></span></td>
-        <td><strong>Conexión segura (HTTPS)</strong><br><span class="ayuda"><?= $esHttps ? 'El sitio usa HTTPS.' : 'El sitio no usa HTTPS. Se recomienda activarlo en Plesk (SSL/TLS, Let\'s Encrypt): las instancias externas de GeoLibre (https) solo abren proyectos de sitios https; el Estudio SIG integrado funciona en ambos casos.' ?></span></td></tr>
+        <td><strong>Conexión segura (HTTPS)</strong><br><span class="ayuda"><?= $esHttps ? 'El sitio usa HTTPS.' : 'El sitio no usa HTTPS. Se recomienda activarlo en Plesk (SSL/TLS, Let\'s Encrypt): las instancias externas de GeoLibre (https) solo abren proyectos de sitios https; el GeoLibre integrado en el geoportal funciona en ambos casos.' ?></span></td></tr>
       <tr id="chk-reescritura"><td class="op"><span aria-hidden="true">…</span><span class="sr-only">Comprobando</span></td><td><strong>Rutas amigables de la API (reescritura de URL)</strong><br><span class="ayuda">Comprobando…</span></td></tr>
       <tr id="chk-autorizacion"><td class="op"><span aria-hidden="true">…</span><span class="sr-only">Comprobando</span></td><td><strong>Cabecera de autorización</strong><br><span class="ayuda">Comprobando…</span></td></tr>
     </table>
@@ -528,7 +528,7 @@ $esHttps = str_starts_with($urlDetectada, 'https://');
         <div class="campo ancho"><label for="nombre_portal">Nombre del geoportal</label><input id="nombre_portal" name="nombre_portal" required autocomplete="off" value="<?= h(campo('nombre_portal', 'Geoportal Ambiental — Gobernación de Nariño')) ?>"<?= attrs_campo('nombre_portal') ?>><?= error_campo('nombre_portal') ?></div>
         <div class="campo ancho"><label for="url_publica">URL pública del geoportal <span class="opcional">(opcional)</span></label><input id="url_publica" name="url_publica" type="url" autocomplete="off" spellcheck="false" value="<?= h(campo('url_publica', $urlDetectada)) ?>"<?= attrs_campo('url_publica', true) ?>><?= error_campo('url_publica') ?><span class="ayuda" id="url_publica-ayuda">Detectada: <?= h($urlDetectada) ?>. Déjela vacía para detectarla en cada visita (útil si el sitio responde en varios dominios).</span></div>
         <?php $glLocal = is_file(gp_raiz() . '/geolibre/index.html'); ?>
-        <div class="campo ancho"><label for="geolibre_url">GeoLibre (Estudio SIG) <span class="opcional">(opcional)</span></label><input id="geolibre_url" name="geolibre_url" autocomplete="off" autocapitalize="off" spellcheck="false" value="<?= h(campo('geolibre_url', $glLocal ? 'local' : '')) ?>" placeholder="local"<?= attrs_campo('geolibre_url', true) ?>><?= error_campo('geolibre_url') ?><span class="ayuda" id="geolibre_url-ayuda"><?= $glLocal
+        <div class="campo ancho"><label for="geolibre_url">GeoLibre (mapa del geoportal) <span class="opcional">(opcional)</span></label><input id="geolibre_url" name="geolibre_url" autocomplete="off" autocapitalize="off" spellcheck="false" value="<?= h(campo('geolibre_url', $glLocal ? 'local' : '')) ?>" placeholder="local"<?= attrs_campo('geolibre_url', true) ?>><?= error_campo('geolibre_url') ?><span class="ayuda" id="geolibre_url-ayuda"><?= $glLocal
             ? 'El paquete incluye GeoLibre: «local» lo usa integrado en el geoportal (recomendado).'
             : 'Vacío o «local»: podrá instalar GeoLibre integrado desde el administrador con un clic. Mientras tanto se usa https://web.geolibre.app. También puede indicar la URL de su propio GeoLibre.' ?></span></div>
         <p class="grupo">Administrador</p>

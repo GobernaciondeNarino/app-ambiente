@@ -27,10 +27,15 @@ CAPACIDADES = ["project:edit", "data:add", "processing:run", "export:data", "plu
 MENUS = ["project", "edit", "view", "addData", "processing", "controls", "plugins", "help"]
 NIVELES = ["beginner", "intermediate", "advanced"]
 ACENTOS = ["blue", "violet", "emerald", "rose", "amber", "custom"]
-IDIOMAS = ["es", "en", "pt", "fr", "de", "it", "nl", "ar", "az", "fa", "he", "hi", "id", "ja", "ka", "ko", "ru", "th", "tr", "vi", "zh"]
+IDIOMAS = ["es", "en", "pt", "fr", "de", "it", "nl", "ar", "az", "fa", "he", "hi", "id", "ja", "ka", "ko", "ru", "th", "tr", "vi", "zh", "zh-TW", "zh-HK", "zh-MO"]
 TIPOS_SERVICIO = ["wms", "wfs", "wmts", "xyz", "arcgis", "csw"]
 ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,100}$")
 RAIZ_REPO = Path(__file__).resolve().parents[3]
+# Revisión de los ajustes guardados. La 2 corresponde a GeoLibre como interfaz principal con su
+# disposición completa (como https://web.geolibre.app): los ajustes de revisiones anteriores pierden
+# los valores de la presentación compacta (CLAVES_DISPOSICION) y conservan todo lo demás.
+REVISION_AJUSTES = 2
+CLAVES_DISPOSICION = ("nivel", "etiquetas_barra", "info_proyecto", "lista_compacta", "paneles_plegados", "panel_explorador", "panel_estilo", "panel_comentarios")
 
 
 def ajustes_defecto() -> dict[str, Any]:
@@ -41,16 +46,20 @@ def ajustes_defecto() -> dict[str, Any]:
         "idioma": "es",
         "acento": "custom",
         "color_acento": "#10A13B",
-        "nivel": "intermediate",  # nivel de interfaz de GeoLibre (beginner | intermediate | advanced)
+        "nivel": "advanced",  # nivel de interfaz de GeoLibre (beginner | intermediate | advanced): todo visible
         "bloquear_nivel": False,
-        # Presentación minimalista (archivo de interfaz y parámetro panels=collapsed de GeoLibre)
-        "etiquetas_barra": False,  # False = barra superior solo con iconos
-        "info_proyecto": False,  # nombre y ruta del proyecto en la barra
-        "lista_compacta": True,  # lista de capas compacta
-        "paneles_plegados": True,  # Capas y Estilo empiezan plegados en sus rieles
-        "panel_explorador": False,  # panel Browser
+        # Disposición (archivo de interfaz y parámetro panels=collapsed); por defecto, la de web.geolibre.app
+        "etiquetas_barra": True,  # menús de la barra superior con texto (False = solo iconos)
+        "info_proyecto": True,  # nombre del proyecto en la barra
+        "lista_compacta": False,  # lista de capas compacta
+        "paneles_plegados": False,  # Capas y Estilo empiezan plegados en sus rieles
+        "panel_explorador": True,  # panel Browser
         "panel_estilo": True,  # panel Style
-        "panel_comentarios": False,  # panel Comments
+        "panel_comentarios": True,  # panel Comments
+        "paneles_inferiores": True,  # paneles inferiores (tabla de atributos…) bajo el mapa
+        # Archivo de interfaz con el idioma y el acento institucional (?settingsUrl=). Mientras se usa,
+        # GeoLibre no guarda los ajustes que cambie el visitante (claves, tokens, preferencias).
+        "apariencia_institucional": True,
         "menus_ocultos": [],
         "elementos_ocultos": [],
         "fuentes_ocultas": [],
@@ -66,11 +75,12 @@ def ajustes_defecto() -> dict[str, Any]:
         "mapas_regionales": False,
         "servicios_predeterminados": True,
         "servicios": [],
-        "compartir_publico": False,
-        "url_compartir": "",
+        "compartir_propio": True,  # Compartir y Galería con el servicio del propio geoportal (api/compartir)
+        "url_compartir": "",  # otro servidor de proyectos (contrato v1); tiene prioridad
         "url_colaboracion": "",
         "overpass_url": "",
         "geolens_url": "off",
+        "revision": REVISION_AJUSTES,
     }
 
 
@@ -101,7 +111,13 @@ def ajustes(settings: Settings) -> dict[str, Any]:
             guardados = json.loads(ruta.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             guardados = {}
-    return ajustes_defecto() | (guardados if isinstance(guardados, dict) else {})
+    guardados = guardados if isinstance(guardados, dict) else {}
+    if guardados and int(guardados.get("revision") or 1) < REVISION_AJUSTES:
+        for k in CLAVES_DISPOSICION:
+            guardados.pop(k, None)
+        guardados.pop("compartir_publico", None)  # share.geolibre.app no responde a otros dominios
+        guardados["revision"] = REVISION_AJUSTES
+    return ajustes_defecto() | guardados
 
 
 def preferencia_url(settings: Settings) -> str:
@@ -147,8 +163,10 @@ def validar(settings: Settings, d: dict[str, Any]) -> dict[str, Any]:
         if not 2 <= len(n) <= 60:
             _falla("Nombre de la aplicación: entre 2 y 60 caracteres.")
         a["nombre"] = n
-    for b in ("bienvenida", "bloquear_nivel", "instalar_complementos", "mapas_regionales", "servicios_predeterminados", "compartir_publico", "restringir_complementos",
-              "etiquetas_barra", "info_proyecto", "lista_compacta", "paneles_plegados", "panel_explorador", "panel_estilo", "panel_comentarios"):
+    a["revision"] = REVISION_AJUSTES
+    for b in ("bienvenida", "bloquear_nivel", "instalar_complementos", "mapas_regionales", "servicios_predeterminados", "compartir_propio", "restringir_complementos",
+              "etiquetas_barra", "info_proyecto", "lista_compacta", "paneles_plegados", "panel_explorador", "panel_estilo", "panel_comentarios",
+              "paneles_inferiores", "apariencia_institucional"):
         if b in d:
             a[b] = bool(d[b])
     if "idioma" in d:
@@ -246,7 +264,12 @@ def guardar_preferencia_url(settings: Settings, usar_integrado: bool) -> None:
     (settings.data_dir / "geolibre-url.txt").write_text("local" if usar_integrado else url_externa(settings), encoding="utf-8")
 
 
-def politica(a: dict[str, Any], origen_portal: str) -> dict[str, Any]:
+def url_compartir(base_publica: str) -> str:
+    """Base del servicio de compartir del propio geoportal (contrato v1 de GeoLibre)."""
+    return f"{base_publica.rstrip('/')}/api/compartir"
+
+
+def politica(a: dict[str, Any], origen_portal: str, base_publica: str = "") -> dict[str, Any]:
     interfaz: dict[str, Any] = {"enabled": True, "level": a["nivel"], "lock": bool(a["bloquear_nivel"])}
     for k, campo in (("menus_ocultos", "hiddenMenus"), ("elementos_ocultos", "hiddenMenuItems"), ("fuentes_ocultas", "hiddenDataSources"), ("complementos_ocultos", "hiddenPlugins")):
         if a[k]:
@@ -264,7 +287,8 @@ def politica(a: dict[str, Any], origen_portal: str) -> dict[str, Any]:
     if a["panel_inicial"]:
         complementos["openPanel"] = a["panel_inicial"]
     compartir: dict[str, Any] = {
-        "shareUrl": a["url_compartir"] or ("https://share.geolibre.app" if a["compartir_publico"] else "off"),
+        # El servicio público share.geolibre.app no responde CORS a otros dominios: se usa el propio
+        "shareUrl": a["url_compartir"] or (url_compartir(base_publica or origen_portal) if a["compartir_propio"] else "off"),
         "embedOrigins": origenes_incrustacion(origen_portal),
     }
     if a["url_colaboracion"]:
@@ -309,8 +333,12 @@ def origenes_incrustacion(origen: str) -> list[str]:
     return list(dict.fromkeys(out))
 
 
-def politica_vigente(settings: Settings) -> bool:
-    """¿El deployment.json instalado es el que genera el geoportal? (no el vacío que trae GeoLibre)"""
+def politica_vigente(settings: Settings, a: dict[str, Any] | None = None) -> bool:
+    """¿Los archivos instalados son exactamente los que generan los ajustes vigentes?
+
+    Si no (GeoLibre copiado a mano trae un deployment.json vacío, cambió la URL pública o la revisión
+    de ajustes), se regeneran.
+    """
     dir_ = carpeta_geolibre(settings)
     try:
         d = json.loads((dir_ / "deployment.json").read_text(encoding="utf-8"))
@@ -320,8 +348,8 @@ def politica_vigente(settings: Settings) -> bool:
         i = json.loads((dir_ / "geoportal-ajustes.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    # El archivo de interfaz de versiones anteriores no traía «layout»: se regenera
-    return isinstance(d, dict) and d.get("version") == 1 and bool((d.get("sharing") or {}).get("embedOrigins")) and isinstance(i, dict) and "layout" in i
+    a = a or ajustes(settings)
+    return d == politica(a, origin_of(settings.public_base_url), settings.public_base_url) and i == interfaz(a)
 
 
 def interfaz(a: dict[str, Any]) -> dict[str, Any]:
@@ -339,6 +367,7 @@ def interfaz(a: dict[str, Any]) -> dict[str, Any]:
             "browserPanelVisible": bool(a["panel_explorador"]),
             "stylePanelVisible": bool(a["panel_estilo"]),
             "commentsPanelVisible": bool(a["panel_comentarios"]),
+            "bottomPanelsUnderMap": bool(a["paneles_inferiores"]),
         },
     }
 
@@ -368,7 +397,7 @@ def escribir_archivos(settings: Settings, a: dict[str, Any] | None = None) -> bo
     a = a or ajustes(settings)
     origen = origin_of(settings.public_base_url)
     try:
-        (dir_ / "deployment.json").write_text(json.dumps(politica(a, origen), ensure_ascii=False, indent=2), encoding="utf-8")
+        (dir_ / "deployment.json").write_text(json.dumps(politica(a, origen, settings.public_base_url), ensure_ascii=False, indent=2), encoding="utf-8")
         (dir_ / "geoportal-ajustes.json").write_text(json.dumps(interfaz(a), ensure_ascii=False, indent=2), encoding="utf-8")
         return True
     except OSError:
@@ -428,14 +457,14 @@ def config_publica(settings: Settings) -> dict[str, Any]:
     a = ajustes(settings)
     e = estado(settings)
     # GeoLibre copiado a mano (script o volumen) trae un deployment.json vacío: se genera el del geoportal
-    if e["instalado"] and not politica_vigente(settings):
+    if e["instalado"] and not politica_vigente(settings, a):
         escribir_archivos(settings, a)
     base = settings.public_base_url
     return {
         "instalado": e["instalado"],
         "version": e["version_instalada"],
         "url": f"{base}/geolibre/",
-        "ajustes_url": f"{base}/geolibre/geoportal-ajustes.json",
+        "ajustes_url": f"{base}/geolibre/geoportal-ajustes.json" if a["apariencia_institucional"] else None,
         "modo": a["modo"],
         "idioma": a["idioma"],
         "paneles_plegados": bool(a["paneles_plegados"]),
@@ -448,7 +477,7 @@ def url_abrir(settings: Settings, proyecto: str, visor: bool | None = None) -> s
     visor = a["modo"] == "visor" if visor is None else visor
     if integrado(settings):
         base = f"{settings.public_base_url}/geolibre/"
-        extra = "&settingsUrl=" + quote(base + "geoportal-ajustes.json", safe="")
+        extra = "&settingsUrl=" + quote(base + "geoportal-ajustes.json", safe="") if a["apariencia_institucional"] else ""
     else:
         base = url_externa(settings).rstrip("/") + "/"
         extra = "&welcome=0"

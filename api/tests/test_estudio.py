@@ -12,7 +12,7 @@ def _instalar_falso(tmp_path, monkeypatch):
     carpeta = tmp_path / "geolibre"
     carpeta.mkdir()
     (carpeta / "index.html").write_text("<!doctype html><title>GeoLibre</title>", encoding="utf-8")
-    (carpeta / ".version-geoportal").write_text("3.7.0", encoding="utf-8")
+    (carpeta / ".version-geoportal").write_text("3.9.0", encoding="utf-8")
     monkeypatch.setenv("GEOPORTAL_GEOLIBRE_DIR", str(carpeta))
     return carpeta
 
@@ -25,11 +25,12 @@ def test_estudio_valores_por_defecto(client, auth, tmp_path, monkeypatch):
     assert d["ajustes"]["idioma"] == "es"
     assert d["ajustes"]["color_acento"] == "#10A13B"
     assert d["estado"]["instalado"] is False
-    assert d["estado"]["version_disponible"] == "3.7.0"
+    assert d["estado"]["version_disponible"] == "3.9.0"
     assert d["integrado"] is False
     p = d["politica"]
     assert p["version"] == 1
-    assert p["sharing"]["shareUrl"] == "off"
+    # Compartir y Galería con el servicio del propio geoportal
+    assert p["sharing"]["shareUrl"] == "http://portal.test/api/compartir"
     # El origen del portal y sus variantes http/https y con «www.»
     assert p["sharing"]["embedOrigins"] == ["http://portal.test", "https://portal.test", "https://www.portal.test", "http://www.portal.test"]
     assert p["ai"] == {"enabled": False}
@@ -81,22 +82,23 @@ def test_estudio_integrado_escribe_politica(client, auth, tmp_path, monkeypatch)
     r = client.put(
         "/api/admin/geolibre",
         headers=auth,
-        json={"usar_integrado": True, "nombre": "Estudio Ambiental", "modo": "visor", "acento": "emerald", "compartir_publico": True},
+        json={"usar_integrado": True, "nombre": "Estudio Ambiental", "modo": "visor", "acento": "emerald", "compartir_propio": True},
     )
     assert r.status_code == 200
     assert r.json()["archivos_escritos"] is True
     assert r.json()["integrado"] is True
     dep = json.loads((carpeta / "deployment.json").read_text(encoding="utf-8"))
     assert dep["branding"] == {"appName": "Estudio Ambiental", "welcome": False}
-    assert dep["sharing"]["shareUrl"] == "https://share.geolibre.app"
+    # Compartir y Galería con el servicio del propio geoportal (share.geolibre.app no responde a otros dominios)
+    assert dep["sharing"]["shareUrl"] == "http://portal.test/api/compartir"
     interfaz = json.loads((carpeta / "geoportal-ajustes.json").read_text(encoding="utf-8"))
-    # Presentación minimalista por defecto: barra con iconos, lista compacta, solo Capas y Estilo
+    # Por defecto, la disposición completa de web.geolibre.app: menús con texto y todos los paneles
     assert interfaz == {
         "type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "emerald", "customColor": "#10A13B"},
-        "layout": {"toolbarLabels": False, "showProjectInfo": False, "compactLayerList": True, "layerPanelVisible": True,
-                   "browserPanelVisible": False, "stylePanelVisible": True, "commentsPanelVisible": False},
+        "layout": {"toolbarLabels": True, "showProjectInfo": True, "compactLayerList": False, "layerPanelVisible": True,
+                   "browserPanelVisible": True, "stylePanelVisible": True, "commentsPanelVisible": True, "bottomPanelsUnderMap": True},
     }
-    assert dep["interface"]["level"] == "intermediate"
+    assert dep["interface"]["level"] == "advanced"
     assert client.get("/api/geolibre/deployment.json").json() == dep
     assert client.get("/api/geolibre/ajustes.json").json() == interfaz
 
@@ -106,26 +108,23 @@ def test_estudio_integrado_escribe_politica(client, auth, tmp_path, monkeypatch)
     client.get("/api/config")
     assert json.loads((carpeta / "deployment.json").read_text(encoding="utf-8")) == dep
     assert (carpeta / "geoportal-ajustes.json").is_file()
-    # Un archivo de interfaz de una versión anterior (sin «layout») también se regenera
+    # Un archivo de interfaz que no coincide con los ajustes (versión anterior, sin «layout») se regenera
     (carpeta / "geoportal-ajustes.json").write_text('{"type":"geolibre-interface","version":1,"language":"es"}', encoding="utf-8")
-    assert client.get("/api/config").json()["estudio"]["paneles_plegados"] is True
+    assert client.get("/api/config").json()["estudio"]["paneles_plegados"] is False
     assert json.loads((carpeta / "geoportal-ajustes.json").read_text(encoding="utf-8")) == interfaz
-
-    # Preajuste «Completo»: todo GeoLibre a la vista
-    completo = {"nivel": "advanced", "paneles_plegados": False, "lista_compacta": False, "etiquetas_barra": True, "info_proyecto": True,
-                "panel_estilo": True, "panel_explorador": True, "panel_comentarios": True}
-    r = client.put("/api/admin/geolibre", headers=auth, json=completo)
-    assert r.json()["politica"]["interface"]["level"] == "advanced"
-    assert client.get("/api/geolibre/ajustes.json").json()["layout"] == {
-        "toolbarLabels": True, "showProjectInfo": True, "compactLayerList": False, "layerPanelVisible": True,
-        "browserPanelVisible": True, "stylePanelVisible": True, "commentsPanelVisible": True}
     assert "panels=collapsed" not in client.get("/api/config").json()["geolibre_proyecto_url"]
-    client.put("/api/admin/geolibre", headers=auth, json={"paneles_plegados": True})
+
+    # Preajuste «Esencial» (compacto): barra con iconos, lista compacta y paneles plegados
+    compacto = {"nivel": "intermediate", "paneles_plegados": True, "lista_compacta": True, "etiquetas_barra": False, "info_proyecto": False,
+                "panel_explorador": False, "panel_comentarios": False}
+    r = client.put("/api/admin/geolibre", headers=auth, json=compacto)
+    assert r.json()["politica"]["interface"]["level"] == "intermediate"
+    assert client.get("/api/geolibre/ajustes.json").json()["layout"]["toolbarLabels"] is False
     assert "&panels=collapsed" in client.get("/api/config").json()["geolibre_proyecto_url"]
 
     cfg = client.get("/api/config").json()
     assert cfg["estudio"]["activo"] is True
-    assert cfg["estudio"]["version"] == "3.7.0"
+    assert cfg["estudio"]["version"] == "3.9.0"
     assert cfg["geolibre_url"] == "http://portal.test/geolibre"
     assert cfg["estudio"]["ajustes_url"] == "http://portal.test/geolibre/geoportal-ajustes.json"
     # Modo visor: el enlace del proyecto abre GeoLibre en modo de solo consulta
@@ -185,3 +184,35 @@ def test_cors_sigue_a_la_instancia_externa(client, auth):
     pre = client.options("/api/capas", headers={"Origin": "https://gis.example.org", "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "range"})
     assert pre.status_code == 200 and pre.headers.get(acao) == "https://gis.example.org"
     assert acao not in client.get("/api/capas", headers={"Origin": "http://visor.test"}).headers
+
+
+def test_ajustes_de_la_revision_anterior_pasan_a_la_interfaz_completa(client, auth, tmp_path, monkeypatch):
+    """Ajustes guardados con la presentación compacta (revisión 1) se leen con la disposición completa."""
+    from app.config import get_settings
+
+    _instalar_falso(tmp_path, monkeypatch)
+    viejos = {"nombre": "Mi Estudio", "nivel": "intermediate", "etiquetas_barra": False, "lista_compacta": True, "paneles_plegados": True,
+              "panel_explorador": False, "panel_comentarios": False, "compartir_publico": True, "servicios_predeterminados": False}
+    (get_settings().data_dir / "geolibre-ajustes.json").write_text(json.dumps(viejos), encoding="utf-8")
+    a = client.get("/api/admin/geolibre", headers=auth).json()["ajustes"]
+    assert a["nombre"] == "Mi Estudio" and a["servicios_predeterminados"] is False  # lo demás se conserva
+    assert a["nivel"] == "advanced" and a["etiquetas_barra"] is True and a["paneles_plegados"] is False and a["lista_compacta"] is False
+    assert "compartir_publico" not in a and a["compartir_propio"] is True and a["revision"] == 2
+    # Una vez guardados con la revisión 2, los valores elegidos se respetan
+    client.put("/api/admin/geolibre", headers=auth, json={"etiquetas_barra": False})
+    assert client.get("/api/admin/geolibre", headers=auth).json()["ajustes"]["etiquetas_barra"] is False
+
+
+def test_apariencia_institucional_opcional(client, auth, tmp_path, monkeypatch):
+    """Sin la apariencia institucional no se envía ?settingsUrl= y GeoLibre guarda los ajustes del visitante."""
+    _instalar_falso(tmp_path, monkeypatch)
+    client.put("/api/admin/geolibre", headers=auth, json={"usar_integrado": True})
+    cfg = client.get("/api/config").json()
+    assert cfg["estudio"]["ajustes_url"].endswith("/geolibre/geoportal-ajustes.json") and "settingsUrl=" in cfg["geolibre_editor_url"]
+    client.put("/api/admin/geolibre", headers=auth, json={"apariencia_institucional": False})
+    cfg = client.get("/api/config").json()
+    assert cfg["estudio"]["ajustes_url"] is None and "settingsUrl=" not in cfg["geolibre_editor_url"]
+    r = client.put("/api/admin/geolibre", headers=auth, json={"compartir_propio": False})
+    assert r.json()["politica"]["sharing"]["shareUrl"] == "off"
+    r = client.put("/api/admin/geolibre", headers=auth, json={"url_compartir": "https://proyectos.example.org"})
+    assert r.json()["politica"]["sharing"]["shareUrl"] == "https://proyectos.example.org"

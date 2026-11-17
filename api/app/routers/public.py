@@ -93,7 +93,7 @@ def geolibre_deployment(settings: Settings = Depends(_settings)) -> JSONResponse
     a = estudio.ajustes(settings)
     from ..config import origin_of
 
-    return JSONResponse(estudio.politica(a, origin_of(settings.public_base_url)), headers={"Cache-Control": "no-cache"})
+    return JSONResponse(estudio.politica(a, origin_of(settings.public_base_url), settings.public_base_url), headers={"Cache-Control": "no-cache"})
 
 
 @_get("/geolibre/ajustes.json")

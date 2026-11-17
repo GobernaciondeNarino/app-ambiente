@@ -594,7 +594,7 @@ def _respuesta_estudio(settings: Settings, a: dict) -> dict:
     return {
         "ajustes": a,
         "estado": estudio.estado(settings),
-        "politica": estudio.politica(a, origin_of(settings.public_base_url)),
+        "politica": estudio.politica(a, origin_of(settings.public_base_url), settings.public_base_url),
         "integrado": estudio.integrado(settings),
         "usar_integrado": estudio.usar_integrado(settings),
         "url_externa": estudio.url_externa(settings),
