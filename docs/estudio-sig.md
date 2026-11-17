@@ -80,7 +80,10 @@ Hay cuatro formas, según el servidor:
 
 Mientras GeoLibre no esté instalado, la portada usa la instancia externa configurada (por defecto
 `https://web.geolibre.app`) con el proyecto del geoportal; la API responde con CORS solo para ese
-origen. Sin instancia externa, la portada explica que el mapa no está instalado y ofrece el catálogo.
+origen. Una instancia `https` solo puede leer el proyecto de un geoportal servido por HTTPS: si el
+geoportal está en `http`, la portada lo explica (activar SSL/TLS o instalar GeoLibre) y ofrece el
+catálogo en lugar de un mapa vacío. Sin instancia externa, la portada explica que el mapa no está
+instalado.
 
 Para **actualizar GeoLibre** se cambia `portal/api/geolibre-version.json` (versión, URL del
 paquete `.whl` de PyPI, `sha256` y `tamano_bytes`) y se pulsa *Actualizar* en el administrador.
