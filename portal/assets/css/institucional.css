@@ -775,7 +775,7 @@ dialog.dialogo::backdrop {
 }
 
 @media (max-width: 860px) {
-  /* visor.css resta 58 px fijos al alto del visor en este ancho: el encabezado mide eso mismo */
+  /* geoportal.css resta esta variable al alto del mapa: el encabezado debe medir eso mismo */
   :root {
     --alto-encabezado: 58px;
   }

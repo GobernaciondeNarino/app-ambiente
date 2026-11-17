@@ -108,7 +108,16 @@ function rutas_publicas(string $metodo, string $ruta): void
         }
         $st = gp_db()->prepare($sql);
         $st->execute($args);
-        proyecto_respuesta(proyecto_geolibre(array_map('capa_desde_fila', $st->fetchAll())), 'geoportal-ambiental-narino.geolibre');
+        $capasProyecto = array_map('capa_desde_fila', $st->fetchAll());
+        // ?visibles=a,b: quedan encendidas solo esas capas; sin él, las marcadas «encendida al abrir»
+        $visibles = array_slice(array_values(array_filter(array_map('trim', explode(',', param_texto('visibles', 100000))), 'strlen')), 0, 200);
+        if ($visibles) {
+            foreach ($capasProyecto as &$capaProyecto) {
+                $capaProyecto['visible_by_default'] = in_array($capaProyecto['slug'], $visibles, true);
+            }
+            unset($capaProyecto);
+        }
+        proyecto_respuesta(proyecto_geolibre($capasProyecto), 'geoportal-ambiental-narino.geolibre');
     }
     if (preg_match('#^capas/([^/]+)(?:/(.+))?$#', $ruta, $m)) {
         $capa = capa_publicada($m[1]);

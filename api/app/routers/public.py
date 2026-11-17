@@ -201,6 +201,9 @@ def full_project(
     categoria: str | None = None,
     capas: str | None = Query(default=None, description="Slugs separados por coma"),
     base: str | None = Query(default=None, description="Mapa base: calles, claro, oscuro, fiord o brillante"),
+    visibles: str | None = Query(
+        default=None, description="Slugs separados por coma que quedan encendidos (los demás, apagados)"
+    ),
     session: Session = Depends(get_session),
     settings: Settings = Depends(_settings),
 ) -> Response:
@@ -213,7 +216,8 @@ def full_project(
         query = query.where(Layer.slug.in_(slugs))
     layers = list(session.scalars(query.order_by(Layer.position, Layer.title)).all())
     cats = list(session.scalars(select(Category).order_by(Category.position, Category.name)).all())
-    project = build_project(layers, settings, categories=cats, base=base)
+    encendidas = [s.strip() for s in (visibles or "").split(",") if s.strip()][:200]
+    project = build_project(layers, settings, categories=cats, base=base, visibles=set(encendidas) if encendidas else None)
     return _project_response(project, "geoportal-ambiental-narino.geolibre")
 
 

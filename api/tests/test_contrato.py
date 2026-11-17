@@ -158,3 +158,18 @@ def test_correos_de_contacto_y_de_usuario(client, auth, geojson_file):
     assert r.status_code == 422 and r.json()["detail"] == "email: " + CORREO_NO_VALIDO
     assert client.put(f"/api/admin/usuarios/{uid}", headers=auth, json={"email": None}).json()["email"] == "editora@narino.gov.co"
     assert client.put(f"/api/admin/usuarios/{uid}", headers=auth, json={"email": ""}).json()["email"] == ""
+
+
+def test_proyecto_con_capas_visibles(client, auth, geojson_file):
+    """?visibles=a,b: el proyecto incluye todas las capas publicadas y enciende solo esas."""
+    uno = _publicar(client, auth, geojson_file, {"title": "Ríos", "visible_by_default": True})
+    dos = _publicar(client, auth, geojson_file, {"title": "Páramos", "visible_by_default": False})
+    por_nombre = lambda proyecto: {c["name"]: c["visible"] for c in proyecto["layers"]}  # noqa: E731
+    assert por_nombre(client.get("/api/proyecto.geolibre").json()) == {"Ríos": True, "Páramos": False}
+    r = client.get(f"/api/proyecto.geolibre?visibles={dos['slug']}").json()
+    assert por_nombre(r) == {"Ríos": False, "Páramos": True}
+    r = client.get(f"/api/proyecto.geolibre?visibles={uno['slug']},{dos['slug']}").json()
+    assert por_nombre(r) == {"Ríos": True, "Páramos": True}
+    # Sin identificadores (o solo desconocidos que no coinciden) no cambia nada salvo apagar las no pedidas
+    assert por_nombre(client.get("/api/proyecto.geolibre?visibles=,,").json()) == {"Ríos": True, "Páramos": False}
+    assert por_nombre(client.get("/api/proyecto.geolibre?visibles=zzz").json()) == {"Ríos": False, "Páramos": False}

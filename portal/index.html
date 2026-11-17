@@ -27,9 +27,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/vendor/maplibre-gl-4.7.1.css">
     <link rel="stylesheet" href="assets/css/institucional.css">
-    <link rel="stylesheet" href="assets/css/visor.css">
+    <link rel="stylesheet" href="assets/css/geoportal.css">
   </head>
   <body>
     <a class="saltar-contenido" href="#contenido">Saltar al contenido</a>
@@ -45,106 +44,35 @@
       </a>
       <button class="boton-menu" type="button" aria-expanded="false" aria-controls="navegacion" aria-label="Abrir menú"><span data-icono="menu"></span></button>
       <nav class="navegacion" id="navegacion" aria-label="Navegación principal">
-        <a href="#visor" data-ruta="visor">Visor</a>
+        <a href="#mapa" data-ruta="mapa">Mapa</a>
         <a href="#catalogo" data-ruta="catalogo">Catálogo</a>
-        <a href="#estudio" data-ruta="estudio" id="nav-estudio" hidden>Estudio SIG</a>
         <a href="#acerca" data-ruta="acerca">Acerca del geoportal</a>
-        <a class="btn btn-acento btn-chico" id="abrir-geolibre" href="#" target="_blank" rel="noopener" data-icono="abrir">Abrir en GeoLibre</a>
+        <button class="btn btn-secundario btn-chico" type="button" id="boton-insertar" data-icono="incrustar">Insertar</button>
+        <a class="btn btn-acento btn-chico" id="nueva-ventana" href="#" target="_blank" rel="noopener" data-icono="abrir">Nueva ventana</a>
       </nav>
     </header>
 
     <main id="contenido">
-      <!-- ============================ VISOR ============================ -->
-      <!-- Interfaz minimalista: el mapa ocupa toda la vista; una tarjeta (búsqueda + capas) y un botón de herramientas -->
-      <section class="vista visor" id="vista-visor" aria-label="Visor geográfico">
-        <div class="mapa-contenedor" id="mapa-contenedor">
-          <!-- La tarjeta va antes que el mapa en el documento: la búsqueda es lo primero al tabular -->
-          <aside class="tarjeta-mapa" id="panel" aria-label="Búsqueda y capas">
-            <div class="buscador-mapa" role="search">
-              <label class="buscador">
-                <span class="sr-only">Buscar capas, lugares, coordenadas, entidades o acciones</span>
-                <span data-icono="buscar"></span>
-                <input type="search" id="buscar-mapa" placeholder="Buscar capas o lugares" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="resultados-busqueda" aria-autocomplete="list">
-                <kbd class="atajo-buscar" aria-hidden="true">Ctrl K</kbd>
-              </label>
-              <ul class="resultados-busqueda" id="resultados-busqueda" role="listbox" aria-label="Resultados de búsqueda" hidden></ul>
-            </div>
-            <button type="button" class="alternar-capas" id="alternar-panel" aria-expanded="true" aria-controls="lista-capas">
-              <span data-icono="capas"></span>
-              <span class="titulo">Capas</span>
-              <span class="conteo" id="resumen-capas">Cargando…</span>
-              <span class="flecha" aria-hidden="true"></span>
-            </button>
-            <div class="panel-lista" id="lista-capas" role="group" aria-label="Capas por categoría"></div>
-          </aside>
-
-          <div id="mapa" role="region" aria-label="Mapa"></div>
-
-          <section class="leyenda plegada" id="leyenda" aria-label="Leyenda" hidden>
-            <button type="button" class="leyenda-titulo" id="plegar-leyenda" aria-expanded="false" aria-controls="leyenda-items">
-              <span data-icono="leyenda"></span><span>Leyenda</span><span class="flecha" aria-hidden="true"></span>
-            </button>
-            <ul id="leyenda-items"></ul>
-          </section>
-
-          <section class="panel-medicion" id="panel-medicion" aria-live="polite" hidden>
-            <header><h2>Medir distancia</h2>
-              <button class="btn-icono" type="button" data-borrar title="Borrar medición"><span data-icono="cerrar"></span><span class="sr-only">Borrar medición</span></button>
-            </header>
-            <p class="resultado"></p>
-          </section>
-
-          <div class="barra-estado" id="barra-estado">
-            <button type="button" class="coordenadas" id="boton-coordenadas" aria-live="off">Lat —  Lon —</button>
-            <span class="info-vista" id="info-vista"></span>
-          </div>
-
-          <a class="volver-geoportal" id="volver-geoportal" href="./" target="_blank" rel="noopener" hidden>Geoportal Ambiental · Gobernación de Nariño</a>
-        </div>
-
-        <section class="panel-atributos" id="tabla-atributos" aria-label="Tabla de atributos" hidden>
-          <header class="tabla-barra">
-            <span data-icono="tabla"></span>
-            <label><span class="sr-only">Capa</span><select id="tabla-capa"></select></label>
-            <label class="buscador"><span class="sr-only">Filtrar filas</span><span data-icono="buscar"></span><input type="search" id="tabla-filtro" placeholder="Filtrar filas" autocomplete="off"></label>
-            <span class="tabla-conteo" id="tabla-conteo"></span>
-            <label class="check tabla-filtrar-mapa"><input type="checkbox" id="tabla-en-mapa"> Filtrar también el mapa</label>
-            <span class="separador"></span>
-            <button class="btn-icono" type="button" data-anterior title="Página anterior">‹<span class="sr-only">Página anterior</span></button>
-            <span class="tabla-pagina" id="tabla-pagina"></span>
-            <button class="btn-icono" type="button" data-siguiente title="Página siguiente">›<span class="sr-only">Página siguiente</span></button>
-            <button class="btn btn-secundario btn-chico" type="button" data-csv data-icono="descargar">CSV</button>
-            <button class="btn-icono" type="button" data-cerrar-tabla title="Cerrar tabla"><span data-icono="cerrar"></span><span class="sr-only">Cerrar tabla</span></button>
-          </header>
-          <div class="tabla-cuerpo"></div>
-        </section>
-      </section>
-
-      <!-- ============================ ESTUDIO SIG (GeoLibre integrado) ============================ -->
-      <section class="vista estudio" id="vista-estudio" aria-label="Estudio SIG" hidden>
-        <div class="estudio-barra">
-          <div class="estudio-titulo">
-            <span data-icono="estudio"></span>
-            <h1>Estudio SIG</h1>
-            <span class="estudio-detalle">Análisis, edición y geoprocesamiento con <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a> sobre las capas del geoportal. Los datos se procesan en su navegador.</span>
-          </div>
-          <div class="estudio-acciones">
-            <button class="btn btn-secundario btn-chico" type="button" id="estudio-sincronizar" data-icono="mapa">Traer vista del visor</button>
-            <button class="btn btn-secundario btn-chico" type="button" id="estudio-recargar" data-icono="historial">Recargar</button>
-            <a class="btn btn-secundario btn-chico" id="estudio-nueva-ventana" href="#" target="_blank" rel="noopener" data-icono="abrir">Nueva ventana</a>
-          </div>
-        </div>
-        <div class="aviso estudio-aviso" id="estudio-aviso-tema" hidden>
+      <!-- ============================ MAPA (GeoLibre) ============================ -->
+      <!-- La interfaz principal es GeoLibre completo (compilación web oficial, sin modificar) con las capas
+           publicadas ya cargadas. Ver docs/estudio-sig.md. -->
+      <section class="vista mapa-geolibre" id="vista-mapa" aria-label="Mapa del geoportal (GeoLibre)">
+        <iframe class="marco-geolibre" id="marco-geolibre" title="Mapa del Geoportal Ambiental (GeoLibre)" allow="fullscreen; clipboard-read; clipboard-write; geolocation" hidden></iframe>
+        <div class="cargando-mapa" id="cargando-mapa" role="status"><span class="girando" aria-hidden="true"></span>Cargando el mapa…</div>
+        <div class="aviso aviso-mapa" id="aviso-tema" role="status" hidden>
           <span></span>
-          <button class="btn btn-primario btn-chico" type="button" id="estudio-aplicar-tema">Recargar ahora</button>
+          <button class="btn btn-primario btn-chico" type="button" id="aplicar-tema">Recargar ahora</button>
+          <button class="btn-icono" type="button" id="cerrar-aviso-tema" title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
         </div>
-        <iframe class="marco-estudio" id="marco-estudio" title="Estudio SIG (GeoLibre)" allow="fullscreen; clipboard-read; clipboard-write; geolocation"></iframe>
-        <!-- Sin GeoLibre instalado en este servidor (la configuración pública dice estudio.activo = false) -->
-        <div class="estudio-vacio" id="estudio-vacio" hidden>
-          <p><strong>El Estudio SIG no está instalado en este geoportal.</strong></p>
-          <p id="estudio-vacio-externo" hidden>Puede abrir las capas publicadas en <a id="estudio-vacio-enlace" href="#" target="_blank" rel="noopener">GeoLibre (sitio externo)</a>, un SIG libre que funciona en el navegador.</p>
-          <p><a class="btn btn-secundario" href="#visor" data-icono="mapa">Volver al visor</a></p>
+        <!-- Sin GeoLibre disponible, o geoportal sin instalar: estado vacío en lugar del marco -->
+        <div class="mapa-vacio" id="mapa-vacio" hidden>
+          <div>
+            <p><strong id="mapa-vacio-titulo">El mapa interactivo no está disponible.</strong></p>
+            <p id="mapa-vacio-texto"></p>
+            <p class="acciones-aviso" id="mapa-vacio-acciones"></p>
+          </div>
         </div>
+        <a class="volver-geoportal" id="volver-geoportal" href="./" target="_top" hidden>Ver en el geoportal</a>
       </section>
 
       <!-- ============================ CATÁLOGO ============================ -->
@@ -152,7 +80,7 @@
         <div class="pagina-ancho">
           <div class="pagina-titulo">
             <h1>Catálogo de geodatos</h1>
-            <p>Información geográfica ambiental producida y administrada por la Secretaría de Ambiente y Desarrollo Sostenible y sus aliados. Cada geodato cuenta con su ficha de metadatos, descarga en formato abierto y apertura directa en GeoLibre.</p>
+            <p>Información geográfica ambiental producida y administrada por la Secretaría de Ambiente y Desarrollo Sostenible y sus aliados. Cada geodato cuenta con su ficha de metadatos, descarga en formato abierto y apertura directa en el mapa.</p>
           </div>
           <div class="filtros">
             <label class="buscador">
@@ -173,13 +101,14 @@
           <h1>Acerca del Geoportal Ambiental</h1>
           <p>El Geoportal Ambiental de la <strong>Gobernación de Nariño</strong> es la herramienta de la <strong>Secretaría de Ambiente y Desarrollo Sostenible</strong> para divulgar la información geográfica que soporta la planificación y gestión ambiental del departamento: recurso hídrico, áreas protegidas y ecosistemas estratégicos, biodiversidad, cambio climático y gestión del riesgo, y ordenamiento ambiental del territorio.</p>
           <h2>¿Qué puede hacer aquí?</h2>
+          <p>La sección <strong>Mapa</strong> es <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un sistema de información geográfica libre y de código abierto que funciona en el navegador, con todas las capas publicadas ya cargadas y organizadas por categoría. Sin instalar nada y sin que sus datos salgan de su equipo puede:</p>
           <ul>
-            <li><strong>Visualizar</strong> las capas publicadas sobre distintos mapas base, consultar sus atributos haciendo clic sobre el mapa y combinar capas con control de transparencia.</li>
-            <li><strong>Consultar la ficha de metadatos</strong> de cada geodato: fuente, fecha, escala, sistema de referencia original y licencia de uso.</li>
-            <li><strong>Descargar</strong> los geodatos en formatos abiertos: GeoJSON (vector, EPSG:4326) y GeoTIFF optimizado para la nube — COG (ráster).</li>
-            <li><strong>Buscar y medir</strong>: localizar lugares, coordenadas (decimales o sexagesimales) y entidades de las capas activas; medir distancias y áreas; ver el relieve en 3D; consultar la tabla de atributos y exportarla a CSV; copiar un enlace con la vista actual o descargar el mapa como imagen.</li>
-            <li id="acerca-estudio" hidden><strong>Analizar en el Estudio SIG</strong>: la sección «Estudio SIG» integra <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un SIG libre y de código abierto que corre en el navegador, con las capas del geoportal ya cargadas: edición, estilos, geoprocesamiento, consultas SQL, impresión de mapas, vista 3D y exportación, sin instalar nada y sin que los datos salgan de su equipo.</li>
+            <li><strong>Visualizar y consultar</strong> las capas sobre distintos mapas base, en 2D o 3D, con su ventana emergente, su tabla de atributos y su ficha de metadatos.</li>
+            <li><strong>Añadir sus propios datos</strong> (archivos, servicios WMS, WFS, XYZ, catálogos y más de cuarenta fuentes) y combinarlos con los del geoportal.</li>
+            <li><strong>Editar, cambiar estilos, analizar y geoprocesar</strong>: consultas SQL, más de mil herramientas de geoprocesamiento, medición, perfiles, mapas de calor y complementos.</li>
+            <li><strong>Componer e imprimir mapas</strong>, exportar imágenes y datos, y guardar el proyecto <code>.geolibre</code> para seguir trabajando después.</li>
           </ul>
+          <p>El <strong>Catálogo</strong> reúne cada geodato con su ficha de metadatos (fuente, fecha, escala, sistema de referencia original y licencia) y su <strong>descarga</strong> en formatos abiertos: GeoJSON (vector, EPSG:4326) y GeoTIFF optimizado para la nube — COG (ráster).</p>
           <h2>Sistema de referencia</h2>
           <p>Los geodatos se publican en WGS 84 (EPSG:4326) para su visualización web. La ficha de cada capa indica el sistema de referencia en el que fue producida (p. ej. MAGNA-SIRGAS Origen Nacional, EPSG:9377).</p>
           <h2>Servicios para desarrolladores</h2>
@@ -202,61 +131,6 @@
       <div class="dialogo-cuerpo" id="ficha-cuerpo"></div>
     </dialog>
 
-    <!-- Atajos de teclado -->
-    <dialog class="dialogo dialogo-chico" id="atajos" aria-labelledby="atajos-titulo">
-      <div class="dialogo-encabezado">
-        <h2 id="atajos-titulo" style="flex:1">Atajos de teclado</h2>
-        <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
-      </div>
-      <div class="dialogo-cuerpo">
-        <dl class="lista-atajos">
-          <dt><kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Buscar capas, lugares, coordenadas, entidades o acciones</dd>
-          <dt><kbd>L</kbd></dt><dd>Plegar o desplegar la lista de capas</dd>
-          <dt><kbd>H</kbd></dt><dd>Abrir el menú de herramientas</dd>
-          <dt><kbd>F</kbd></dt><dd>Solo el mapa (ocultar o mostrar la interfaz)</dd>
-          <dt><kbd>P</kbd></dt><dd>Imprimir el mapa</dd>
-          <dt><kbd>M</kbd></dt><dd>Medir distancia</dd>
-          <dt><kbd>A</kbd></dt><dd>Medir área</dd>
-          <dt><kbd>T</kbd></dt><dd>Activar o desactivar el terreno 3D</dd>
-          <dt><kbd>N</kbd></dt><dd>Orientar el mapa al norte</dd>
-          <dt><kbd>U</kbd></dt><dd>Quitar la inclinación</dd>
-          <dt><kbd>R</kbd></dt><dd>Volver a la vista de Nariño</dd>
-          <dt><kbd>Enter</kbd> · doble clic</dt><dd>Terminar la medición</dd>
-          <dt><kbd>Esc</kbd></dt><dd>Cancelar la medición o cerrar la tabla</dd>
-          <dt><kbd>?</kbd></dt><dd>Mostrar esta ayuda</dd>
-          <dt>Clic derecho + arrastre</dt><dd>Girar e inclinar el mapa</dd>
-        </dl>
-        <p class="nota">En el Estudio SIG rigen los atajos propios de GeoLibre (por ejemplo, <kbd>Ctrl</kbd> + <kbd>K</kbd> abre su paleta de comandos).</p>
-      </div>
-    </dialog>
-
-    <!-- Añadir datos propios (se quedan en el navegador; no se suben al servidor) -->
-    <dialog class="dialogo dialogo-chico" id="anadir-datos" aria-labelledby="anadir-titulo">
-      <div class="dialogo-encabezado">
-        <h2 id="anadir-titulo" style="flex:1">Añadir datos</h2>
-        <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
-      </div>
-      <div class="dialogo-cuerpo">
-        <label class="zona-soltar" id="zona-soltar" for="archivo-local">
-          <strong>Suelte un archivo aquí o haga clic para elegirlo</strong>
-          <span>GeoJSON, Shapefile (.zip), GeoPackage, KML/KMZ, GPX, CSV o GeoTIFF</span>
-          <input type="file" id="archivo-local" accept=".geojson,.json,.zip,.gpkg,.kml,.kmz,.gpx,.csv,.tif,.tiff" hidden>
-        </label>
-        <p class="separador-o"><span>o desde una dirección</span></p>
-        <form id="form-url-datos" class="fila-url" novalidate>
-          <select id="tipo-url" aria-label="Tipo de servicio">
-            <option value="geojson">GeoJSON</option>
-            <option value="wms">WMS</option>
-            <option value="xyz">Teselas XYZ</option>
-          </select>
-          <input type="url" id="url-datos" placeholder="https://…" aria-label="Dirección de los datos" required>
-          <input type="text" id="capa-wms" placeholder="Capa WMS" aria-label="Nombre de la capa WMS" hidden>
-          <button class="btn btn-primario btn-chico" type="submit">Añadir</button>
-        </form>
-        <p class="nota" id="anadir-estado" role="status">Los datos que añada se ven solo en este navegador: no se envían al servidor ni se publican.</p>
-      </div>
-    </dialog>
-
     <!-- Insertar el mapa en otra página -->
     <dialog class="dialogo dialogo-chico" id="insertar-mapa" aria-labelledby="insertar-titulo">
       <div class="dialogo-encabezado">
@@ -264,7 +138,7 @@
         <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
       </div>
       <div class="dialogo-cuerpo">
-        <p>Copie este código en la página donde quiera mostrar el mapa con la vista y las capas actuales.</p>
+        <p>Copie este código en la página donde quiera mostrar el mapa con la vista y las capas actuales. En la página insertada el mapa se abre en el modo de consulta de GeoLibre.</p>
         <div class="rejilla-insertar">
           <label>Ancho <input type="text" id="insertar-ancho" value="100%"></label>
           <label>Alto (px) <input type="number" id="insertar-alto" value="480" min="200" max="2000"></label>
@@ -275,15 +149,10 @@
       </div>
     </dialog>
 
-    <!-- Hoja de impresión (solo visible al imprimir) -->
-    <div class="hoja-impresion" id="hoja-impresion" aria-hidden="true"></div>
-
     <div data-pie></div>
 
-    <script src="assets/vendor/maplibre-gl-4.7.1.js"></script>
     <script src="assets/js/config-institucional.js"></script>
     <script src="assets/js/institucional.js"></script>
-    <script src="assets/js/visor-herramientas.js"></script>
-    <script src="assets/js/visor.js"></script>
+    <script src="assets/js/geoportal.js"></script>
   </body>
 </html>

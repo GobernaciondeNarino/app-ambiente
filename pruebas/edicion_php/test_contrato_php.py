@@ -250,3 +250,20 @@ def test_ips_reenviadas_distintas_se_cuentan_por_separado(api, sitio):
             assert c.post("/auth/ingresar", json=mala, headers=una).status_code == 401
         assert c.post("/auth/ingresar", json=buena, headers=una).status_code == 429
         assert c.post("/auth/ingresar", json=buena, headers=otra).status_code == 200
+
+
+def test_proyecto_con_capas_visibles(api):
+    """?visibles=a,b: el proyecto incluye todas las capas publicadas y enciende solo esas (como Python)."""
+    r = _cargar_capa(api, {"title": "Páramos visibles", "published": True, "visible_by_default": False})
+    assert r.status_code == 201, r.text
+    paramos = r.json()["capa"]["slug"]
+    estaciones = api.capa["slug"]
+    def estados(consulta=""):
+        proyecto = api.get("/proyecto.geolibre" + consulta).json()
+        return {c["name"]: c["visible"] for c in proyecto["layers"] if c["name"] in ("Estaciones", "Páramos visibles")}
+    base = estados()
+    assert base["Páramos visibles"] is False
+    assert estados(f"?visibles={paramos}") == {"Estaciones": False, "Páramos visibles": True}
+    assert estados(f"?visibles={paramos},{estaciones}") == {"Estaciones": True, "Páramos visibles": True}
+    assert estados("?visibles=,,") == base
+    assert estados("?visibles=zzz") == {"Estaciones": False, "Páramos visibles": False}

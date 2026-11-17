@@ -278,8 +278,13 @@ def build_project(
     name: str | None = None,
     categories: list[Category] | None = None,
     base: str | None = None,
+    visibles: set[str] | None = None,
 ) -> dict[str, Any]:
-    """Arma un proyecto GeoLibre con las capas dadas, agrupadas por categoría."""
+    """Arma un proyecto GeoLibre con las capas dadas, agrupadas por categoría.
+
+    Con ``visibles`` quedan encendidas solo esas capas (por slug); sin él, las marcadas
+    «encendida al abrir» en el administrador.
+    """
     groups: list[dict[str, Any]] = []
     group_ids: dict[int, str] = {}
     cats = {c.id: c for c in (categories or [])}
@@ -305,6 +310,9 @@ def build_project(
             )
 
     built = [build_layer(layer, settings, group_ids.get(layer.category_id or -1)) for layer in layers]
+    if visibles is not None:
+        for layer, entry in zip(layers, built):
+            entry["visible"] = layer.slug in visibles
     # GeoLibre dibuja el arreglo de abajo hacia arriba y lista en el panel la
     # última capa primero: se invierte para que la primera categoría quede arriba.
     # Las capas de una misma carpeta siguen siendo contiguas.

@@ -306,7 +306,7 @@
     const nav = document.querySelector(".navegacion");
     if (!boton || !nav) return;
     const abrir = (si) => nav.classList.toggle("abierta", si);
-    // aria-expanded sigue a la clase, también cuando otro script cierra el menú (visor.js al cambiar de ruta)
+    // aria-expanded sigue a la clase, también cuando otro script cierra el menú (por ejemplo, al cambiar de ruta)
     new MutationObserver(() => boton.setAttribute("aria-expanded", String(nav.classList.contains("abierta")))).observe(nav, {
       attributes: true,
       attributeFilter: ["class"],
