@@ -1,7 +1,8 @@
 # Geoportal Ambiental — Gobernación de Nariño
 
-Geoportal de la Secretaría de Ambiente y Desarrollo Sostenible. Publica geodatos ambientales
-con un visor propio (MapLibre) y con GeoLibre integrado como «Estudio SIG».
+Geoportal de la Secretaría de Ambiente y Desarrollo Sostenible. Publica geodatos ambientales; su
+mapa es GeoLibre completo (compilación web oficial, como web.geolibre.app) con las capas publicadas,
+más catálogo, ficha de metadatos, administrador y servicio de compartir propio.
 
 ## Reglas del proyecto
 
@@ -41,7 +42,8 @@ La edición PHP necesita PHP 8.1+ con `pdo_mysql` y un MySQL accesible (`GP_MYSQ
 
 `docs/arquitectura.md`, `docs/estudio-sig.md`, `docs/instalacion-plesk.md`, `docs/despliegue-plesk.md`,
 `docs/manual-administrador.md`, `docs/identidad-visual.md`, `docs/revision-geolibre.md`,
-`docs/plan-implementacion.md` y `docs/plan-interfaz-minimalista.md`.
+`docs/inventario-web-geolibre.md`, `docs/plan-implementacion.md` y `docs/plan-interfaz-minimalista.md`
+(histórico).
 
 ## Herramientas de agentes
 
