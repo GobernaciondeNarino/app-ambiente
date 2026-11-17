@@ -142,6 +142,18 @@
     return raiz + "?" + p.toString();
   }
 
+  /** GeoLibre externo en https con el geoportal en http (salvo localhost): el proyecto no se podría leer. */
+  function externoSinHttps() {
+    const cfg = estado.config;
+    if (!cfg || (cfg.estudio && cfg.estudio.activo) || !/^https:/i.test(cfg.geolibre_url || "")) return false;
+    return location.protocol === "http:" && !/^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/.test(location.hostname);
+  }
+
+  /** Hay un mapa que se puede abrir (GeoLibre integrado, o externo sin bloqueo por contenido mixto). */
+  function mapaDisponible() {
+    return hayGeoLibre() && !externoSinHttps();
+  }
+
   function hayGeoLibre() {
     const cfg = estado.config;
     return !!(cfg && ((cfg.estudio && cfg.estudio.activo) || cfg.geolibre_url));
@@ -230,7 +242,10 @@
   }
 
   function actualizarEnlaces() {
-    if (!estado.config || !hayGeoLibre()) return;
+    const disponible = !!estado.config && mapaDisponible();
+    $("#nueva-ventana").hidden = !disponible || estado.soloMapa;
+    $("#boton-insertar").hidden = !disponible || estado.soloMapa;
+    if (!disponible) return;
     $("#nueva-ventana").href = urlGeoLibre({ vista: estado.vista || vistaPedida() });
     const volver = $("#volver-geoportal");
     if (!volver.hidden) volver.href = enlaceGeoportal(false);
@@ -314,7 +329,7 @@
     const servicio = capa.urls.datos;
     $("#ficha-cuerpo").innerHTML =
       '<div class="ficha-acciones">' +
-      (hayGeoLibre() ? '<button class="btn btn-primario" type="button" data-ver>' + icono("mapa") + "Ver en el mapa</button>" : "") +
+      (mapaDisponible() ? '<button class="btn btn-primario" type="button" data-ver>' + icono("mapa") + "Ver en el mapa</button>" : "") +
       (capa.downloadable
         ? '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga")) + '">' + icono("descargar") + (capa.kind === "raster" ? "Descargar COG" : "Descargar GeoJSON") + "</a>" +
           '<a class="btn btn-secundario" href="' + escapar(rutaCapa(capa, "descarga?original=1")) + '">' + icono("archivo") + "Archivo original</a>"
@@ -370,7 +385,7 @@
               (c.source ? '<span class="insignia">' + escapar(c.source) + "</span>" : "") +
               "</div></div>" +
               '<div class="acciones">' +
-              (hayGeoLibre() ? '<button class="btn btn-primario btn-chico" type="button" data-accion="ver">' + icono("mapa") + "Ver en el mapa</button>" : "") +
+              (mapaDisponible() ? '<button class="btn btn-primario btn-chico" type="button" data-accion="ver">' + icono("mapa") + "Ver en el mapa</button>" : "") +
               '<button class="btn btn-secundario btn-chico" type="button" data-accion="info">' + icono("info") + "Ficha</button>" +
               "</div></article>"
             );
@@ -423,7 +438,7 @@
     estado.ruta = valida;
     document.body.classList.toggle("en-mapa", valida === "mapa");
     // El mapa se carga la primera vez que se muestra (el catálogo abre sin descargar GeoLibre)
-    if (valida === "mapa" && estado.config && hayGeoLibre() && !marco.cargado) cargarMapa();
+    if (valida === "mapa" && estado.config && hayGeoLibre() && !externoSinHttps() && !marco.cargado) cargarMapa();
   }
 
   // ------------------------------------------------------------------ tema
@@ -495,6 +510,19 @@
       mapaVacio(
         "El mapa interactivo (GeoLibre) no está instalado en este geoportal.",
         "Un administrador puede instalarlo en <strong>Administrador → Estudio SIG</strong>. Mientras tanto, el catálogo permite consultar las fichas y descargar los geodatos.",
+        '<a class="btn btn-primario" href="#catalogo">' + icono("catalogo") + "Ir al catálogo</a>",
+      );
+      return;
+    }
+    if (externoSinHttps()) {
+      // Una instancia https (p. ej. web.geolibre.app) no puede leer el proyecto de un sitio http: el
+      // navegador lo bloquea como contenido mixto y el mapa quedaría vacío
+      $("#nueva-ventana").hidden = true;
+      $("#boton-insertar").hidden = true;
+      mapaVacio(
+        "El mapa necesita que el geoportal use HTTPS.",
+        "Este geoportal abre GeoLibre en <strong>" + escapar(new URL(estado.config.geolibre_url).host) + "</strong>, que solo puede leer proyectos de sitios seguros (https). " +
+          "Un administrador puede activar SSL/TLS en el dominio o instalar GeoLibre en este servidor (<strong>Administrador → Mapa (GeoLibre)</strong>). Mientras tanto, el catálogo permite consultar las fichas y descargar los geodatos.",
         '<a class="btn btn-primario" href="#catalogo">' + icono("catalogo") + "Ir al catálogo</a>",
       );
       return;
