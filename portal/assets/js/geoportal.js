@@ -7,6 +7,7 @@
  * catálogo, la ficha de metadatos y el código para insertar el mapa en otras páginas.
  *
  * Parámetros de la dirección (con los nombres de GeoLibre y sus equivalentes en español):
+ *   ?compartido=usuario/proyecto    abre un proyecto publicado con «Compartir» de GeoLibre en este geoportal
  *   ?capa=slug                      abre el mapa con esa capa encendida, la encuadra y muestra su ficha
  *   ?capas=a,b                      capas encendidas al abrir (las demás quedan disponibles, apagadas)
  *   ?base=calles|claro|oscuro|…     mapa base del proyecto
@@ -81,6 +82,18 @@
     return { lat: (s + n) / 2, lon: (o + e) / 2, zoom: Math.max(1, Math.min(17, Math.log2(360 / ancho) + 0.6)) };
   }
 
+  /**
+   * Proyecto publicado con «Compartir» de GeoLibre en el servicio de este geoportal
+   * (?compartido=usuario/proyecto): su JSON público en api/compartir/usuario/proyecto.geolibre.json.
+   */
+  function proyectoCompartido() {
+    const valor = params.get("compartido") || "";
+    if (!/^[A-Za-z0-9._-]{1,80}\/[A-Za-z0-9._-]{1,120}$/.test(valor) || valor.includes("..")) return null;
+    const [usuario, slug] = valor.split("/");
+    const base = estado.config.proyecto_url.replace(/\/proyecto\.geolibre$/, "");
+    return base + "/compartir/" + encodeURIComponent(usuario) + "/" + encodeURIComponent(slug) + ".geolibre.json";
+  }
+
   // ------------------------------------------------------------------ dirección de GeoLibre
 
   /**
@@ -88,6 +101,8 @@
    * quedan encendidas solo esas; sin él, las marcadas «encendida al abrir» en el administrador.
    */
   function urlProyecto(visibles, base) {
+    const compartido = proyectoCompartido();
+    if (compartido) return compartido;
     const p = new URLSearchParams();
     if (visibles && visibles.length) p.set("visibles", visibles.join(","));
     if (base) p.set("base", base);
@@ -201,7 +216,8 @@
   function enlaceGeoportal(soloMapa) {
     const p = new URLSearchParams();
     if (soloMapa) p.set("maponly", "1");
-    if (estado.visibles && estado.visibles.length) p.set("capas", estado.visibles.join(","));
+    if (proyectoCompartido()) p.set("compartido", params.get("compartido"));
+    else if (estado.visibles && estado.visibles.length) p.set("capas", estado.visibles.join(","));
     if (params.get("base")) p.set("base", params.get("base"));
     const v = estado.vista || vistaPedida();
     if (v) {
