@@ -12,6 +12,7 @@ require __DIR__ . '/lib/esquema.php';
 require __DIR__ . '/lib/geodatos.php';
 require __DIR__ . '/lib/capas.php';
 require __DIR__ . '/lib/geolibre.php';
+require __DIR__ . '/lib/compartir.php';
 require __DIR__ . '/lib/rutas_publicas.php';
 require __DIR__ . '/lib/rutas_admin.php';
 
@@ -73,6 +74,10 @@ try {
         }
     }
 
+    // Servicio de compartir de GeoLibre (contrato v1): /api/compartir/api/... y /api/compartir/{usuario}/{slug}
+    if ($ruta === 'compartir' || str_starts_with($ruta, 'compartir/')) {
+        rutas_compartir($metodo, ltrim(substr($ruta, strlen('compartir')), '/'));
+    }
     rutas_publicas($metodo, $ruta);
     rutas_admin($metodo, $ruta);
     if (gp_ruta_conocida($ruta)) {

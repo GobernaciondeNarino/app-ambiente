@@ -373,6 +373,21 @@
               <div class="aviso error" id="error-clave" role="alert" hidden></div>
               <div class="acciones-formulario"><button class="btn btn-primario" type="submit">Actualizar contraseña</button></div>
             </form>
+            <section class="tarjeta bloque" id="tokens-compartir" aria-labelledby="tokens-titulo">
+              <h2 id="tokens-titulo">Tokens para compartir desde GeoLibre</h2>
+              <p class="ayuda-pie">Con un token personal puede publicar proyectos en el geoportal desde el mapa (GeoLibre → <em>Proyecto → Compartir…</em>). Péguelo en GeoLibre, en <em>Configuración → Entorno → Token de API</em>. Cada token se muestra una sola vez; revoque los que ya no use.</p>
+              <form class="fila-token" id="form-token" novalidate>
+                <div class="campo"><label for="token-nombre">Nombre del token</label><input id="token-nombre" type="text" maxlength="100" required placeholder="p. ej. portátil de la oficina"></div>
+                <div class="campo"><label for="token-dias">Vence</label><select id="token-dias"><option value="">Nunca</option><option value="30">En 30 días</option><option value="90" selected>En 90 días</option><option value="365">En un año</option></select></div>
+                <div class="campo campo-boton"><button class="btn btn-primario" type="submit" data-icono="compartir">Crear token</button></div>
+              </form>
+              <div class="aviso exito token-nuevo" id="token-nuevo" role="status" hidden>
+                <p><strong>Copie este token ahora:</strong> no se volverá a mostrar.</p>
+                <div class="url-servicio"><input type="text" id="token-valor" readonly aria-label="Token nuevo"><button class="btn btn-secundario btn-chico" type="button" id="token-copiar" data-icono="copiar">Copiar</button></div>
+                <p class="ayuda">Servicio de compartir: <code id="token-servicio"></code></p>
+              </div>
+              <div class="tabla-contenedor"><table class="tabla"><thead><tr><th scope="col">Nombre</th><th scope="col">Prefijo</th><th scope="col">Creado</th><th scope="col">Último uso</th><th scope="col">Vence</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead><tbody id="lista-tokens"><tr><td colspan="6">Cargando…</td></tr></tbody></table></div>
+            </section>
           </section>
         </main>
       </div>

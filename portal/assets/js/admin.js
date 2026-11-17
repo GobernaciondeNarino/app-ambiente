@@ -34,6 +34,11 @@
     ingreso: "Ingreso",
     ingreso_fallido: "Ingreso fallido",
     ingreso_bloqueado: "Ingreso bloqueado (demasiados intentos)",
+    compartir_publicacion: "Proyecto compartido desde GeoLibre",
+    compartir_actualizacion: "Proyecto compartido actualizado",
+    compartir_eliminacion: "Proyecto compartido eliminado",
+    compartir_token_emitido: "Token para compartir creado",
+    compartir_token_revocado: "Token para compartir revocado",
     carga: "Carga de geodato",
     edicion: "Edición",
     actualizacion_archivo: "Actualización de archivo",
@@ -291,7 +296,7 @@
     categorias: verCategorias,
     usuarios: verUsuarios,
     bitacora: verBitacora,
-    cuenta: () => {},
+    cuenta: verCuenta,
     configuracion: verConfiguracion,
     estudio: verEstudio,
   };
@@ -1347,6 +1352,88 @@
     } catch (ex) {
       err.textContent = ex.message;
       err.hidden = false;
+    }
+  });
+
+  // Tokens personales para publicar desde GeoLibre (Proyecto → Compartir…) en el servicio del geoportal
+  async function verCuenta() {
+    $("#token-nuevo").hidden = true;
+    await pintarTokens();
+  }
+
+  async function pintarTokens() {
+    const cuerpo = $("#lista-tokens");
+    try {
+      const r = await api("/admin/compartir/tokens");
+      $("#token-servicio").textContent = r.share_url;
+      cuerpo.innerHTML = r.tokens.length
+        ? r.tokens
+            .map(
+              (t) =>
+                "<tr><td>" + escapar(t.name) + "</td><td><code>" + escapar(t.prefix) + "…</code></td>" +
+                "<td>" + formatoFecha(t.created_at, true) + "</td>" +
+                "<td>" + (t.last_used_at ? formatoFecha(t.last_used_at, true) : "Nunca") + "</td>" +
+                "<td>" + (t.expires_at ? (t.expired ? '<span class="insignia amarilla">Vencido</span> ' : "") + formatoFecha(t.expires_at, true) : "No vence") + "</td>" +
+                '<td class="acciones"><button class="btn-icono" type="button" data-revocar="' + t.id + '" title="Revocar">' + icono("eliminar") +
+                '<span class="sr-only">Revocar el token «' + escapar(t.name) + '»</span></button></td></tr>',
+            )
+            .join("")
+        : '<tr><td colspan="6">No tiene tokens. Cree uno para publicar proyectos desde GeoLibre.</td></tr>';
+    } catch (ex) {
+      cuerpo.innerHTML = '<tr><td colspan="6">No fue posible consultar los tokens: ' + escapar(ex.message) + "</td></tr>";
+    }
+  }
+
+  $("#form-token").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget; // después de un await, e.currentTarget ya es null
+    const nombre = $("#token-nombre");
+    if (!nombre.value.trim()) {
+      errorEnCampo(nombre, "Escriba un nombre que identifique dónde usará el token.");
+      nombre.focus();
+      return;
+    }
+    const dias = $("#token-dias").value;
+    try {
+      const t = await api("/admin/compartir/tokens", { method: "POST", json: { name: nombre.value.trim(), expires_in_days: dias ? Number(dias) : null } });
+      $("#token-valor").value = t.token;
+      $("#token-servicio").textContent = t.share_url;
+      $("#token-nuevo").hidden = false;
+      $("#token-valor").select();
+      form.reset();
+      $("#token-dias").value = "90";
+      notificar("Token creado. Cópielo ahora: no se volverá a mostrar.");
+      await pintarTokens();
+    } catch (ex) {
+      notificar(errorDelServidor(form, ex.message), "error");
+    }
+  });
+
+  $("#token-copiar").addEventListener("click", async () => {
+    const campo = $("#token-valor");
+    let copiado = false;
+    try {
+      await navigator.clipboard.writeText(campo.value);
+      copiado = true;
+    } catch (_) {
+      campo.select();
+      try { copiado = document.execCommand("copy"); } catch (_e) { /* sin portapapeles */ }
+    }
+    notificar(copiado ? "Token copiado al portapapeles." : "Seleccione el token y cópielo con Ctrl + C.");
+  });
+
+  $("#lista-tokens").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-revocar]");
+    if (!b) return;
+    const ok = await confirmar("Revocar token", "GeoLibre dejará de poder publicar con este token. Los proyectos ya publicados se conservan.", "Revocar", true);
+    if (!ok) return;
+    try {
+      await api("/admin/compartir/tokens/" + b.dataset.revocar, { method: "DELETE" });
+      notificar("Token revocado.");
+      $("#token-nuevo").hidden = true;
+      await pintarTokens();
+    } catch (ex) {
+      notificar(ex.message, "error");
     }
   });
 

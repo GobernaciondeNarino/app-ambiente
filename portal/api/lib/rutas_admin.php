@@ -509,6 +509,11 @@ function rutas_admin(string $metodo, string $ruta): void
         }
     }
 
+    // Tokens personales del servicio de compartir de GeoLibre (cada usuario los suyos; el administrador, todos)
+    if (preg_match('#^admin/compartir/tokens(?:/(\d+))?$#', $ruta, $m)) {
+        cmp_rutas_tokens($metodo, isset($m[1]) ? (int) $m[1] : null, $yo);
+    }
+
     // Bitácora
     if ($ruta === 'admin/bitacora' && $metodo === 'GET') {
         exigir_admin($yo);

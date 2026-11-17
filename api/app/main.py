@@ -14,7 +14,7 @@ from . import errores
 from .config import VERSION, get_settings, origin_of
 from .db import Base, get_engine, session_scope
 from .models import Category, User
-from .routers import admin, public
+from .routers import admin, compartir, public
 from .security import hash_password
 
 log = logging.getLogger("geoportal")
@@ -115,10 +115,14 @@ def create_app() -> FastAPI:
     )
     # Errores en JSON y en español, con la misma forma que la edición PHP
     errores.instalar(app)
+    # Servicio de compartir de GeoLibre: sus errores llevan además «error» (contrato v1 de GeoLibre)
+    compartir.instalar(app)
     # La compresión gzip la hace nginx (no aplica a respuestas parciales 206 de las COG)
     app.include_router(public.router)
     app.include_router(admin.auth_router)
     app.include_router(admin.router)
+    app.include_router(compartir.router)
+    app.include_router(compartir.router_admin)
 
     # Desarrollo sin nginx: GEOPORTAL_PORTAL_DIR=../portal sirve el sitio estático
     portal_dir = os.getenv("GEOPORTAL_PORTAL_DIR")

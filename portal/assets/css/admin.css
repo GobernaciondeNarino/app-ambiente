@@ -941,3 +941,60 @@ pre.codigo {
   gap: 8px;
   margin: 2px 0 4px;
 }
+
+/* ---------------------------------------------------------------- Mi cuenta: tokens para compartir desde GeoLibre */
+#tokens-compartir {
+  margin-top: 20px;
+  max-width: 980px;
+}
+
+.fila-token {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  gap: 12px;
+  align-items: end;
+  margin: 12px 0;
+}
+
+.fila-token .campo {
+  margin: 0;
+}
+
+.token-nuevo p {
+  margin: 0 0 8px;
+}
+
+.token-nuevo .url-servicio {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.token-nuevo .url-servicio input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.token-nuevo code {
+  overflow-wrap: anywhere;
+}
+
+#lista-tokens code {
+  font-size: 12.5px;
+}
+
+@media (max-width: 600px) {
+  .fila-token {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .token-nuevo .url-servicio {
+    flex-wrap: wrap;
+  }
+
+  .token-nuevo .url-servicio .btn {
+    min-height: 40px;
+  }
+}

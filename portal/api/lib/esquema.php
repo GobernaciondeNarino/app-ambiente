@@ -87,7 +87,74 @@ function gp_sql_esquema(string $p): array
             detail TEXT NOT NULL,
             KEY idx_fecha (at)
         ) $motor",
+        ...gp_sql_esquema_compartir($p),
     ];
+}
+
+/** Versión del esquema del servicio de compartir (opción «compartir_esquema»). */
+const GP_COMPARTIR_ESQUEMA = '1';
+
+/**
+ * Tablas del servicio de compartir proyectos de GeoLibre: tokens personales (solo su SHA-256),
+ * proyectos y versiones. Las instalaciones anteriores las reciben con gp_asegurar_esquema_compartir().
+ */
+function gp_sql_esquema_compartir(string $p): array
+{
+    $motor = 'ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
+    return [
+        "CREATE TABLE IF NOT EXISTS `{$p}compartir_tokens` (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            user_id INT UNSIGNED NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            prefix VARCHAR(16) NOT NULL,
+            token_hash CHAR(64) NOT NULL,
+            created_at DATETIME NOT NULL,
+            expires_at DATETIME NULL,
+            last_used_at DATETIME NULL,
+            revoked_at DATETIME NULL,
+            KEY idx_prefijo (prefix),
+            CONSTRAINT `fk_{$p}cmp_token_usuario` FOREIGN KEY (user_id) REFERENCES `{$p}usuarios` (id) ON DELETE CASCADE
+        ) $motor",
+        "CREATE TABLE IF NOT EXISTS `{$p}compartir_proyectos` (
+            id CHAR(36) NOT NULL PRIMARY KEY,
+            user_id INT UNSIGNED NOT NULL,
+            slug VARCHAR(100) NOT NULL,
+            title VARCHAR(100) NOT NULL,
+            description TEXT NOT NULL,
+            visibility VARCHAR(12) NOT NULL DEFAULT 'private',
+            views INT UNSIGNED NOT NULL DEFAULT 0,
+            last_version INT UNSIGNED NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NOT NULL,
+            UNIQUE KEY uq_usuario_slug (user_id, slug),
+            KEY idx_visibilidad (visibility, updated_at),
+            CONSTRAINT `fk_{$p}cmp_proyecto_usuario` FOREIGN KEY (user_id) REFERENCES `{$p}usuarios` (id) ON DELETE CASCADE
+        ) $motor",
+        "CREATE TABLE IF NOT EXISTS `{$p}compartir_versiones` (
+            project_id CHAR(36) NOT NULL,
+            number INT UNSIGNED NOT NULL,
+            content LONGTEXT NOT NULL,
+            size INT UNSIGNED NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL,
+            PRIMARY KEY (project_id, number),
+            CONSTRAINT `fk_{$p}cmp_version_proyecto` FOREIGN KEY (project_id) REFERENCES `{$p}compartir_proyectos` (id) ON DELETE CASCADE
+        ) $motor",
+    ];
+}
+
+/** Crea las tablas del servicio de compartir en instalaciones anteriores (una vez; luego solo lee una opción). */
+function gp_asegurar_esquema_compartir(): void
+{
+    static $hecho = false;
+    if ($hecho || gp_opcion('compartir_esquema') === GP_COMPARTIR_ESQUEMA) {
+        $hecho = true;
+        return;
+    }
+    foreach (gp_sql_esquema_compartir(gp_config()['db_prefijo'] ?? 'gp_') as $sql) {
+        gp_db()->exec($sql);
+    }
+    gp_guardar_opcion('compartir_esquema', GP_COMPARTIR_ESQUEMA);
+    $hecho = true;
 }
 
 /** Categorías temáticas iniciales de la Secretaría de Ambiente y Desarrollo Sostenible. */
@@ -136,6 +203,7 @@ function gp_crear_instalacion(PDO $pdo, string $prefijo, array $admin, array $op
     }
     $st->execute(['version_instalada', GP_VERSION]);
     $st->execute(['instalado_en', $ahora]);
+    $st->execute(['compartir_esquema', GP_COMPARTIR_ESQUEMA]);
     $pdo->prepare("INSERT INTO `{$prefijo}bitacora` (at, username, action, target, detail) VALUES (?, ?, 'instalacion', 'geoportal', ?)")
         ->execute([$ahora, $admin['username'], 'Versión ' . GP_VERSION]);
     $hechas[] = 'Opciones del sitio guardadas.';

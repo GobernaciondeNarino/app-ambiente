@@ -57,6 +57,13 @@ class Settings:
     inline_max_mb: float = field(default_factory=lambda: float(os.getenv("GEOPORTAL_INLINE_MAX_MB", "15")))
     coordinate_precision: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COORD_PRECISION", "6")))
 
+    # Servicio de compartir de GeoLibre (/api/compartir), como las opciones compartir_* de la edición PHP:
+    # tamaño máximo del proyecto (sin pasar max_upload_mb), versiones que se conservan por proyecto y
+    # publicaciones o versiones nuevas por usuario y hora
+    share_max_mb: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COMPARTIR_MAX_MB", "10")))
+    share_max_versions: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COMPARTIR_MAX_VERSIONES", "20")))
+    share_max_per_hour: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COMPARTIR_MAX_HORA", "60")))
+
     # Proyecto GeoLibre
     project_name: str = field(
         default_factory=lambda: os.getenv(

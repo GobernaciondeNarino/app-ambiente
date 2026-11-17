@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -110,3 +111,55 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(40))
     target: Mapped[str] = mapped_column(String(200), default="")
     detail: Mapped[str] = mapped_column(Text, default="")
+
+
+# ---------------------------------------------------------------- servicio de compartir de GeoLibre
+# Mismas tablas y columnas que la edición PHP (esquema.php). El documento puede ocupar varios MB:
+# LONGTEXT en MySQL (TEXT se queda en 64 KB); en SQLite y PostgreSQL basta TEXT.
+TEXTO_LARGO = Text().with_variant(LONGTEXT(), "mysql", "mariadb")
+
+
+class ShareToken(Base):
+    """Token personal para el servicio de compartir. Solo se guarda su SHA-256 y un prefijo reconocible."""
+
+    __tablename__ = "compartir_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(100))
+    prefix: Mapped[str] = mapped_column(String(16), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped[User] = relationship()
+
+
+class SharedProject(Base):
+    __tablename__ = "compartir_proyectos"
+    __table_args__ = (UniqueConstraint("user_id", "slug", name="uq_usuario_slug"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID: no se pueden enumerar
+    user_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"))
+    slug: Mapped[str] = mapped_column(String(100))
+    title: Mapped[str] = mapped_column(String(100))
+    description: Mapped[str] = mapped_column(Text, default="")
+    visibility: Mapped[str] = mapped_column(String(12), default="private", index=True)  # public | unlisted | private
+    views: Mapped[int] = mapped_column(Integer, default=0)
+    last_version: Mapped[int] = mapped_column(Integer, default=1)  # número de la versión vigente
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    user: Mapped[User] = relationship()
+
+
+class SharedProjectVersion(Base):
+    __tablename__ = "compartir_versiones"
+
+    project_id: Mapped[str] = mapped_column(ForeignKey("compartir_proyectos.id", ondelete="CASCADE"), primary_key=True)
+    number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    content: Mapped[str] = mapped_column(TEXTO_LARGO)
+    size: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
