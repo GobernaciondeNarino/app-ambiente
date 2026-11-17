@@ -49,6 +49,9 @@ La edición PHP necesita PHP 8.1+ con `pdo_mysql` y un MySQL accesible (`GP_MYSQ
   comandos, habilidades y hooks en `.claude/`. Qué se instaló, qué se dejó fuera y cómo
   actualizarlo o quitarlo: `.claude/RUFLO-PROCEDENCIA.md`.
 - **security-audit** (Cloudflare): `.claude/skills/security-audit/`, con su `PROCEDENCIA.md`.
+- **REA 6.9.0** (análisis de aplicaciones y sitios web): servidor MCP `rea` en `.mcp.json` y skill
+  `.claude/skills/reverse-engineer-anything/`. Procedencia, límites y cómo actualizarlo o quitarlo:
+  `.claude/REA-PROCEDENCIA.md`.
 
 ## Ruflo — configuración de Claude Code
 

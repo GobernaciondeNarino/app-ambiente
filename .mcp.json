@@ -17,6 +17,17 @@
         "CLAUDE_FLOW_MEMORY_BACKEND": "hybrid"
       },
       "autoStart": false
+    },
+    "rea": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "rea-agents@6.9.0",
+        "mcp"
+      ],
+      "env": {
+        "npm_config_update_notifier": "false"
+      }
     }
   }
 }
