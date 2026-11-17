@@ -82,5 +82,10 @@ textos, definidos como variables en `portal/assets/css/institucional.css`
 En modo oscuro el logotipo se muestra sobre una placa blanca, para conservar sus colores
 originales y su legibilidad sin alterarlo. El tema se elige con el botón de la barra GOV.CO (automático, claro
 u oscuro), se aplica antes de pintar la página para evitar destellos y se comparte con el mapa
-base del visor (OpenFreeMap Dark) y con el Estudio SIG (tema oscuro de GeoLibre con el acento
-verde institucional).
+(GeoLibre abre en tema oscuro o claro según el del portal, con el acento verde institucional
+`#10A13B` del archivo de interfaz).
+
+El mapa es la interfaz de GeoLibre (la de web.geolibre.app) bajo la barra GOV.CO y el encabezado
+de la Gobernación: dentro del mapa rigen los estilos de GeoLibre, con el verde institucional como
+color de acento; fuera de él (encabezado, catálogo, ficha, pie, administrador e instalador), los
+de este manual.

@@ -35,7 +35,7 @@ El primer administrador se crea al iniciar el sistema con las variables
 2. **Documentar** la ficha de metadatos.
 3. **Simbolizar** colores, grosores y ventana emergente.
 4. **Revisar** la vista previa y la pestaña *Datos*.
-5. **Publicar** (administrador). Desde ese momento la capa aparece en el visor,
+5. **Publicar** (administrador). Desde ese momento la capa aparece en el mapa,
    en el catálogo, en la API y en el proyecto de GeoLibre.
 
 Toda capa nueva queda como **borrador**: no es visible al público hasta que un
@@ -87,7 +87,7 @@ Basada en el perfil básico de metadatos geográficos (ISO 19115 / NTC 4611):
 | Campo | Recomendación |
 | --- | --- |
 | **Título** (obligatorio) | Claro y específico: «Red de drenaje doble — escala 1:100.000». |
-| Categoría temática | Define la carpeta del visor y de GeoLibre. |
+| Categoría temática | Define la carpeta de la capa en el mapa (GeoLibre). |
 | Palabras clave | Separadas por comas; mejoran la búsqueda. |
 | Descripción | Qué representa, para qué sirve, limitaciones de uso. |
 | Fuente / entidad productora | IGAC, IDEAM, Corponariño, Gobernación de Nariño… |
@@ -98,7 +98,7 @@ Basada en el perfil básico de metadatos geográficos (ISO 19115 / NTC 4611):
 | Licencia | Por defecto CC BY 4.0 (datos abiertos con atribución). |
 | Linaje | Insumos, métodos y procesos aplicados. |
 | Permitir descarga pública | Desmárquelo para mostrar la capa sin permitir su descarga. |
-| Encendida al abrir el visor | La capa aparece activa al cargar el geoportal. |
+| Encendida al abrir el mapa | La capa aparece encendida al cargar el geoportal. |
 
 ## 5. Simbología y ventana emergente
 
@@ -137,11 +137,11 @@ Una capa publicada expone:
 | Datos ráster (COG) | `/api/capas/<identificador>/datos.tif` |
 | Descarga (procesado / original) | `/api/capas/<identificador>/descarga` · `?original=1` |
 | Proyecto GeoLibre de la capa | `/api/capas/<identificador>/proyecto.geolibre` |
-| Enlace directo en el visor | `/?capa=<identificador>` |
+| Enlace directo en el mapa | `/?capa=<identificador>` |
 
 ## 8. Categorías
 
-Las categorías temáticas organizan el visor y las carpetas del proyecto GeoLibre.
+Las categorías temáticas son las carpetas del mapa (GeoLibre) y los filtros del catálogo.
 El sistema inicia con siete: Recurso hídrico; Áreas protegidas y ecosistemas
 estratégicos; Biodiversidad; Cambio climático y gestión del riesgo;
 Ordenamiento territorial ambiental; Coberturas de la tierra y deforestación;
@@ -156,62 +156,67 @@ eliminar una categoría con capas asignadas.
 - **Bitácora:** registra ingresos (también los fallidos), cargas, ediciones,
   publicaciones, retiros, eliminaciones y cambios de categorías y usuarios.
 
-## 10. Estudio SIG (GeoLibre)
+## 10. El mapa del geoportal (GeoLibre)
 
-El menú **Estudio SIG** del geoportal abre [GeoLibre](https://github.com/opengeos/GeoLibre)
-integrado en la misma página, con todas las capas publicadas: las categorías aparecen como
-carpetas, con la simbología, ventanas emergentes y metadatos definidos en el administrador.
-Desde ahí se puede editar, cambiar estilos, consultar la tabla de atributos, hacer
-geoprocesamiento y consultas SQL, ver en 3D, componer mapas para impresión, exportar o guardar
-el proyecto `.geolibre`. El botón **Ver en Estudio SIG** de la ficha enciende y encuadra esa
-capa, y **Traer vista del visor** lleva al Estudio la vista y las capas encendidas.
+La portada del geoportal es [GeoLibre](https://github.com/opengeos/GeoLibre), con la misma
+interfaz y las mismas funciones que [web.geolibre.app](https://web.geolibre.app/) y con todas las
+capas publicadas ya cargadas: las categorías aparecen como carpetas, con la simbología, ventanas
+emergentes y metadatos definidos en el administrador. Desde ahí se puede editar, cambiar estilos,
+consultar la tabla de atributos, hacer geoprocesamiento y consultas SQL, ver en 3D, componer mapas
+para impresión, exportar, guardar el proyecto `.geolibre` y compartirlo.
 
-Si se eligió una instancia externa, el botón **Abrir en GeoLibre** abre las capas en esa
-instancia en una pestaña nueva.
+La capa marcada **Encendida al abrir** aparece encendida en el mapa; las demás están en el panel
+Capas, apagadas. El orden de las categorías (campo **Orden**) es el orden de las carpetas.
 
-La acción **Descargar proyecto .geolibre** (escríbala en la búsqueda del visor, `Ctrl` + `K`)
-descarga el archivo del proyecto para abrirlo en GeoLibre de escritorio.
+### Configurar el mapa (solo administradores)
 
-### Configurar el Estudio (solo administradores)
-
-En **Estudio SIG** del administrador:
+En **Mapa (GeoLibre)** del administrador:
 
 1. **GeoLibre en este servidor:** instala o actualiza GeoLibre (botón **Instalar GeoLibre**) y
    muestra la versión y los requisitos.
-2. **¿Qué GeoLibre se usa?:** Estudio integrado o una instancia externa (por ejemplo
+2. **¿Qué GeoLibre se usa?:** el instalado en este servidor o una instancia externa (por ejemplo
    `https://web.geolibre.app`).
 3. **Pestañas de ajustes:** apariencia e idioma (nombre, idioma, color de acento, modo completo o
-   solo consulta, bienvenida), interfaz y menús (preajustes de presentación **Esencial**,
-   **Estándar**, **Completo** y **Solo consulta**; disposición, nivel, menús y elementos ocultos), permisos,
-   complementos, servicios institucionales (WMS, WFS, WMTS, XYZ, ArcGIS, CSW) y mapas base,
-   compartir y conexiones (servicio público desactivado por defecto, servidor propio, colaboración,
-   Overpass, GeoLens). La pestaña **deployment.json** muestra la política resultante.
+   solo consulta, bienvenida y **apariencia institucional**), interfaz y menús (preajustes
+   **Completo** —el de web.geolibre.app, por defecto—, **Estándar**, **Esencial** y **Solo
+   consulta**; disposición, nivel, menús y elementos ocultos), permisos, complementos, servicios
+   institucionales (WMS, WFS, WMTS, XYZ, ArcGIS, CSW) y mapas base, compartir y conexiones
+   (servicio de compartir del geoportal, servidor propio, colaboración, Overpass, GeoLens). La
+   pestaña **deployment.json** muestra la política resultante.
 
-Los cambios se aplican la próxima vez que se abre el Estudio. La guía completa está en
-[Estudio SIG](estudio-sig.md).
+Los cambios se aplican la próxima vez que se abre el mapa. La guía completa está en
+[GeoLibre: el mapa del geoportal](estudio-sig.md).
 
-## 11. El visor en pocas palabras
+### Publicar mapas con «Compartir»
 
-El visor muestra el mapa a toda la vista con tres elementos:
+Para que un usuario del administrador publique proyectos desde GeoLibre (*Proyecto → Compartir*):
 
-- **Tarjeta de búsqueda y capas** (arriba a la izquierda). La casilla enciende la capa; «⋯» abre
-  su opacidad, acercar, ficha, tabla de atributos, Estudio SIG y orden. La caja de búsqueda
-  (`Ctrl` + `K`) encuentra capas, lugares, coordenadas y entidades, y ejecuta acciones: escriba
-  «medir», «imprimir» o «satélite».
-- **Botón de herramientas** (bajo los controles de acercar y alejar, tecla `H`): mapas base,
-  medir, terreno 3D, mi ubicación, añadir datos, copiar enlace, insertar el mapa, imagen,
-  imprimir, pantalla completa y solo el mapa.
-- **Leyenda** (abajo a la derecha), plegada hasta que se pulsa.
+1. En **Mi cuenta → Tokens para compartir desde GeoLibre**, cree un token con un nombre que lo
+   identifique (por ejemplo «portátil de la oficina»). Cópielo: solo se muestra una vez.
+2. En GeoLibre, abra *Configuración → Variables de entorno* y péguelo en **shareToken**.
+3. *Proyecto → Compartir* publica el proyecto en el geoportal; el enlace que entrega
+   (`<geoportal>/?compartido=usuario/proyecto`) abre el mapa con ese proyecto. Los proyectos
+   públicos aparecen en *Proyecto → Abrir desde la galería* para cualquier visitante.
 
-**Añadir datos** deja al visitante ver sus propios archivos o servicios sobre las capas del
-geoportal. Esos datos se quedan en su navegador: no llegan al servidor ni aparecen en el catálogo.
-Para publicar un geodato use **Cargar geodato** en el administrador.
+Revoque los tokens que ya no use. Con la **apariencia institucional** activa GeoLibre no guarda el
+token entre visitas: para publicar con frecuencia use **Nueva ventana**, donde sí se conserva.
 
-Para mostrar el mapa en otra página institucional use **Insertar el mapa…**, que entrega el
-código `<iframe>` con la vista y las capas del momento.
+## 11. La portada en pocas palabras
+
+- **Mapa:** GeoLibre a toda la vista, bajo la barra GOV.CO y el encabezado de la Gobernación.
+- **Catálogo:** una tarjeta por geodato con búsqueda y filtros; **Ver en el mapa** enciende y
+  encuadra la capa, y **Ficha** muestra los metadatos y las descargas.
+- **Insertar:** entrega el código `<iframe>` para mostrar el mapa, con la vista y las capas del
+  momento, en otra página institucional.
+- **Nueva ventana:** abre GeoLibre solo, a pantalla completa.
+
+Los datos que un visitante añade en GeoLibre (*Añadir datos*) se quedan en su navegador: no
+llegan al servidor ni aparecen en el catálogo. Para publicar un geodato use **Cargar geodato** en
+el administrador.
 
 ## 12. Modo oscuro
 
 El botón de tema de la barra superior (geoportal, administrador y asistente de instalación)
 alterna entre **Automático** (sigue la preferencia del sistema), **Claro** y **Oscuro**. La
-elección se recuerda en el navegador y se aplica también al mapa base del visor y al Estudio SIG.
+elección se recuerda en el navegador; el mapa (GeoLibre) la toma al recargarse, o con su propio
+botón de tema sin recargar.

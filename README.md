@@ -3,19 +3,18 @@
 Geoportal de la **Secretaría de Ambiente y Desarrollo Sostenible** para publicar,
 consultar y descargar la información geográfica ambiental del departamento.
 Se construye sobre [GeoLibre](https://github.com/opengeos/GeoLibre) (SIG libre, MIT):
-la versión web oficial de GeoLibre se integra en el propio geoportal como
-**Estudio SIG**, con las capas publicadas ya cargadas, y desde ahí se usan todas
-sus herramientas (edición, estilos, SQL, más de mil herramientas de
-geoprocesamiento, 3D, impresión, complementos) en el navegador, sin que los
-datos salgan de la infraestructura de la Gobernación.
+el mapa del geoportal es la versión web oficial de GeoLibre, con la misma interfaz
+y las mismas funciones que [web.geolibre.app](https://web.geolibre.app/) y con las
+capas publicadas ya cargadas: edición, estilos, SQL, más de mil herramientas de
+geoprocesamiento, 3D, impresión, complementos y proyectos compartidos, en el
+navegador y sin que los datos salgan de la infraestructura de la Gobernación.
 
 | Componente | Qué hace | Dónde |
 | --- | --- | --- |
-| **Visor público** | Interfaz minimalista: el mapa a toda la vista, una tarjeta (búsqueda + capas) y un botón de herramientas. Paleta de comandos (`Ctrl` + `K`), capas por categoría con opacidad y orden, consulta y tabla de atributos, datos propios sin subirlos (archivos, WMS, XYZ), medición, terreno 3D, enlace permanente, insertar el mapa, imprimir, imagen PNG, mapas base y ficha de metadatos | `portal/index.html` · [plan de interfaz](docs/plan-interfaz-minimalista.md) |
-| **Estudio SIG** | GeoLibre integrado (mismo origen), configurado desde el administrador y controlado desde el visor | `portal/geolibre/` · [guía](docs/estudio-sig.md) |
-| **Catálogo** | Tarjetas de geodatos con búsqueda y filtros | `portal/index.html#catalogo` |
-| **Administrador** | Carga de geodatos, ficha de metadatos, simbología, publicación, categorías, usuarios, bitácora y ajustes del Estudio SIG | `portal/admin/` |
-| **API** | Ingesta y conversión de formatos, catálogo, datos, proyectos `.geolibre` y política de GeoLibre | `api/` (Python) · `portal/api/` (PHP) |
+| **Mapa (GeoLibre)** | La portada: GeoLibre completo, como web.geolibre.app (menús, panel de capas por categoría, estilos, tabla de atributos, SQL, geoprocesamiento, 3D, impresión, complementos, compartir), bajo la barra GOV.CO y el encabezado institucional; instalado en el mismo origen y configurado desde el administrador | `portal/index.html`, `portal/geolibre/` · [guía](docs/estudio-sig.md) |
+| **Catálogo** | Tarjetas de geodatos con búsqueda y filtros, ficha de metadatos, descargas y «Ver en el mapa» | `portal/index.html#catalogo` |
+| **Administrador** | Carga de geodatos, ficha de metadatos, simbología, publicación, categorías, usuarios, bitácora, ajustes del mapa (GeoLibre) y tokens para compartir | `portal/admin/` |
+| **API** | Ingesta y conversión de formatos, catálogo, datos, proyectos `.geolibre`, política de GeoLibre y servicio de compartir de GeoLibre | `api/` (Python) · `portal/api/` (PHP) |
 
 Todo el sitio tiene **modo oscuro** (automático, claro u oscuro) y sigue los manuales de
 identidad visual y de sitios web de la Gobernación.
@@ -25,9 +24,9 @@ flowchart LR
   A[Administrador<br>/admin/] -- carga geodatos y configura --> API
   API[API<br>/api/] -- convierte y reproyecta --> D[(Datos<br>originales · GeoJSON · GeoTIFF<br>MySQL/SQLite/PostgreSQL)]
   API -- deployment.json · ajustes --> G
-  V[Visor público<br>MapLibre] -- catálogo y datos --> API
-  V -- «Estudio SIG»<br>API de incrustación --> G[GeoLibre integrado<br>/geolibre/?url=/api/proyecto.geolibre]
-  G -- proyecto, GeoJSON, GeoTIFF por rangos --> API
+  V[Portada<br>catálogo y ficha] -- catálogo y datos --> API
+  V -- mapa a toda la vista<br>API de incrustación --> G[GeoLibre<br>/geolibre/?url=/api/proyecto.geolibre]
+  G -- proyecto, GeoJSON, GeoTIFF por rangos,<br>compartir y galería --> API
 ```
 
 ## Dos ediciones, la misma interfaz
@@ -40,8 +39,8 @@ flowchart LR
 | Conversión de geodatos | En el navegador del administrador, con validación en el servidor | En el servidor (GDAL) |
 | Guía | [Instalación en Plesk](docs/instalacion-plesk.md) | Ver abajo y [arquitectura](docs/arquitectura.md) |
 
-Ambas exponen la misma API (`/api/...`), así que el visor, el catálogo, el administrador y el
-Estudio SIG son idénticos.
+Ambas exponen la misma API (`/api/...`), así que el mapa, el catálogo y el administrador son
+idénticos.
 
 ## Instalación en Plesk (subiendo archivos)
 
@@ -49,7 +48,7 @@ Estudio SIG son idénticos.
 2. Genere el paquete con `scripts/empaquetar-plesk.sh` o descárguelo de *Releases*.
 3. Súbalo con el Administrador de archivos y elija «Extraer».
 4. Abra `https://su-dominio/geoportal/instalar/` y siga el asistente.
-5. En *Administrador → Estudio SIG* pulse **Instalar GeoLibre** (o use el paquete
+5. En *Administrador → Mapa (GeoLibre)* pulse **Instalar GeoLibre** (o use el paquete
    `-con-geolibre`, que ya lo trae).
 
 Los detalles, la solución de problemas y la verificación realizada están en
@@ -71,7 +70,7 @@ docker compose up -d --build
 - Geoportal: <http://localhost:8080>
 - Administrador: <http://localhost:8080/admin/>
 - Documentación de la API: <http://localhost:8080/api/docs>
-- Estudio SIG: <http://localhost:8080/#estudio> (instálelo antes en *Administrador → Estudio SIG*)
+- Mapa (GeoLibre): <http://localhost:8080/> (instálelo antes en *Administrador → Mapa (GeoLibre)*)
 
 ## Desarrollo sin Docker
 
@@ -115,9 +114,9 @@ metros) el administrador permite indicar el EPSG de origen.
 ## Documentación
 
 - [Manual del administrador](docs/manual-administrador.md): cómo cargar, documentar, simbolizar y publicar geodatos.
-- [Estudio SIG](docs/estudio-sig.md): GeoLibre integrado, instalación, todos sus ajustes, integración con el visor y funciones del visor.
+- [GeoLibre: el mapa del geoportal](docs/estudio-sig.md): la portada, instalación, todos sus ajustes, compartir y galería, y lo que no incluye.
 - [Revisión de GeoLibre](docs/revision-geolibre.md) y su [inventario de funciones](docs/anexo-inventario-geolibre.md): qué ofrece GeoLibre y cómo queda cubierto.
-- [Plan de implementación](docs/plan-implementacion.md) y [plan de interfaz minimalista](docs/plan-interfaz-minimalista.md): fases, criterios y estado.
+- [Plan de implementación](docs/plan-implementacion.md): fases, criterios y estado. El [plan de interfaz minimalista](docs/plan-interfaz-minimalista.md) queda como histórico: su visor se reemplazó por GeoLibre completo.
 - [Arquitectura y despliegue](docs/arquitectura.md): componentes, API, integración con GeoLibre, producción y respaldos.
 - [Instalación en Plesk subiendo archivos](docs/instalacion-plesk.md): edición PHP + MySQL con asistente de instalación.
 - [Despliegue en Plesk con Docker o systemd](docs/despliegue-plesk.md): edición Python, en dominio, subdominio o subdirectorio.

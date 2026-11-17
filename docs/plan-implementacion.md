@@ -3,7 +3,8 @@
 Cómo se lleva al Geoportal Ambiental lo que la [revisión de GeoLibre](revision-geolibre.md)
 recomienda, con la interfaz del [plan de interfaz minimalista](plan-interfaz-minimalista.md).
 
-**Estado: fases 1 a 6 implementadas y verificadas.** Lo que queda para más adelante está en
+**Estado: fases 1 a 7 implementadas y verificadas.** La fase 7 reemplazó el visor minimalista de
+las fases 1 a 4 por GeoLibre completo. Lo que queda para más adelante está en
 [Siguientes pasos](#siguientes-pasos).
 
 ## Objetivo
@@ -94,6 +95,23 @@ valores por defecto y se cambia en *Administrador → Estudio SIG → Interfaz y
 | Prueba de extremo a extremo de la interfaz | 40 comprobaciones en Chromium contra el Plesk simulado: estructura, paleta, menú, datos propios, tabla, impresión, insertar, solo el mapa, parámetros, teléfono | ✔ |
 | Prueba de extremo a extremo del Estudio | Preajustes en el administrador, archivo de interfaz, GeoLibre con barra de iconos y la API de incrustación respondiendo | ✔ |
 | Documentación | Revisión, anexo con el inventario, los dos planes y las guías actualizadas | ✔ |
+
+### Fase 7 · GeoLibre completo como interfaz principal
+
+Decisión del usuario (17 de noviembre de 2026): el geoportal se ve y funciona como
+[web.geolibre.app](https://web.geolibre.app/), sin omitir funciones, y el visor minimalista se
+retira. Se observó web.geolibre.app con [REA](../.claude/REA-PROCEDENCIA.md) y se revisaron los
+cambios de GeoLibre de la 3.7.0 a la 3.9.0.
+
+| Entregable | Detalle | Archivos | Estado |
+| --- | --- | --- | --- |
+| Portada con GeoLibre | GeoLibre a toda la vista bajo la barra GOV.CO y el encabezado; catálogo, ficha, insertar y nueva ventana; parámetros `capa`, `capas`, `base`, `lat/lon/zoom`, `maponly`, `panels`, `theme`, `compartido` | `index.html`, `assets/js/geoportal.js`, `assets/css/geoportal.css` | ✔ |
+| Retiro del visor minimalista | `visor.js`, `visor-herramientas.js` y `visor.css` | — | ✔ |
+| GeoLibre 3.9.0 | Versión fijada con SHA-256 de PyPI; compatible con la integración | `api/geolibre-version.json` | ✔ |
+| Interfaz de web.geolibre.app por defecto | Nivel avanzado, menús con texto, todos los paneles, `bottomPanelsUnderMap`; revisión de ajustes 2 para instalaciones existentes; apariencia institucional opcional | `geolibre.php`, `estudio.py`, administrador | ✔ |
+| Proyecto con capas visibles | `proyecto.geolibre?visibles=a,b` en las dos ediciones | `rutas_publicas.php`, `public.py`, `geolibre.py` | ✔ |
+| Servicio de compartir propio | Contrato v1 de GeoLibre en `api/compartir` (las dos ediciones) y tokens personales en el administrador | API y administrador | En integración |
+| Despliegue | Caché larga solo para archivos con huella; `/geolibre/` incrustable para el mapa insertado | `proxy/nginx.conf` | ✔ |
 
 ## Trazabilidad: de GeoLibre al geoportal
 

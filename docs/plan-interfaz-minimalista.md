@@ -6,6 +6,12 @@ mano. Parte de la [revisión de GeoLibre](revision-geolibre.md) y se ejecuta con
 
 **Estado: implementado y verificado** (ver [criterios de aceptación](#criterios-de-aceptación)).
 
+> **Histórico.** El 17 de noviembre de 2026 se decidió que el geoportal se viera y funcionara como
+> [web.geolibre.app](https://web.geolibre.app/): la portada pasó a ser GeoLibre completo y este
+> visor minimalista se retiró (`visor.js`, `visor-herramientas.js` y `visor.css`). Ver la
+> [fase 7 del plan de implementación](plan-implementacion.md#fase-7--geolibre-completo-como-interfaz-principal)
+> y [GeoLibre: el mapa del geoportal](estudio-sig.md).
+
 ## Alcance
 
 | Superficie | Qué cambia |

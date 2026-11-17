@@ -1,147 +1,161 @@
-# Estudio SIG: GeoLibre integrado en el geoportal
+# GeoLibre: el mapa del geoportal
 
-El **Estudio SIG** es [GeoLibre](https://github.com/opengeos/GeoLibre) (SIG libre, licencia MIT)
-servido por el propio geoportal, en la carpeta `geolibre/` de la instalación y en el **mismo
-origen** (dominio, subdominio, subdirectorio o subcarpeta). Se abre desde el menú **Estudio SIG**
-con todas las capas publicadas ya cargadas, organizadas por categoría, y ofrece **toda la
-interfaz y las herramientas de la versión web de GeoLibre**: edición, estilos, etiquetas, tabla
-de atributos, expresiones, SQL, geoprocesamiento (Whitebox y la caja de herramientas de GeoLibre),
-vista 3D y globo (Cesium), impresión de mapas, mapas narrativos, complementos, exportación y
-guardado de proyectos `.geolibre`.
+El mapa del Geoportal Ambiental es [GeoLibre](https://github.com/opengeos/GeoLibre) (SIG libre,
+licencia MIT), con **la misma interfaz y las mismas funciones que [web.geolibre.app](https://web.geolibre.app/)**
+y con todas las capas publicadas ya cargadas, organizadas por categoría. La portada lo muestra a
+toda la vista, bajo la barra GOV.CO y el encabezado de la Gobernación:
+
+- barra de menús **Proyecto, Editar, Ver, Añadir datos, Procesamiento, Controles, Complementos,
+  Configuración y Ayuda**, con el nombre del proyecto;
+- panel **Capas** con las carpetas por categoría, opacidad, orden, estilo, tabla de atributos y
+  ficha de cada capa; rieles **Explorador**, **Estilo** y **Comentarios**;
+- búsqueda de lugares, coordenadas o celdas H3; mapas base; 2D, 3D y globo (Cesium); barra de
+  estado con coordenadas, zoom, altura de cámara, rumbo, inclinación, extensión y diagnóstico;
+- edición, etiquetas, expresiones, SQL, más de mil herramientas de geoprocesamiento (Whitebox y la
+  caja de herramientas de GeoLibre), más de cuarenta fuentes de datos, 72 complementos, impresión
+  de mapas, mapas narrativos, exportación y proyectos `.geolibre`;
+- **Compartir** y **Abrir desde la galería** con el servicio de compartir del propio geoportal.
+
+El inventario completo, comprobado en web.geolibre.app con REA, está en el
+[anexo de inventario](anexo-inventario-geolibre.md).
 
 No es una copia ni una modificación: se instala la **compilación web oficial** que GeoLibre
-publica en su paquete de Python (PyPI), con la suma SHA-256 verificada, y se configura solo con
-sus mecanismos oficiales:
+publica en su paquete de Python (PyPI), con la suma SHA-256 verificada, en la carpeta `geolibre/`
+de la instalación y en el **mismo origen** del geoportal (dominio, subdominio o subcarpeta). Se
+configura solo con sus mecanismos oficiales:
 
 | Archivo | Qué es | Lo genera |
 | --- | --- | --- |
-| `geolibre/deployment.json` | [Política de despliegue](https://github.com/opengeos/GeoLibre/blob/main/docs/deployment-policy.md): marca, nivel de interfaz, menús, permisos, complementos, servicios, compartir | Administrador → Estudio SIG |
-| `geolibre/geoportal-ajustes.json` | Archivo de interfaz para `?settingsUrl=`: idioma y color de acento | Administrador → Estudio SIG |
-| `api/geolibre-version.json` | Versión fijada de GeoLibre: URL del paquete en PyPI, SHA-256 y tamaño | Repositorio |
+| `geolibre/deployment.json` | [Política de despliegue](https://github.com/opengeos/GeoLibre/blob/main/docs/deployment-policy.md): marca, nivel de interfaz, menús, permisos, complementos, servicios, compartir | Administrador → Mapa (GeoLibre) |
+| `geolibre/geoportal-ajustes.json` | Archivo de interfaz para `?settingsUrl=`: idioma, color de acento y disposición | Administrador → Mapa (GeoLibre) |
+| `api/geolibre-version.json` | Versión fijada de GeoLibre (hoy **3.9.0**): URL del paquete en PyPI, SHA-256 y tamaño | Repositorio |
 
-Así se sigue la recomendación de GeoLibre para despliegues propios: la aplicación y los datos en
-el mismo origen, sin CORS que configurar y sin que los datos salgan de la infraestructura de la
-Gobernación.
+Así se sigue la recomendación de GeoLibre para despliegues propios: la aplicación, los datos y el
+servicio de compartir en el mismo origen, sin CORS que configurar y sin que los datos salgan de la
+infraestructura de la Gobernación.
+
+## La portada
+
+| Elemento | Qué hace |
+| --- | --- |
+| **Mapa** | GeoLibre a toda la vista, con el proyecto `api/proyecto.geolibre` (todas las capas publicadas; encendidas las marcadas «Encendida al abrir»). Idioma, acento y tema del portal. Se carga la primera vez que se muestra. |
+| **Catálogo** | Una tarjeta por geodato, con búsqueda y filtros. «Ver en el mapa» vuelve al mapa, enciende la capa y la encuadra con la API de incrustación de GeoLibre; «Ficha» abre los metadatos, las descargas (GeoJSON o COG, archivo original y proyecto `.geolibre`) y la URL del servicio de datos. |
+| **Acerca del geoportal** | Qué se puede hacer, sistema de referencia, servicios para desarrolladores y condiciones de uso. |
+| **Insertar** | Código `<iframe>` con la vista y las capas actuales, para mostrar el mapa en otra página institucional. |
+| **Nueva ventana** | Abre GeoLibre solo, a pantalla completa, con el mismo proyecto y la misma vista. |
+| **Tema** | El botón de la barra GOV.CO cambia el tema del portal; GeoLibre lo toma al recargarse (el aviso ofrece «Recargar ahora») o con su propio botón de tema, sin recargar. |
+
+Parámetros de la dirección del geoportal (los nombres de GeoLibre y sus equivalentes en español):
+
+| Parámetro | Efecto |
+| --- | --- |
+| `?capa=slug` | Abre el mapa con esa capa encendida, la encuadra y muestra su ficha |
+| `?capas=a,b` | Capas encendidas al abrir (las demás quedan en el panel, apagadas) |
+| `?base=calles\|claro\|oscuro\|fiord\|brillante` | Mapa base del proyecto |
+| `?lat=&lon=&zoom=` (o el antiguo `?mapa=lat,lon,zoom`) | Vista inicial |
+| `?maponly=1` (o `?solomapa=1`) | Solo el mapa, en el modo de consulta de GeoLibre, con el enlace «Ver en el geoportal»: es lo que usa el código de «Insertar» |
+| `?panels=collapsed` (o `?paneles=plegados`) | Paneles de GeoLibre plegados al abrir |
+| `?theme=dark\|light` (o `?tema=oscuro\|claro`) | Tema para esa visita |
+| `?compartido=usuario/proyecto` | Abre un proyecto publicado con «Compartir» en este geoportal |
+
+Los enlaces del visor anterior (`#visor`, `#estudio`) llevan al mapa.
 
 ## Instalación
 
 Hay cuatro formas, según el servidor:
 
-1. **Desde el administrador (recomendada en Plesk).** *Administrador → Estudio SIG → Instalar
-   GeoLibre*. El servidor descarga el paquete oficial (≈56 MB), verifica su SHA-256, extrae solo
-   la aplicación web (≈200 MB, 1 038 archivos) y la deja en `geolibre/`. Requiere la extensión
+1. **Desde el administrador (recomendada en Plesk).** *Administrador → Mapa (GeoLibre) → Instalar
+   GeoLibre*. El servidor descarga el paquete oficial (≈57 MB), verifica su SHA-256, extrae solo
+   la aplicación web (≈212 MB, 1 060 archivos) y la deja en `geolibre/`. Requiere la extensión
    `zip` de PHP, salida HTTPS hacia `files.pythonhosted.org` y permiso de escritura en la carpeta
-   del geoportal. En el Plesk de prueba tardó 12 s. Si el servidor no lo permite, el
+   del geoportal. Si el proxy de Plesk corta la espera (60 s), la instalación continúa en el
+   servidor y el administrador comprueba cuándo terminó. Si el servidor no lo permite, el
    administrador lo indica y ofrece las alternativas.
 2. **Paquete «con GeoLibre».** `geoportal-plesk-<versión>-con-geolibre.zip` (en *Releases* o con
-   `scripts/empaquetar-plesk.sh --con-geolibre`) trae la carpeta `geolibre/` incluida: se sube y
-   se extrae igual que el paquete normal.
+   `scripts/empaquetar-plesk.sh --con-geolibre`) trae la carpeta `geolibre/` incluida.
 3. **Script.** `scripts/descargar-geolibre.sh [carpeta]` descarga, verifica e instala en
    `portal/geolibre/` (o en la carpeta indicada). No ejecuta código del paquete.
 4. **Docker.** El volumen `geolibre` se monta en la API (`/geolibre`, escritura) y en nginx
    (`/srv/geolibre`, lectura, publicado en `/geolibre/`). Se instala desde el administrador.
 
+Mientras GeoLibre no esté instalado, la portada usa la instancia externa configurada (por defecto
+`https://web.geolibre.app`) con el proyecto del geoportal; la API responde con CORS solo para ese
+origen. Sin instancia externa, la portada explica que el mapa no está instalado y ofrece el catálogo.
+
 Para **actualizar GeoLibre** se cambia `portal/api/geolibre-version.json` (versión, URL del
 paquete `.whl` de PyPI, `sha256` y `tamano_bytes`) y se pulsa *Actualizar* en el administrador.
-Los ajustes se conservan.
+Los ajustes se conservan y los archivos de configuración se regeneran.
 
-## Configuración (Administrador → Estudio SIG)
+## Configuración (Administrador → Mapa (GeoLibre))
 
 Solo los administradores ven esta sección. Cada cambio se guarda en la base de datos y se escribe
-en `deployment.json` y `geoportal-ajustes.json`; se aplica la próxima vez que se abre el Estudio.
-La pestaña **deployment.json** muestra la política generada.
+en `deployment.json` y `geoportal-ajustes.json`; se aplica la próxima vez que se abre el mapa.
+La pestaña **deployment.json** muestra la política generada. Por defecto, el mapa se ve y funciona
+como web.geolibre.app, en español y con el verde institucional.
 
 | Pestaña | Ajuste | Campo de GeoLibre |
 | --- | --- | --- |
-| ¿Qué GeoLibre se usa? | Estudio integrado o instancia externa (URL) | — (el geoportal decide qué enlace abre) |
+| ¿Qué GeoLibre se usa? | Integrado o instancia externa (URL) | — (el geoportal decide qué enlace abre) |
 | Apariencia e idioma | Nombre de la aplicación | `branding.appName` |
 | | Pantalla de bienvenida | `branding.welcome` |
 | | Modo completo o visor (solo consulta) | parámetro `layout=viewer` |
-| | Idioma (21 idiomas de GeoLibre) | `language` de `?settingsUrl=` |
-| | Color de acento (azul, violeta, esmeralda, rosa, ámbar o personalizado, por defecto el verde institucional `#10A13B`) | `theme.scheme` / `theme.customColor` |
-| Interfaz y menús | Preajustes de presentación: Esencial, Estándar (por defecto), Completo y Solo consulta | Rellenan los campos siguientes |
+| | Idioma (24 idiomas de GeoLibre) | `language` de `?settingsUrl=` |
+| | Color de acento (por defecto el verde institucional `#10A13B`) | `theme.scheme` / `theme.customColor` |
+| | **Apariencia institucional** (por defecto activa) | Envía `?settingsUrl=`. Mientras se usa, GeoLibre no guarda los ajustes que cambie cada visitante (claves, tokens, preferencias); desactívela si los usuarios necesitan conservarlos |
+| Interfaz y menús | Preajustes: **Completo** (por defecto, como web.geolibre.app), Estándar, Esencial y Solo consulta | Rellenan los campos siguientes |
 | | Empezar con los paneles plegados | parámetro `panels=collapsed` |
-| | Barra con iconos o con texto, nombre del proyecto, lista de capas compacta, paneles Estilo, Explorador y Comentarios | `layout` de `?settingsUrl=` (`toolbarLabels`, `showProjectInfo`, `compactLayerList`, `stylePanelVisible`, `browserPanelVisible`, `commentsPanelVisible`) |
-| | Nivel inicial, intermedio (por defecto) o avanzado; bloquearlo | `interface.level` / `interface.lock` |
-| | Menús ocultos (Proyecto, Editar, Ver, Añadir datos, Procesamiento, Controles, Complementos, Ayuda) | `interface.hiddenMenus` |
-| | Elementos de menú y fuentes de datos ocultos | `interface.hiddenMenuItems` / `interface.hiddenDataSources` |
+| | Menús con texto o solo iconos, nombre del proyecto, lista de capas compacta, paneles Estilo, Explorador y Comentarios, paneles inferiores bajo el mapa | `layout` de `?settingsUrl=` (`toolbarLabels`, `showProjectInfo`, `compactLayerList`, `stylePanelVisible`, `browserPanelVisible`, `commentsPanelVisible`, `bottomPanelsUnderMap`) |
+| | Nivel inicial, intermedio o avanzado (por defecto); bloquearlo | `interface.level` / `interface.lock` |
+| | Menús, elementos de menú y fuentes de datos ocultos | `interface.hiddenMenus` / `hiddenMenuItems` / `hiddenDataSources` |
 | Permisos | Editar proyectos, añadir datos, geoprocesamiento, exportar, instalar complementos, preferencias | `capabilities` |
-| Complementos | Permitir instalar desde archivo o URL | `plugins.sideload` |
-| | Registro de complementos propio | `plugins.registryUrl` |
-| | Lista de complementos externos permitidos (vacía = ninguno) | `plugins.allowed` |
-| | Activos por defecto, bloqueados, ocultos, panel que abre al iniciar | `plugins.defaultActive` / `blocked` / `interface.hiddenPlugins` / `plugins.openPanel` |
-| Servicios y mapas base | Servicios predeterminados de GeoLibre | `services.builtins` |
-| | Catálogo institucional: WMS, WFS, WMTS, XYZ, ArcGIS, CSW (p. ej. IDEAM, IGAC, SIAC) | `services.catalog` |
-| | Mapas base regionales servidos desde China continental | `basemaps.regional` |
-| Compartir y conexiones | Compartir y Galería en el servicio público (desactivado por defecto) | `sharing.shareUrl` (`off` o `https://share.geolibre.app`) |
-| | Servidor propio de proyectos | `sharing.shareUrl` |
+| Complementos | Instalar desde archivo o URL, registro propio, lista de permitidos, activos, bloqueados, ocultos y panel inicial | `plugins.*`, `interface.hiddenPlugins` |
+| Servicios y mapas base | Servicios predeterminados de GeoLibre y catálogo institucional (WMS, WFS, WMTS, XYZ, ArcGIS, CSW); mapas base regionales | `services.builtins`, `services.catalog`, `basemaps.regional` |
+| Compartir y conexiones | **Compartir y galería con el servicio del geoportal** (por defecto) | `sharing.shareUrl` = `<URL pública>/api/compartir` |
+| | Otro servidor de proyectos (opcional, tiene prioridad) | `sharing.shareUrl` |
 | | Relé de colaboración en tiempo real (`wss://`) | `sharing.collabUrl` |
 | | Servidor Overpass (descargas de OpenStreetMap) | `osm.overpassUrl` |
 | | GeoLens (`off`, `same-origin` o URL) | `geolens.url` |
 
-El geoportal fija además `sharing.embedOrigins` con su propio origen (para controlar el Estudio
-desde el visor) y `ai.enabled: false` (no hay ruta propia de asistente de IA en el servidor).
+El geoportal fija además `sharing.embedOrigins` con su propio origen (para controlar el mapa desde
+el catálogo) y `ai.enabled: false`.
+
+Los ajustes guardados antes de que GeoLibre fuera la interfaz principal (presentación compacta)
+se leen con la disposición completa; el resto (servicios, complementos, permisos) se conserva.
 
 Las capacidades de GeoLibre **limitan la interfaz y los comandos de incrustación**, no son un
-control de acceso: los datos que el Estudio muestra son los mismos que publica la API pública.
-Lo que no deba ser público no se publica en el geoportal.
+control de acceso: los datos que el mapa muestra son los mismos que publica la API pública. Lo que
+no deba ser público no se publica en el geoportal.
 
-## Integración con el visor
+## Compartir y galería
 
-- **Menú «Estudio SIG»**: abre GeoLibre dentro del geoportal, en la vista y con el mapa base del
-  visor, el tema claro u oscuro del portal, el idioma y el acento configurados.
-- **«Ver en Estudio SIG»** (ficha de una capa): enciende la capa en el Estudio y la encuadra.
-- **«Traer vista del visor»**: lleva al Estudio la vista y las capas encendidas en el visor.
-- **Nueva ventana**: abre el mismo Estudio a pantalla completa.
-- La comunicación usa la [API de incrustación v2 de GeoLibre](https://github.com/opengeos/GeoLibre/blob/main/docs/user-guide/embedding.md#talking-to-the-map-at-runtime)
-  (`setView`, `setLayerVisibility`, `listLayers`, `getViewport`…), limitada al origen del portal.
-  Los identificadores de capa son estables (UUID v5 del slug, campo `geolibre_id` de `/api/capas`).
-- El proyecto acepta `?base=calles|claro|oscuro|fiord|brillante` para abrir con ese mapa base.
-- Un ráster cuyo GeoTIFF publicado no se puede transmitir por rangos (no teselado o fuera de
-  EPSG:4326/3857, por ejemplo uno demasiado grande para convertirlo en el navegador) entra al
-  proyecto como **imagen georreferenciada** con su vista previa, en lugar de una capa que GeoLibre
-  no podría abrir.
+GeoLibre publica proyectos con un servicio HTTP (contrato v1). El servicio público
+`share.geolibre.app` solo acepta peticiones de los dominios de GeoLibre, así que el geoportal
+**aloja su propio servicio** en `api/compartir`, en las dos ediciones y en la base de datos del
+geoportal:
 
-Si el Estudio no está instalado, o el administrador elige una instancia externa, el geoportal
-muestra el botón «Abrir en GeoLibre» hacia esa instancia (por defecto `https://web.geolibre.app`)
-y la API responde con CORS solo para su origen.
+- **Ver** los proyectos públicos en *Proyecto → Abrir desde la galería* no requiere cuenta.
+- **Publicar** requiere un token personal: cada usuario del administrador (administrador o editor)
+  lo crea en *Mi cuenta → Tokens para compartir desde GeoLibre* y lo pega en GeoLibre
+  (*Configuración → Variables de entorno → shareToken*). Con la apariencia institucional activa,
+  GeoLibre no guarda ese ajuste entre visitas: use **Nueva ventana** o desactive la opción si los
+  usuarios publican con frecuencia.
+- El enlace de un proyecto compartido es `<geoportal>/?compartido=usuario/proyecto`.
 
-## Funciones del visor del geoportal
-
-Además del Estudio, el visor propio incorpora las funciones de uso frecuente de GeoLibre con una
-interfaz mínima: una tarjeta (búsqueda y capas), tres controles de navegación y un botón de
-herramientas. El diseño está en el [plan de interfaz minimalista](plan-interfaz-minimalista.md).
-
-| Función | Cómo |
-| --- | --- |
-| Modo oscuro | Botón de tema en la barra superior: automático (sigue al sistema), claro u oscuro. Se aplica al visor, catálogo, administrador, asistente de instalación, mapa base y Estudio SIG. |
-| Búsqueda y paleta de comandos | Una sola caja (`Ctrl` + `K`): acciones, capas por nombre (las enciende o apaga), mapas base, coordenadas decimales o sexagesimales, entidades de las capas encendidas y lugares de OpenStreetMap (Photon, con Nominatim de respaldo) priorizando Nariño. |
-| Capas | Una línea por capa; «⋯» abre opacidad, acercar, ficha, tabla, Estudio SIG y orden. Categorías plegables. |
-| Herramientas | Un botón (`H`) con mapas base, medir, terreno 3D, mi ubicación, añadir datos, copiar enlace, insertar, imagen, imprimir, pantalla completa, solo el mapa y atajos. |
-| Añadir datos | GeoJSON, Shapefile (.zip), GeoPackage, KML/KMZ, GPX, CSV y GeoTIFF desde el equipo, o GeoJSON, WMS y XYZ por dirección; también arrastrando el archivo al mapa. Se leen en el navegador: no se suben ni se publican, y no viajan en los enlaces. |
-| Coordenadas | Píldora con clic para cambiar el formato: grados decimales, GMS, grados y minutos, UTM y MAGNA-SIRGAS Origen Nacional (EPSG:9377); zoom, escala, rumbo e inclinación. |
-| Medición | Distancia y área geodésicas (`M`, `A`; doble clic o `Enter` termina, `Esc` cancela). |
-| Terreno 3D | Relieve con sombreado (`T`); arrastre con clic derecho para inclinar y girar. |
-| Tabla de atributos | Filtro, orden por columna, páginas de 100 filas, clic para ubicar y resaltar, exportación a CSV y «Filtrar también el mapa». |
-| Enlace permanente | La dirección guarda vista, capas, mapa base y terreno; «Copiar enlace de esta vista». |
-| Insertar el mapa | Código `<iframe>` de la vista actual, con ancho, alto y «solo el mapa». |
-| Imprimir e imagen | Hoja A4 horizontal con encabezado institucional, norte, escala gráfica, leyenda y fuente (`P`); descarga PNG con título, capas y fecha. |
-| Solo el mapa | `F` oculta la interfaz; `?maponly=1` en la dirección la abre así para incrustarla. |
-| Parámetros de la dirección | Los de GeoLibre: `maponly`, `panels=collapsed`, `theme=dark\|light`, `lat`, `lon`, `zoom`; y sus equivalentes `solomapa`, `paneles=plegados`, `tema=oscuro\|claro`. Además `capas=`, `mapa=`, `base=` y `3d=1`. |
-| Atajos de teclado | `N` norte, `U` sin inclinación, `R` vista de Nariño, `L` lista de capas, `H` herramientas, `F` solo el mapa, `P` imprimir, `?` ayuda. |
+El detalle del contrato implementado está en [arquitectura](arquitectura.md#servicio-de-compartir).
 
 ## Qué no incluye y por qué
 
 | Función de GeoLibre | Situación en el geoportal |
 | --- | --- |
-| *Sidecar* de Python (Whitebox, conversiones y ML del lado del servidor, conexiones PostGIS y SQL Server) | La versión web ejecuta Whitebox y el resto del análisis en el navegador (WebAssembly y Pyodide). El *sidecar* solo existe en la imagen Docker de GeoLibre: en la edición Docker puede levantarse con `docker compose --profile geolibre-separado up -d` y `GEOLIBRE_DISABLE_SIDECAR=0`. |
-| Asistente de IA | La ruta de IA del servidor no se ofrece (`ai.enabled: false`) porque requiere claves de proveedores. Cada usuario puede configurar su propia clave en *Configuración* de GeoLibre (queda en su navegador); para impedirlo, oculte el complemento o el menú correspondiente. |
-| Funciones de escritorio | Diálogos de archivos locales, lectura de MBTiles y rásteres locales y guardado directo en disco son de la aplicación de escritorio. En la web se guardan y abren proyectos `.geolibre` descargándolos. |
-| `plugins.fileAccess` | Solo se respeta desde un archivo de política del sistema en la aplicación de escritorio. |
-| Compartir en línea | Desactivado por defecto para no publicar proyectos fuera de la infraestructura de la Gobernación; se activa en *Compartir y conexiones* o con un servidor propio. |
+| Colaboración en tiempo real | Necesita un relé WebSocket propio: el público solo admite los dominios de GeoLibre. PHP en Plesk no mantiene WebSockets; en la edición Docker puede desplegarse el relé oficial (`workers/collab-node` de GeoLibre, Node + SQLite) detrás de nginx e indicarse su `wss://` en *Compartir y conexiones*. |
+| Asistente de IA | `ai.enabled: false`: un proxy de IA requiere claves y costos de un proveedor. Cada usuario puede usar su propia clave en *Configuración* de GeoLibre (con la apariencia institucional activa no se guarda entre visitas). |
+| *Sidecar* de Python (Whitebox del lado del servidor, PostGIS, SQL Server) | La versión web ejecuta Whitebox y el resto del análisis en el navegador (WebAssembly y Pyodide). El *sidecar* solo existe en la imagen Docker de GeoLibre y debe servirse en la raíz del dominio: en la edición Docker, `docker compose --profile geolibre-separado up -d` con `GEOLIBRE_DISABLE_SIDECAR=0`. |
+| GeoLens | Es otro producto (FastAPI + PostGIS); se puede conectar uno existente en *Compartir y conexiones*. |
+| Funciones de escritorio | Diálogos de archivos locales, MBTiles y rásteres locales y guardado directo en disco son de la aplicación de escritorio. En la web los proyectos `.geolibre` se descargan y se abren. |
+| Claves de servicios de web.geolibre.app | Protomaps, Mapillary y el inicio de sesión de ArcGIS usan claves propias de web.geolibre.app que no vienen en el paquete oficial; cada usuario puede indicar las suyas en *Configuración*. |
 
 GeoLibre contacta algunos servicios públicos cuando se usan sus funciones (mapas base de
-OpenFreeMap, geocodificación, rutas, Pyodide desde jsDelivr). La lista completa y cómo
+OpenFreeMap, geocodificación, rutas, Overpass, Pyodide desde jsDelivr). La lista completa y cómo
 reemplazarlos por servicios internos está en
 [network-endpoints](https://github.com/opengeos/GeoLibre/blob/main/docs/network-endpoints.md).
 GeoLibre no recoge analítica.
@@ -150,22 +164,24 @@ GeoLibre no recoge analítica.
 
 | Síntoma | Causa y solución |
 | --- | --- |
-| No aparece «Estudio SIG» en el menú | GeoLibre no está instalado o se eligió una instancia externa: *Administrador → Estudio SIG*. |
+| La portada dice «El mapa interactivo no está instalado» | GeoLibre no está instalado y no hay instancia externa: *Administrador → Mapa (GeoLibre)*. |
 | «Este servidor no puede instalar GeoLibre automáticamente» | Falta la extensión `zip`, la salida HTTPS o el permiso de escritura: use el paquete «con GeoLibre» o suba la carpeta `geolibre/` por FTP o el Administrador de archivos. |
-| El Estudio abre pero «Traer vista del visor» no hace nada | El origen del portal cambió (otro dominio o `http`/`https`): guarde de nuevo los ajustes del Estudio para regenerar `embedOrigins`, o fije la URL pública en *Configuración*. |
-| Un ráster aparece como imagen en el Estudio | Su GeoTIFF no está teselado o está en otro sistema de referencia: súbalo como COG en EPSG:4326 o 3857 para analizar sus valores. |
-| Cambios del administrador que no se ven | El Estudio lee la política al abrir: use «Recargar». |
+| «Ver en el mapa» no enciende la capa | El origen del portal cambió (otro dominio o `http`/`https`): guarde de nuevo los ajustes del mapa para regenerar `embedOrigins`, o fije la URL pública en *Configuración*. |
+| Compartir dice que falta el token | Cree uno en *Mi cuenta* del administrador y péguelo en *Configuración → Variables de entorno → shareToken* de GeoLibre. |
+| Un ráster aparece como imagen | Su GeoTIFF no está teselado o está en otro sistema de referencia: súbalo como COG en EPSG:4326 o 3857 para analizar sus valores. |
+| Cambios del administrador que no se ven | GeoLibre lee la política al abrir: recargue la página. |
 
 ## Verificación realizada
 
 En el Plesk simulado (nginx → Apache → PHP-FPM con `open_basedir`, MySQL 8):
 
-- instalación de GeoLibre 3.7.0 con el botón del administrador en `/geoportal/` (12 s, 1 038
-  archivos) y mensaje de instalación manual en un subdominio con raíz no escribible;
-- Estudio SIG en subcarpeta anidada (`/secretarias/ambiente/geoportal/`), en español, con el
-  acento institucional, modo oscuro, mapa base oscuro y menú «Ayuda» oculto desde el
-  administrador;
-- API de incrustación: `listLayers`, `getViewport`, `setLayerVisibility` y `setView` desde el
-  visor; diagnóstico de GeoLibre sin errores;
-- pruebas automáticas de ambas ediciones (`api/tests/test_estudio.py` y
-  `pruebas/edicion_php/test_edicion_php.py::test_estudio_sig`).
+- instalación de GeoLibre 3.9.0 con la API del administrador en `/geoportal/` y en
+  `/secretarias/ambiente/geoportal/` (1 060 archivos; la primera vez el proxy cortó a los 60 s y
+  la instalación terminó en el servidor);
+- portada con la interfaz completa: los nueve menús con texto, panel Capas con las categorías,
+  barra de estado en español, versión 3.9.0, API de incrustación (`listLayers`,
+  `setLayerVisibility`, `setView`), parámetros de la dirección, solo el mapa, insertar, tema y
+  sitio sin GeoLibre o sin instalar, en 360, 390 (táctil), 768, 1024, 1440 y 1857 px de ancho,
+  en claro y oscuro;
+- pruebas automáticas de ambas ediciones (`api/tests/test_estudio.py`,
+  `pruebas/edicion_php/test_edicion_php.py::test_estudio_sig` y las del servicio de compartir).

@@ -29,10 +29,10 @@ Así se logra:
 | Requisitos | Plesk Obsidian con la extensión **Docker** | Acceso SSH root y Python 3.10 o superior |
 | Sitio estático | Lo sirve el contenedor `web` | Archivos en `httpdocs/` del dominio |
 | API | Contenedor `api` | Servicio systemd en `127.0.0.1:8000` |
-| Estudio SIG (GeoLibre integrado) | Volumen `geolibre`, servido en `/geolibre/` | Carpeta `geolibre/` dentro del sitio estático |
+| Mapa (GeoLibre integrado) | Volumen `geolibre`, servido en `/geolibre/` | Carpeta `geolibre/` dentro del sitio estático |
 | Directivas nginx | `despliegue/plesk/A-docker-*.conf` | `despliegue/plesk/B-sin-docker-*.conf` |
 
-En ambos modos active **SSL/TLS** (Let's Encrypt) en el dominio. El Estudio SIG integrado comparte
+En ambos modos active **SSL/TLS** (Let's Encrypt) en el dominio. GeoLibre integrado comparte
 origen con el geoportal; una instancia externa de GeoLibre solo se conecta a sitios `https`.
 
 ---
@@ -51,7 +51,7 @@ origen con el geoportal; una instancia externa de GeoLibre solo se conecta a sit
    ```
 
    Edite `.env`: `GEOPORTAL_SECRET_KEY`, `GEOPORTAL_ADMIN_PASSWORD` y `GEOPORTAL_PUBLIC_URL`
-   (con el subdirectorio, si aplica). Deje `GEOLIBRE_PUBLIC_URL=local` para el Estudio SIG integrado.
+   (con el subdirectorio, si aplica). Deje `GEOLIBRE_PUBLIC_URL=local` para GeoLibre integrado.
 3. Arranque los contenedores, que quedan escuchando en `127.0.0.1:8080`:
 
    ```bash
@@ -68,12 +68,12 @@ origen con el geoportal; una instancia externa de GeoLibre solo se conecta a sit
      de Plesk no reenvía el esquema `https` al contenedor.
    - **Subdirectorio:** pegue [`A-docker-subdirectorio.conf`](../despliegue/plesk/A-docker-subdirectorio.conf)
      en *Directivas adicionales de nginx*, cambiando `/geoportal` por la ruta elegida en las líneas marcadas `◄`.
-5. Estudio SIG: *Administrador → Estudio SIG → Instalar GeoLibre*. Queda en el volumen `geolibre` y
+5. Mapa (GeoLibre): *Administrador → Mapa (GeoLibre) → Instalar GeoLibre*. Queda en el volumen `geolibre` y
    se publica en `…/geolibre/` del mismo dominio y ruta, sin reglas adicionales.
 6. Opcional, GeoLibre con su *sidecar* de Python en su propio subdominio (por ejemplo
    `visor-sig.narino.gov.co`): `docker compose --profile geolibre-separado up -d`, cree el subdominio
    en Plesk, añada una *Docker Proxy Rule* `/` → contenedor `…-geolibre-1`, puerto `80`, active SSL y
-   elija esa URL como instancia externa en *Administrador → Estudio SIG*.
+   elija esa URL como instancia externa en *Administrador → Mapa (GeoLibre)*.
 
 ## Modo B — sin Docker
 
@@ -124,7 +124,7 @@ origen con el geoportal; una instancia externa de GeoLibre solo se conecta a sit
    ajustando la ruta. Funciona con el modo proxy de nginx activado o desactivado, y convive con otro
    sitio (por ejemplo WordPress) en la raíz: las rutas `^~ /geoportal/api/` se resuelven en nginx antes
    que las reglas de Apache o `.htaccess`.
-4. Estudio SIG: añada a `geoportal.env` la carpeta donde la API instalará GeoLibre, dentro del sitio
+4. Mapa (GeoLibre): añada a `geoportal.env` la carpeta donde la API instalará GeoLibre, dentro del sitio
    estático, y dé permiso de escritura al usuario del servicio:
 
    ```ini
@@ -144,7 +144,7 @@ origen con el geoportal; una instancia externa de GeoLibre solo se conecta a sit
    ReadWritePaths=/var/www/vhosts/<dominio>/httpdocs/geoportal/geolibre
    ```
 
-   Reinicie el servicio e instale desde *Administrador → Estudio SIG*. Como alternativa, ejecute
+   Reinicie el servicio e instale desde *Administrador → Mapa (GeoLibre)*. Como alternativa, ejecute
    `scripts/descargar-geolibre.sh /var/www/vhosts/<dominio>/httpdocs/geoportal/geolibre`.
    Para no instalar nada, elija en el administrador la instancia externa `https://web.geolibre.app`.
 
@@ -152,7 +152,7 @@ origen con el geoportal; una instancia externa de GeoLibre solo se conecta a sit
 
 | Opción | Cómo | Comentario |
 | --- | --- | --- |
-| **Estudio SIG integrado (recomendada)** | `GEOLIBRE_PUBLIC_URL=local` e instalar desde el administrador | Mismo origen que el geoportal, en cualquier dominio, subdominio o subdirectorio; configurable desde el administrador y controlado desde el visor. Ver [Estudio SIG](estudio-sig.md) |
+| **GeoLibre integrado (recomendada)** | `GEOLIBRE_PUBLIC_URL=local` e instalar desde el administrador | Mismo origen que el geoportal, en cualquier dominio, subdominio o subdirectorio; configurable desde el administrador y controlado desde la portada. Ver [GeoLibre: el mapa del geoportal](estudio-sig.md) |
 | Instancia oficial | Instancia externa `https://web.geolibre.app` en el administrador | Sin instalar nada. La aplicación se carga desde geolibre.app y el navegador descarga los datos del geoportal (CORS) |
 | Subdominio propio con Docker | Perfil `geolibre-separado` e instancia externa `https://visor-sig.narino.gov.co` | Imagen oficial con *sidecar* de Python opcional |
 
@@ -184,8 +184,8 @@ curl -s BASE/api/config
 Luego, en el navegador:
 
 1. `BASE/admin/` → ingrese, cargue un geodato pequeño y publíquelo.
-2. `BASE/` → encienda la capa, abra su ficha, descárguela y pulse **Ver en Estudio SIG** (o
-   **Abrir en GeoLibre** si usa una instancia externa).
+2. `BASE/` → el mapa (GeoLibre) muestra la capa en su carpeta; en *Catálogo* abra su ficha,
+   descárguela y pulse **Ver en el mapa**.
 3. `BASE/api/docs` → la documentación debe cargar.
 
 ## Problemas frecuentes

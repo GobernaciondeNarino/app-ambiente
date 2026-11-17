@@ -34,8 +34,8 @@ Opción recomendada, el **paquete listo para subir** `geoportal-plesk-<versión>
 
 El ZIP contiene una única carpeta `geoportal/`, con todo lo necesario.
 
-También existe `geoportal-plesk-<versión>-con-geolibre.zip` (≈56 MB), que incluye el **Estudio
-SIG** (GeoLibre) en `geoportal/geolibre/`. Úselo si el servidor no puede descargar archivos de
+También existe `geoportal-plesk-<versión>-con-geolibre.zip` (≈56 MB), que incluye
+GeoLibre (el mapa del geoportal) en `geoportal/geolibre/`. Úselo si el servidor no puede descargar archivos de
 Internet o no tiene la extensión `zip` de PHP; se genera con
 `scripts/empaquetar-plesk.sh --con-geolibre`.
 
@@ -66,7 +66,7 @@ si instaló en la raíz).
 | --- | --- |
 | **1. Requisitos** | Revisa la versión de PHP y las extensiones, los permisos, el tamaño de carga, HTTPS, que la API responda y que PHP reciba la cabecera de autorización |
 | **2. Base de datos** | Pide servidor (casi siempre `localhost`), nombre, usuario, contraseña y prefijo de tablas (`gp_`). Prueba la conexión y explica el error en español si falla. Crea `config.php` con una clave secreta aleatoria |
-| **3. Sitio y administrador** | Nombre del geoportal, URL pública (detectada), GeoLibre (vacío = Estudio SIG integrado, o la URL de una instancia externa) y la cuenta del administrador. En *Opciones avanzadas*, la carpeta de datos |
+| **3. Sitio y administrador** | Nombre del geoportal, URL pública (detectada), GeoLibre (vacío = GeoLibre integrado, o la URL de una instancia externa) y la cuenta del administrador. En *Opciones avanzadas*, la carpeta de datos |
 | **4. Listo** | Crea las tablas, las 7 categorías temáticas iniciales y el administrador; si GeoLibre ya está en `geolibre/`, escribe su política. Comprueba que la carpeta de datos no sea accesible desde Internet |
 
 El asistente tiene el mismo botón de tema que el geoportal (automático, claro u oscuro).
@@ -86,13 +86,14 @@ se crea dentro de la instalación con un nombre aleatorio y protegida con `.htac
 1. **SSL:** *Sitios web y dominios → SSL/TLS → Let's Encrypt*. Active «Redirigir de HTTP a HTTPS».
 2. **Ingrese** a `…/geoportal/admin/` con el usuario creado y cargue los geodatos. Vea el
    [manual del administrador](manual-administrador.md).
-3. **Estudio SIG:** en *Administrador → Estudio SIG* pulse **Instalar GeoLibre**. El servidor
-   descarga la versión oficial desde PyPI (≈56 MB, se verifica su SHA-256) y la deja en
-   `geolibre/`; en la prueba tardó 12 s. Requiere la extensión `zip` de PHP, salida HTTPS y permiso
+3. **Mapa (GeoLibre):** en *Administrador → Mapa (GeoLibre)* pulse **Instalar GeoLibre**. El servidor
+   descarga la versión oficial desde PyPI (≈57 MB, se verifica su SHA-256) y la deja en
+   `geolibre/` (1 060 archivos); en la prueba tardó entre 26 s y algo más de 60 s. Si el proxy de
+   Plesk corta la espera a los 60 s, la instalación termina en el servidor y el administrador lo comprueba. Requiere la extensión `zip` de PHP, salida HTTPS y permiso
    de escritura en la carpeta del geoportal. Si no se cumplen, use el paquete «con GeoLibre» o
    suba la carpeta `geolibre/` (de `scripts/descargar-geolibre.sh`) con el Administrador de
    archivos. En la misma sección se configuran marca, idioma, color, menús, permisos,
-   complementos, servicios y opciones para compartir: ver [Estudio SIG](estudio-sig.md).
+   complementos, servicios y opciones para compartir: ver [GeoLibre: el mapa del geoportal](estudio-sig.md).
 4. **Configuración:** el administrador tiene la sección *Configuración* (nombre, URL pública,
    tamaño máximo de carga, duración de la sesión).
 5. **Tamaño de carga:** la API incluye un `.user.ini` que eleva los límites de PHP a 512 MB. Si su
@@ -108,7 +109,7 @@ administrador, como en GeoLibre, y el servidor vuelve a validar el resultado:
 | Archivo | Qué hace el navegador |
 | --- | --- |
 | GeoJSON, Shapefile (.zip), KML, KMZ, GeoPackage, CSV | Lo lee, lo reproyecta a WGS 84 (EPSG:4326) y sube el GeoJSON junto con el original |
-| GeoTIFF | Calcula estadísticas y genera la vista previa del visor. Si no está en EPSG:4326/3857 o no está teselado, crea además una copia teselada en EPSG:4326 para GeoLibre (hasta unos 16 millones de celdas) |
+| GeoTIFF | Calcula estadísticas y genera la vista previa (miniatura de la ficha y respaldo para GeoLibre). Si no está en EPSG:4326/3857 o no está teselado, crea además una copia teselada en EPSG:4326 para GeoLibre (hasta unos 16 millones de celdas) |
 
 Sistemas de referencia reconocidos: MAGNA-SIRGAS Origen Nacional (EPSG:9377 / ESRI:103599),
 MAGNA-SIRGAS Colombia 3114–3118, MAGNA-SIRGAS geográficas (4686), WGS 84 (4326, 3857) y
@@ -127,7 +128,7 @@ atributos, y rechaza coordenadas fuera de rango. Los intentos fallidos no dejan 
 | Reparación de geometrías inválidas | No (se publican como llegan) | Sí (`make_valid`) |
 | Rásteres grandes en GeoLibre | Hasta unos 16 millones de celdas, o subirlos ya como COG en EPSG:4326/3857 | Sin límite práctico (COG generado con GDAL) |
 
-Los rásteres muy grandes se ven igual en el visor del geoportal. Para abrirlos en GeoLibre,
+Los rásteres muy grandes entran al mapa como imagen georreferenciada. Para analizarlos en GeoLibre,
 expórtelos desde QGIS como COG en EPSG:4326 o EPSG:3857.
 
 ## Actualizar a una nueva versión
@@ -136,8 +137,8 @@ expórtelos desde QGIS como COG en EPSG:4326 o EPSG:3857.
 2. Suba los archivos nuevos sobre los anteriores **sin borrar** `config.php`, la carpeta de datos
    ni `geolibre/`.
 3. No hace falta volver a ejecutar el asistente.
-4. Si la nueva versión fija otra versión de GeoLibre, *Administrador → Estudio SIG* ofrece
-   **Actualizar**; los ajustes del Estudio se conservan.
+4. Si la nueva versión fija otra versión de GeoLibre, *Administrador → Mapa (GeoLibre)* ofrece
+   **Actualizar**; los ajustes del mapa se conservan.
 
 ## Respaldos
 
@@ -153,7 +154,7 @@ expórtelos desde QGIS como COG en EPSG:4326 o EPSG:3857.
 - Carpeta de datos fuera de la raíz pública (o protegida y con nombre aleatorio). Los datos
   solo se sirven a través de la API, y los borradores no son públicos.
 - Roles editor/administrador validados en el servidor y bitácora de acciones.
-- El Estudio SIG comparte origen con el portal; CORS solo para la instancia externa de GeoLibre
+- GeoLibre integrado comparte origen con el portal; CORS solo para la instancia externa de GeoLibre
   configurada. La API de incrustación de GeoLibre solo acepta órdenes del origen del portal.
 - Compartir proyectos en el servicio público de GeoLibre, desactivado por defecto.
 - Asistente bloqueado después de instalar.
@@ -170,10 +171,10 @@ Recomendado: limitar el acceso a `/admin/` por IP desde *Configuración de Apach
 | «La base de datos … no existe» | No se creó en Plesk | *Bases de datos → Añadir base de datos* |
 | «El archivo supera el tamaño máximo» | Límites de PHP o nginx | Vea el punto 5 de «Después de instalar» |
 | Página en blanco o error 500 | Error de PHP | *Registros* del dominio en Plesk (`error_log`) |
-| GeoLibre externo: «Could not fetch the project» | Sitio sin `https` | Active SSL (el Estudio SIG integrado no lo exige) |
-| Un ráster aparece como imagen en el Estudio SIG | GeoTIFF muy grande en un sistema distinto de 4326/3857 o sin teselar | Expórtelo como COG en EPSG:4326 desde QGIS y reemplace el archivo |
+| GeoLibre externo: «Could not fetch the project» | Sitio sin `https` | Active SSL (GeoLibre integrado no lo exige) |
+| Un ráster aparece como imagen en el mapa | GeoTIFF muy grande en un sistema distinto de 4326/3857 o sin teselar | Expórtelo como COG en EPSG:4326 desde QGIS y reemplace el archivo |
 | «Este servidor no puede instalar GeoLibre automáticamente» | Falta `zip`, salida HTTPS o permiso de escritura | Paquete «con GeoLibre» o subir `geolibre/` a mano |
-| No aparece «Estudio SIG» en el menú del visor | GeoLibre sin instalar o instancia externa elegida | *Administrador → Estudio SIG* |
+| La portada dice que el mapa no está instalado | GeoLibre sin instalar y sin instancia externa | *Administrador → Mapa (GeoLibre)* |
 
 ### Hosting solo con nginx (sin Apache)
 
@@ -208,9 +209,9 @@ como lo haría un usuario.
 | `.user.ini` elevando el límite de 2 MB por defecto | ✔ Límite efectivo de 200 MB (el configurado en el geoportal) |
 | Asistente después de instalar | ✔ Bloqueado; `config.php` responde 403 |
 | Carpeta de datos | ✔ Fuera de la raíz pública |
-| Estudio SIG: «Instalar GeoLibre» desde el administrador en `/geoportal/` | ✔ 12 s, 1 038 archivos, con `open_basedir` y PHP-FPM |
-| Estudio SIG en la raíz del subdominio sin permiso de escritura | ✔ El administrador explica la instalación manual |
-| Estudio SIG en subcarpeta anidada `/secretarias/ambiente/geoportal/` | ✔ En español, acento institucional, modo oscuro, control desde el visor |
+| «Instalar GeoLibre» 3.9.0 desde el administrador en `/geoportal/` y en `/secretarias/ambiente/geoportal/` | ✔ 1 060 archivos, con `open_basedir` y PHP-FPM (la primera vez el proxy cortó a los 60 s y la instalación terminó en el servidor) |
+| GeoLibre en la raíz del subdominio sin permiso de escritura | ✔ El administrador explica la instalación manual; mientras tanto la portada usa la instancia externa |
+| Mapa en subcarpeta anidada `/secretarias/ambiente/geoportal/` | ✔ Interfaz completa de GeoLibre en español, acento institucional, modo oscuro, «Ver en el mapa» desde el catálogo |
 
 Formatos cargados desde el administrador y comparados con geopandas/rasterio:
 
@@ -226,7 +227,7 @@ Formatos cargados desde el administrador y comparados con geopandas/rasterio:
 
 También se comprobaron:
 
-- El visor, la ficha, las descargas y la lectura del GeoTIFF por rangos (HTTP 206).
+- El mapa, la ficha, las descargas y la lectura del GeoTIFF por rangos (HTTP 206).
 - El proyecto GeoLibre: carpetas por categoría y URLs bajo la subcarpeta.
 - Que `web.geolibre.app` abre las capas vectoriales y los rásteres, incluido el DEM en MAGNA
   reproyectado en el navegador.
