@@ -1,0 +1,536 @@
+/* Geoportal Ambiental — interfaz principal: GeoLibre a toda la vista (bajo la barra GOV.CO y el
+   encabezado institucional), catálogo de geodatos, ficha de metadatos y código para insertar el mapa.
+   Ver docs/estudio-sig.md. */
+
+/* ---------------------------------------------------------------- mapa (GeoLibre) */
+
+.mapa-geolibre {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--alto-govco) - var(--alto-encabezado));
+  height: calc(100dvh - var(--alto-govco) - var(--alto-encabezado)); /* sin dvh queda más alto que la pantalla en móviles con barra dinámica */
+  min-height: 420px;
+  background: var(--fondo-mapa);
+}
+
+.mapa-geolibre[hidden] {
+  display: none;
+}
+
+.marco-geolibre {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--fondo-mapa);
+}
+
+.marco-geolibre[hidden] {
+  display: none;
+}
+
+/* Mientras GeoLibre descarga su aplicación y el proyecto */
+.cargando-mapa {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--fondo-mapa);
+  font: 600 16px var(--fuente-titulos);
+  color: var(--gris-titulo);
+}
+
+.cargando-mapa[hidden] {
+  display: none;
+}
+
+.girando {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--borde);
+  border-top-color: var(--verde);
+  border-radius: 50%;
+  animation: girar 0.9s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Aviso sobre el mapa (cambio de tema del portal) */
+.aviso-mapa {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  width: min(640px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  box-shadow: var(--sombra);
+}
+
+.aviso-mapa[hidden] {
+  display: none;
+}
+
+.aviso-mapa span {
+  flex: 1;
+}
+
+/* Sin GeoLibre disponible o geoportal sin instalar */
+.mapa-vacio {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+  background: var(--fondo-mapa);
+}
+
+.mapa-vacio[hidden] {
+  display: none;
+}
+
+.mapa-vacio > div {
+  max-width: 520px;
+  padding: 20px 22px;
+  background: var(--superficie);
+  border-top: 4px solid var(--amarillo);
+  border-radius: 12px;
+  box-shadow: var(--sombra);
+}
+
+.mapa-vacio p {
+  margin: 0 0 10px;
+}
+
+.mapa-vacio strong {
+  font-family: var(--fuente-titulos);
+  font-size: 18px;
+  color: var(--gris-titulo);
+}
+
+.acciones-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+/* ---------------------------------------------------------------- solo el mapa (insertado en otra página) */
+
+.volver-geoportal {
+  position: absolute;
+  z-index: 4;
+  right: 10px;
+  bottom: 34px;
+  background: var(--superficie);
+  border-radius: 999px;
+  box-shadow: var(--sombra);
+  padding: 5px 12px;
+  font: 600 12.5px var(--fuente-titulos);
+  color: var(--gris-titulo);
+  text-decoration: none;
+}
+
+.volver-geoportal:hover {
+  color: var(--verde-oscuro);
+}
+
+.volver-geoportal[hidden] {
+  display: none;
+}
+
+body.solo-mapa .barra-govco,
+body.solo-mapa .encabezado,
+body.solo-mapa .saltar-contenido,
+body.solo-mapa .pie {
+  display: none;
+}
+
+body.solo-mapa .mapa-geolibre {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
+
+/* Buscador (catálogo) */
+.buscador {
+  position: relative;
+  display: block;
+}
+
+.buscador > span[data-icono] svg,
+.buscador > svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--gris-suave);
+  pointer-events: none;
+}
+
+.buscador input {
+  padding-left: 36px;
+}
+
+/* Diálogos pequeños (insertar el mapa) */
+dialog.dialogo-chico {
+  width: min(520px, calc(100vw - 32px));
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border: 1px solid var(--borde-control);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--superficie-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--gris-titulo);
+}
+
+.nota {
+  font-size: 13.5px;
+  color: var(--gris-suave);
+}
+
+/* Páginas (catálogo, acerca) */
+.pagina {
+  padding: 32px 24px 48px;
+  min-height: calc(100vh - var(--alto-govco) - var(--alto-encabezado));
+}
+
+.pagina-ancho {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pagina-titulo h1 {
+  font-size: 32px;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.pagina-titulo h1::after,
+.prosa h1::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 64px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--amarillo);
+}
+
+.prosa h1 {
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.pagina-titulo p {
+  max-width: 820px;
+  font-size: 17px;
+}
+
+.prosa {
+  max-width: 820px;
+  font-size: 17px;
+}
+
+.prosa h2 {
+  margin-top: 1.4em;
+  font-size: 22px;
+}
+
+.filtros {
+  display: grid;
+  grid-template-columns: 1fr 260px 200px;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.rejilla-catalogo {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.ficha-tarjeta {
+  display: flex;
+  flex-direction: column;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.ficha-tarjeta:hover {
+  box-shadow: var(--sombra);
+  transform: translateY(-2px);
+}
+
+.ficha-tarjeta .franja-superior {
+  height: 6px;
+}
+
+.ficha-tarjeta .contenido {
+  padding: 16px 18px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ficha-tarjeta h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.ficha-tarjeta p {
+  margin: 0;
+  font-size: 14.5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ficha-tarjeta .datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ficha-tarjeta .acciones {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-top: 1px solid var(--borde-suave);
+  background: var(--superficie-2);
+}
+
+/* Ficha de metadatos */
+.ficha-categoria {
+  margin: 0 0 4px;
+  font-family: var(--fuente-titulos);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--verde-oscuro);
+}
+
+.ficha-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.ficha-descripcion {
+  font-size: 16px;
+  white-space: pre-line;
+}
+
+dl.metadatos {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  margin: 0;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 14.5px;
+}
+
+dl.metadatos dt,
+dl.metadatos dd {
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--borde);
+}
+
+dl.metadatos dt {
+  background: var(--superficie-2);
+  font-family: var(--fuente-titulos);
+  font-weight: 600;
+  color: var(--gris-titulo);
+}
+
+dl.metadatos dd {
+  word-break: break-word;
+}
+
+dl.metadatos > :nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.ficha-seccion {
+  font-size: 17px;
+  margin: 22px 0 10px;
+}
+
+/* Tabla de atributos de la ficha: se desplaza dentro de su caja en pantallas angostas */
+.tabla-desplazable {
+  position: relative;
+  overflow-x: auto;
+}
+
+.tabla-atributos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.tabla-atributos th,
+.tabla-atributos td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla-atributos th {
+  background: var(--superficie-2);
+  font-family: var(--fuente-titulos);
+  color: var(--gris-titulo);
+}
+
+.url-servicio {
+  display: flex;
+  gap: 6px;
+}
+
+.url-servicio input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+.rejilla-insertar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 10px 0;
+  font-size: 13.5px;
+}
+
+.rejilla-insertar input[type="text"],
+.rejilla-insertar input[type="number"] {
+  display: block;
+  width: 110px;
+  margin-top: 3px;
+  padding: 6px 8px;
+}
+
+.codigo-insertar {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  resize: vertical;
+}
+
+.acciones-dialogo {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+
+@media (max-width: 860px) {
+  .filtros {
+    grid-template-columns: 1fr;
+  }
+
+  dl.metadatos {
+    grid-template-columns: 1fr;
+  }
+
+  dl.metadatos dt {
+    border-bottom: 0;
+    padding-bottom: 2px;
+  }
+
+  .pagina {
+    padding: 24px 16px 40px;
+  }
+
+  /* En teléfono el menú desplegable muestra también «Insertar» y «Nueva ventana» */
+  .navegacion .btn {
+    justify-content: flex-start;
+  }
+}
+
+/* Pantallas táctiles y teléfonos: objetivos de 40 px o más */
+@media (pointer: coarse), (max-width: 600px) {
+  .dialogo-encabezado .btn-icono,
+  .aviso-mapa .btn-icono {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .acciones-dialogo .btn,
+  .acciones-aviso .btn,
+  .url-servicio .btn,
+  .url-servicio input,
+  .ficha-acciones .btn,
+  .ficha-tarjeta .acciones .btn,
+  .aviso-mapa .btn {
+    min-height: 40px;
+  }
+
+  .rejilla-insertar .check {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 600px) {
+  .aviso-mapa {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .girando {
+    animation: none;
+  }
+
+  .ficha-tarjeta,
+  .ficha-tarjeta:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Al imprimir se usa la composición de mapas de GeoLibre (Proyecto → Imprimir); la página solo
+   imprime el catálogo o la ficha que estén a la vista. */
+@media print {
+  .mapa-geolibre,
+  .aviso-mapa,
+  .volver-geoportal {
+    display: none !important;
+  }
+}

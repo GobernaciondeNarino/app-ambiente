@@ -14,9 +14,17 @@ from sqlalchemy.orm import Session
 from ..config import Settings
 from ..models import AuditLog, Category, Layer
 from ..schemas import CategoryOut, LayerOut
-from .geolibre import geolibre_open_url, layer_urls
+from . import estudio
+from .geolibre import _stable_uuid, layer_urls
 
 CHUNK = 1024 * 1024
+# Mayor identificador que admiten las columnas INTEGER: uno mayor no existe (y SQLite fallaría con 500)
+ID_MAXIMO = 2**31 - 1
+
+
+def por_id(session: Session, model: type, ident: int):
+    """``session.get`` que devuelve None para identificadores imposibles (≤ 0 o fuera de rango)."""
+    return session.get(model, ident) if 0 < ident <= ID_MAXIMO else None
 
 
 def slugify(text: str, max_length: int = 80) -> str:
@@ -81,7 +89,8 @@ def layer_out(layer: Layer, settings: Settings) -> LayerOut:
     if layer.category is not None:
         out.category = CategoryOut.model_validate(layer.category)
     out.urls = layer_urls(settings, layer)
-    out.geolibre_url = geolibre_open_url(settings, out.urls["proyecto"])
+    out.geolibre_url = estudio.url_abrir(settings, out.urls["proyecto"])
+    out.geolibre_id = _stable_uuid("capa", layer.slug)
     return out
 
 
@@ -107,7 +116,7 @@ def audit(session: Session, username: str, action: str, target: str = "", detail
 
 
 def get_layer_or_404(session: Session, layer_id: int) -> Layer:
-    layer = session.get(Layer, layer_id)
+    layer = por_id(session, Layer, layer_id)
     if layer is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Capa no encontrada.")
     return layer

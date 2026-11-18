@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import json
+import math
 import re
-from datetime import datetime
+from datetime import date, datetime, timezone
 from typing import Any
+from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$")
-ISO_DATE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
+ISO_DATE = re.compile(r"([0-9]{4})(?:-([0-9]{2})(?:-([0-9]{2}))?)?")
+# Correo: parte local «dot-atom» y dominio con al menos un punto. Misma expresión que correo_valido() de la
+# edición PHP; acepta lo mismo que FILTER_VALIDATE_EMAIL salvo los dominios entre corchetes.
+EMAIL = re.compile(
+    r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+)
+FECHA_FORMATO = "Use el formato AAAA, AAAA-MM o AAAA-MM-DD."
+FECHA_INEXISTENTE = "La fecha no existe (mes de 01 a 12 y un día válido para ese mes)."
+CORREO_NO_VALIDO = "Correo electrónico no válido (p. ej. nombre@entidad.gov.co)."
 ALLOWED_STYLE_KEYS = {
     "fillColor",
     "strokeColor",
@@ -22,6 +34,44 @@ ALLOWED_STYLE_KEYS = {
     "rasterMode",
     "band",
 }
+
+
+def correo_opcional(v: str | None) -> str | None:
+    """Vacío o un correo válido (sin espacios extremos)."""
+    if v is None:
+        return v
+    v = v.strip()
+    if v and not EMAIL.fullmatch(v):
+        raise ValueError(CORREO_NO_VALIDO)
+    return v
+
+
+def fecha_opcional(v: str | None) -> str | None:
+    """Vacío, AAAA, AAAA-MM o AAAA-MM-DD con un mes y un día que existan en el calendario."""
+    if v is None:
+        return v
+    v = v.strip()
+    if not v:
+        return v
+    m = ISO_DATE.fullmatch(v)
+    if not m:
+        raise ValueError(FECHA_FORMATO)
+    try:
+        date(int(m[1]), int(m[2] or 1), int(m[3] or 1))
+    except ValueError:
+        raise ValueError(FECHA_INEXISTENTE) from None
+    return v
+
+
+def _numero_estilo(clave: str, valor: Any) -> float:
+    """Número de la simbología; el mensaje de error es el mismo de la edición PHP."""
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        numero = math.nan
+    if isinstance(valor, bool) or not math.isfinite(numero):
+        raise ValueError(f"{clave}: debe ser numérico.")
+    return numero
 
 
 class LoginIn(BaseModel):
@@ -55,6 +105,11 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=1, max_length=200)
     role: str = Field(default="editor", pattern="^(administrador|editor)$")
 
+    @field_validator("email")
+    @classmethod
+    def _correo(cls, v: str | None) -> str | None:
+        return correo_opcional(v)
+
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, max_length=160)
@@ -62,6 +117,11 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, max_length=200)
     role: str | None = Field(default=None, pattern="^(administrador|editor)$")
     active: bool | None = None
+
+    @field_validator("email")
+    @classmethod
+    def _correo(cls, v: str | None) -> str | None:
+        return correo_opcional(v)
 
 
 class PasswordChange(BaseModel):
@@ -124,9 +184,12 @@ class LayerMetaIn(BaseModel):
     @field_validator("data_date")
     @classmethod
     def _date(cls, v: str | None) -> str | None:
-        if v and not ISO_DATE.match(v):
-            raise ValueError("Use el formato AAAA, AAAA-MM o AAAA-MM-DD.")
-        return v
+        return fecha_opcional(v)
+
+    @field_validator("contact_email")
+    @classmethod
+    def _correo(cls, v: str | None) -> str | None:
+        return correo_opcional(v)
 
     @field_validator("keywords")
     @classmethod
@@ -156,9 +219,9 @@ class LayerMetaIn(BaseModel):
             elif key in ("colorRamp", "rasterMode"):
                 clean[key] = str(value)[:20]
             elif key == "band":
-                clean[key] = max(1, int(value))
+                clean[key] = max(1, int(_numero_estilo(key, value)))
             else:
-                number = float(value)
+                number = _numero_estilo(key, value)
                 if key == "fillOpacity":
                     number = min(max(number, 0), 1)
                 if key in ("strokeWidth", "circleRadius"):
@@ -209,6 +272,7 @@ class LayerOut(BaseModel):
     updated_by: str
     urls: dict[str, str] = {}
     geolibre_url: str = ""
+    geolibre_id: str = ""
 
 
 class AuditOut(BaseModel):
@@ -220,3 +284,135 @@ class AuditOut(BaseModel):
     action: str
     target: str
     detail: str
+
+
+# ---------------------------------------------------------------- servicio de compartir de GeoLibre (/api/compartir)
+# Validación y representación del contrato v1 de GeoLibre; las rutas están en routers/compartir.py.
+# Mismos mensajes que portal/api/lib/compartir.php (edición PHP).
+
+
+class ErrorCompartir(Exception):
+    """Error del servicio de compartir: se responde con «error» (contrato de GeoLibre) y «detail» (resto de la API)."""
+
+    def __init__(self, estado: int, mensaje: str, cabeceras: dict[str, str] | None = None) -> None:
+        super().__init__(mensaje)
+        self.estado, self.mensaje, self.cabeceras = estado, mensaje, cabeceras or {}
+
+
+def _sin_constantes(valor: str):
+    raise ValueError(valor)
+
+
+def json_estricto(texto: str | bytes) -> Any:
+    """``json.loads`` sin NaN ni Infinity, que no son JSON (la edición PHP tampoco los acepta)."""
+    return json.loads(texto, parse_constant=_sin_constantes)
+
+
+def utc(dt: datetime | None) -> datetime | None:
+    """La hora en UTC con zona (SQLite la devuelve sin zona, aunque se guarda en UTC)."""
+    return dt.replace(tzinfo=timezone.utc) if dt is not None and dt.tzinfo is None else dt
+
+
+def iso_utc(dt: datetime | None) -> str | None:
+    """``2026-11-17T12:00:00Z``, como gp_iso() de la edición PHP."""
+    d = utc(dt)
+    return d.strftime("%Y-%m-%dT%H:%M:%SZ") if d else None
+
+
+def param_booleano(nombre: str, valor: str | None, error: type = ErrorCompartir) -> bool:
+    """Mismas formas que valor_booleano() de la edición PHP; sin el parámetro, falso."""
+    if valor is None:
+        return False
+    s = valor.strip().lower()
+    if s in {"1", "true", "t", "yes", "y", "on"}:
+        return True
+    if s in {"0", "false", "f", "no", "n", "off"}:
+        return False
+    raise error(422, f"{nombre}: debe ser verdadero o falso.")
+
+
+def param_entero(nombre: str, valor: str, defecto: int, minimo: int, maximo: int) -> int:
+    """Como param_entero() de la edición PHP: vacío o ausente, el valor por defecto."""
+    if valor == "":
+        return defecto
+    if not re.fullmatch(r"-?\d{1,18}", valor.strip()):
+        raise ErrorCompartir(422, f"{nombre}: debe ser un número entero.")
+    n = int(valor)
+    if n < minimo or n > maximo:
+        raise ErrorCompartir(422, f"{nombre}: debe estar entre {minimo} y {maximo}.")
+    return n
+
+
+def error_tamano(limite: int) -> ErrorCompartir:
+    texto = f"{limite // 1048576} MB" if limite >= 1048576 else f"{max(1, limite // 1024)} KB"
+    return ErrorCompartir(413, f"El proyecto supera el tamaño máximo para compartir ({texto}).")
+
+
+def proyecto_geolibre(contenido: Any, limite: int) -> str:
+    """Valida el JSON de un proyecto de GeoLibre (texto) y devuelve su título («title» o «name»), o ''."""
+    if not isinstance(contenido, str) or contenido == "":
+        raise ErrorCompartir(422, "content: es obligatorio y debe ser el JSON del proyecto como texto.")
+    if len(contenido.encode("utf-8", "surrogatepass")) > limite:
+        raise error_tamano(limite)
+    try:
+        contenido.encode("utf-8")  # sustitutos sueltos («\ud800»): la edición PHP tampoco los acepta
+        doc = json_estricto(contenido)
+    except ValueError:
+        doc = None
+    if not isinstance(doc, dict):
+        raise ErrorCompartir(422, "content: no es un objeto JSON válido.")
+    v = doc.get("version")  # texto no vacío o número
+    version_valida = (isinstance(v, str) and v.strip() != "") or (isinstance(v, (int, float)) and not isinstance(v, bool))
+    if not version_valida or not isinstance(doc.get("layers"), list):
+        raise ErrorCompartir(422, "content: no es un proyecto de GeoLibre (faltan «version» o la lista «layers»).")
+    for campo in ("title", "name"):
+        if isinstance(doc.get(campo), str) and doc[campo].strip():
+            return doc[campo].strip()
+    return ""
+
+
+def titulo_de_archivo(nombre: Any) -> str:
+    """Título de respaldo a partir de «filename». Nunca se usa como ruta: solo da el título (y de ahí el slug)."""
+    if nombre is None:
+        return ""
+    if not isinstance(nombre, str) or len(nombre) > 255:
+        raise ErrorCompartir(422, "filename: debe ser texto de hasta 255 caracteres.")
+    ultimo = nombre.replace("\\", "/").split("/")[-1]
+    return re.sub(r"(\.geolibre)?\.json$|\.geolibre$", "", ultimo, flags=re.I).strip()
+
+
+def token_compartir_salida(t: Any, ahora: datetime) -> dict:
+    """Token personal tal como lo ve el administrador (nunca el token ni su resumen)."""
+    return {
+        "id": t.id, "name": t.name, "prefix": t.prefix, "username": t.user.username,
+        "created_at": iso_utc(t.created_at), "last_used_at": iso_utc(t.last_used_at), "expires_at": iso_utc(t.expires_at),
+        "expired": t.expires_at is not None and utc(t.expires_at) <= ahora,
+    }
+
+
+def url_proyecto_compartido(url_publica: str, usuario: str, slug: str) -> str:
+    """Página del proyecto: la portada del geoportal lo abre con ?compartido=usuario/slug."""
+    return f"{url_publica}/?compartido={quote(usuario, safe='')}/{quote(slug, safe='')}#mapa"
+
+
+def proyecto_compartido_salida(p: Any, url_publica: str, yo_id: int | None) -> dict:
+    """Representación del contrato. «featured»: proyectos públicos de los administradores del geoportal.
+
+    ``canEdit`` solo en respuestas autenticadas. Sin organizaciones, grupos, miniaturas ni enlaces con rol,
+    caducidad o contraseña (GeoLibre avisa de que esos ajustes no se aplicaron).
+    """
+    usuario = p.user.username
+    pagina = url_proyecto_compartido(url_publica, usuario, p.slug)
+    salida = {
+        "id": p.id, "username": usuario, "slug": p.slug, "title": p.title,
+        "description": p.description, "visibility": p.visibility, "organization": None, "groupIds": [],
+        "thumbnailUrl": None, "views": p.views, "forkCount": 0, "versionCount": p.last_version,
+        "featured": p.visibility == "public" and p.user.role == "administrador",
+        "role": "edit", "expiresAt": None, "hasPassword": False,
+        "createdAt": iso_utc(p.created_at), "updatedAt": iso_utc(p.updated_at), "tags": [],
+        "rawJsonUrl": f"{url_publica}/api/compartir/{quote(usuario, safe='')}/{quote(p.slug, safe='')}.geolibre.json",
+        "projectUrl": pagina, "viewerUrl": pagina,
+    }
+    if yo_id is not None:
+        salida["canEdit"] = yo_id == p.user_id
+    return salida

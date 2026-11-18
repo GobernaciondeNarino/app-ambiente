@@ -11,6 +11,8 @@ require __DIR__ . '/lib/autenticacion.php';
 require __DIR__ . '/lib/esquema.php';
 require __DIR__ . '/lib/geodatos.php';
 require __DIR__ . '/lib/capas.php';
+require __DIR__ . '/lib/geolibre.php';
+require __DIR__ . '/lib/compartir.php';
 require __DIR__ . '/lib/rutas_publicas.php';
 require __DIR__ . '/lib/rutas_admin.php';
 
@@ -19,6 +21,24 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
 $metodo = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+
+/** ¿La ruta existe con algún método? (para responder 405 y no 404, como la edición Python) */
+function gp_ruta_conocida(string $ruta): bool
+{
+    foreach ([
+        '#^(salud|config|categorias|capas|proyecto\.geolibre|geolibre/(deployment|ajustes)\.json)?$#',
+        '#^capas/[^/]+(/(datos\.geojson|datos\.tif|vista-previa\.png|descarga|proyecto\.geolibre))?$#',
+        '#^auth/(ingresar|yo|cambiar-clave)$#',
+        '#^admin/(resumen|capas|categorias|usuarios|bitacora|geolibre|geolibre/instalar|configuracion)$#',
+        '#^admin/(capas|categorias|usuarios)/\d+$#',
+        '#^admin/capas/\d+/(archivo|vista-previa|publicacion|muestra|datos|original)$#',
+    ] as $patron) {
+        if (preg_match($patron, $ruta)) {
+            return true;
+        }
+    }
+    return false;
+}
 
 // Ruta relativa a la carpeta api/
 $uri = rawurldecode(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
@@ -37,9 +57,10 @@ try {
         json_respuesta(['detail' => 'El geoportal todavía no está instalado.', 'instalar' => 'instalar/'], 503);
     }
 
-    // CORS: GeoLibre descarga el proyecto y los datos desde su propio origen
+    // CORS: una instancia externa de GeoLibre descarga el proyecto y los datos desde su propio
+    // origen (el Estudio SIG integrado comparte origen con el geoportal y no lo necesita)
     $origen = $_SERVER['HTTP_ORIGIN'] ?? '';
-    $permitidos = array_filter([gp_origen((string) gp_opcion('geolibre_url', 'https://web.geolibre.app')), gp_origen(gp_url_publica())]);
+    $permitidos = array_filter([gp_origen(gl_url_externa()), gp_origen(gp_url_publica())]);
     if ($origen !== '' && in_array($origen, $permitidos, true)) {
         header('Access-Control-Allow-Origin: ' . $origen);
         header('Vary: Origin', false);
@@ -53,8 +74,15 @@ try {
         }
     }
 
+    // Servicio de compartir de GeoLibre (contrato v1): /api/compartir/api/... y /api/compartir/{usuario}/{slug}
+    if ($ruta === 'compartir' || str_starts_with($ruta, 'compartir/')) {
+        rutas_compartir($metodo, ltrim(substr($ruta, strlen('compartir')), '/'));
+    }
     rutas_publicas($metodo, $ruta);
     rutas_admin($metodo, $ruta);
+    if (gp_ruta_conocida($ruta)) {
+        falla(405, 'Método no permitido.');
+    }
     falla(404, 'Recurso no encontrado.');
 } catch (RespuestaHttp $e) {
     json_respuesta(['detail' => $e->detalle] + $e->extra, $e->estado);

@@ -15,11 +15,22 @@
   --amarillo-claro: #fff8d1;
   --gris-titulo: #383838;
   --gris-texto: #4d4d4d;
-  --gris-suave: #767676;
+  --gris-suave: #6b6b6b; /* ≥ 4,5:1 sobre todas las superficies claras (#767676 bajaba a 3,97:1) */
   --borde: #dfe3df;
   --fondo: #f5f7f5;
   --superficie: #ffffff;
   --govco: #3366cc;
+  /* Tokens de tema (claro) */
+  --superficie-2: #f7f9f7;
+  --superficie-3: #f0f2f0;
+  --borde-suave: #eef0ee;
+  --borde-control: #858c86; /* borde de campos: ≥ 3:1 frente a fondo y superficie (WCAG 1.4.11) */
+  --fondo-mapa: #e9ece9;
+  --vidrio: rgba(255, 255, 255, 0.96);
+  --enlace: #0b7a2c;
+  --boton-primario: #0b7a2c;
+  --notificacion: #383838;
+  --placa-logo: transparent;
   --peligro: #b3261e;
   --peligro-claro: #fdecea;
   --info: #0e6ba8;
@@ -28,7 +39,7 @@
   --fuente-titulos: "Hind Madurai", "Segoe UI", system-ui, sans-serif;
   --fuente-texto: "Source Sans 3", "Hind Madurai", "Segoe UI", system-ui, sans-serif;
   --alto-govco: 40px;
-  --alto-encabezado: 68px;
+  --alto-encabezado: 60px;
   color-scheme: light;
 }
 
@@ -67,7 +78,7 @@ h4 {
 }
 
 a {
-  color: var(--verde-oscuro);
+  color: var(--enlace);
 }
 
 a:hover {
@@ -79,12 +90,26 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* En claro el amarillo sobre blanco no llega a 3:1: un anillo oscuro entre el control y el
+   contorno amarillo hace visible el foco. Especificidad mínima (:where) para no pisar los
+   estilos de foco propios de campos y componentes; los destinos de foco programático
+   (tabindex="-1") quedan fuera. */
+:where(:root:not([data-tema="oscuro"])) :focus-visible:where(:not([tabindex="-1"])) {
+  box-shadow: 0 0 0 2px var(--gris-titulo);
+}
+
+/* Destinos de «Saltar al contenido» y «Contacto»: reciben el foco sin recuadro */
+main[tabindex="-1"]:focus,
+.pie[tabindex="-1"]:focus {
+  outline: none;
+}
+
 .saltar-contenido {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 1000;
-  background: var(--gris-titulo);
+  background: var(--notificacion);
   color: #fff;
   padding: 8px 16px;
 }
@@ -93,8 +118,14 @@ a:hover {
   left: 8px;
 }
 
+/* Texto solo para lectores de pantalla. Sin ancestro posicionado, el bloque contenedor es la página:
+   dentro de un contenedor con desplazamiento propio (tablas del administrador) el texto escapaba del
+   recorte y ensanchaba la página (598 px a 360 px). right: 0 lo pega al borde derecho de su bloque
+   contenedor y conserva su posición vertical junto al control; clip-path no lo evita y top/left: 0 lo
+   llevaría a la esquina de la página, lejos del control que nombra. */
 .sr-only {
   position: absolute;
+  right: 0;
   width: 1px;
   height: 1px;
   overflow: hidden;
@@ -108,7 +139,7 @@ a:hover {
 
 .barra-govco {
   height: var(--alto-govco);
-  background: #fff;
+  background: var(--superficie);
   border-bottom: 2px solid var(--amarillo);
   display: flex;
   align-items: center;
@@ -139,6 +170,12 @@ a:hover {
   background: var(--govco);
 }
 
+.barra-govco .govco-derecha {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .barra-govco .govco-enlaces {
   display: flex;
   gap: 16px;
@@ -160,11 +197,11 @@ a:hover {
 
 .encabezado {
   min-height: var(--alto-encabezado);
-  background: #fff;
+  background: var(--superficie);
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 8px 24px;
+  padding: 6px 24px;
   border-bottom: 1px solid var(--borde);
   position: relative;
   z-index: 20;
@@ -179,12 +216,14 @@ a:hover {
 }
 
 .marca img {
-  height: 46px;
+  height: 40px;
   width: auto;
   display: block;
+  flex: none;
 }
 
 .marca .dependencia {
+  min-width: 0;
   border-left: 2px solid var(--borde);
   padding-left: 14px;
   font-family: var(--fuente-titulos);
@@ -218,6 +257,7 @@ a:hover {
   font-size: 15px;
   color: var(--gris-titulo);
   text-decoration: none;
+  white-space: nowrap;
   padding: 8px 12px;
   border-radius: 6px;
   border: 0;
@@ -249,6 +289,10 @@ a:hover {
   border-radius: 0;
 }
 
+:root:not([data-tema="oscuro"]) .navegacion a[aria-current="page"]:focus-visible {
+  box-shadow: inset 0 -3px 0 var(--verde), 0 0 0 2px var(--gris-titulo);
+}
+
 .boton-menu svg {
   width: 22px;
   height: 22px;
@@ -260,7 +304,7 @@ a:hover {
   display: none;
   margin-left: auto;
   border: 1px solid var(--borde);
-  background: #fff;
+  background: var(--superficie);
   border-radius: 6px;
   padding: 8px 10px;
   cursor: pointer;
@@ -295,7 +339,7 @@ a:hover {
 }
 
 .btn-primario {
-  background: var(--verde-oscuro);
+  background: var(--boton-primario);
   color: #fff;
 }
 
@@ -315,7 +359,7 @@ a:hover {
 }
 
 .btn-secundario {
-  background: #fff;
+  background: var(--superficie);
   color: var(--gris-titulo);
   border-color: var(--borde);
 }
@@ -326,7 +370,7 @@ a:hover {
 }
 
 .btn-peligro {
-  background: #fff;
+  background: var(--superficie);
   color: var(--peligro);
   border-color: #f0c4c0;
 }
@@ -367,6 +411,20 @@ a:hover {
   cursor: not-allowed;
 }
 
+/* Pantallas táctiles: botones de 40 px como mínimo (objetivo táctil; con .btn-chico medían 27-32 px) */
+@media (pointer: coarse) {
+  .btn,
+  .btn-icono {
+    min-height: 40px;
+  }
+
+  .btn-icono {
+    min-width: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 label {
   font-family: var(--fuente-titulos);
   font-weight: 600;
@@ -388,8 +446,8 @@ textarea {
   font: inherit;
   font-size: 15px;
   color: var(--gris-titulo);
-  background: #fff;
-  border: 1px solid #c9cfc9;
+  background: var(--superficie);
+  border: 1px solid var(--borde-control);
   border-radius: 6px;
   padding: 9px 11px;
 }
@@ -429,7 +487,7 @@ textarea {
   font-family: var(--fuente-titulos);
   padding: 3px 8px;
   border-radius: 999px;
-  background: #eef0ee;
+  background: var(--borde-suave);
   color: var(--gris-texto);
   white-space: nowrap;
 }
@@ -500,10 +558,11 @@ textarea {
   flex-direction: column;
   gap: 8px;
   max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none; /* solo los avisos reciben clics: los huecos no tapan los controles del mapa */
 }
 
 .notificacion {
-  background: var(--gris-titulo);
+  background: var(--notificacion);
   color: #fff;
   border-radius: 8px;
   padding: 12px 16px;
@@ -511,6 +570,8 @@ textarea {
   font-size: 14px;
   border-left: 4px solid var(--amarillo);
   animation: entrar 0.2s ease-out;
+  pointer-events: auto;
+  cursor: pointer; /* un clic lo cierra */
 }
 
 .notificacion.error {
@@ -547,7 +608,7 @@ dialog.dialogo::backdrop {
   border-bottom: 1px solid var(--borde);
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--superficie);
   z-index: 1;
 }
 
@@ -566,7 +627,7 @@ dialog.dialogo::backdrop {
 /* ------------------------------------------------------------------ */
 
 .pie {
-  background: #fff;
+  background: var(--superficie);
   border-top: 4px solid var(--verde);
   padding: 32px 24px 16px;
   font-size: 14px;
@@ -658,14 +719,14 @@ dialog.dialogo::backdrop {
 }
 
 .pie-hora small {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.1;
   text-transform: uppercase;
 }
 
 .pie-creditos {
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--gris-suave);
   margin-top: 10px;
 }
@@ -685,23 +746,60 @@ dialog.dialogo::backdrop {
   }
 }
 
+/* Objetivos táctiles de 44 px en la barra GOV.CO sin cambiar su tamaño visible
+   (enlace GOV.CO 96×23 y botón de tema 37×25 px) */
+@media (max-width: 860px), (pointer: coarse) {
+  .barra-govco a.govco-logo,
+  .barra-govco .boton-tema {
+    position: relative;
+  }
+
+  .barra-govco a.govco-logo::after,
+  .barra-govco .boton-tema::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Entre 861 y 1100 px la navegación completa no deja sitio al subtítulo: partía el encabezado
+   en tres líneas (74 px frente a los 60 de --alto-encabezado) y el visor se desbordaba. */
+@media (max-width: 1100px) {
+  .marca .dependencia span {
+    display: none;
+  }
+}
+
 @media (max-width: 860px) {
+  /* geoportal.css resta esta variable al alto del mapa: el encabezado debe medir eso mismo */
+  :root {
+    --alto-encabezado: 58px;
+  }
+
   .barra-govco {
     padding: 0 16px;
   }
+
 
   .barra-govco .govco-enlaces {
     display: none;
   }
 
   .encabezado {
-    padding: 8px 16px;
+    padding: 7px 16px;
+    gap: 12px;
     flex-wrap: wrap;
   }
 
+  /* Base 0: el botón de menú no baja a una segunda fila en 360 px */
   .marca {
     gap: 10px;
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    min-height: 42px;
   }
 
   .marca img {
@@ -724,16 +822,35 @@ dialog.dialogo::backdrop {
     display: inline-flex;
   }
 
+  /* Menú desplegable sobre el contenido: el encabezado conserva su alto y el visor no se mueve */
   .navegacion {
     display: none;
-    width: 100%;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
     flex-direction: column;
     align-items: stretch;
-    padding-bottom: 8px;
+    padding: 6px 16px 12px;
+    background: var(--superficie);
+    border-bottom: 1px solid var(--borde);
+    box-shadow: var(--sombra);
   }
 
   .navegacion.abierta {
     display: flex;
+  }
+
+  .navegacion a,
+  .navegacion button.enlace {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .navegacion a.btn-acento {
+    margin: 6px 0 0;
+    justify-content: center;
   }
 
   .navegacion a[aria-current="page"] {
@@ -743,11 +860,141 @@ dialog.dialogo::backdrop {
   .pie {
     padding: 24px 16px 16px;
   }
+
+  .pie-legal {
+    gap: 0;
+  }
+
+  .pie-legal a {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
+
+  .redes a {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Modo oscuro                                                         */
+/* data-tema="oscuro" en <html> lo pone el script de arranque según la */
+/* preferencia del usuario (automático, claro u oscuro).               */
+/* Solo en pantalla: al imprimir rigen los colores claros (texto oscuro */
+/* sobre papel blanco) aunque la página se vea en oscuro.              */
+/* ------------------------------------------------------------------ */
+
+@media not print {
+  :root[data-tema="oscuro"] {
+    color-scheme: dark;
+    --fondo: #0f1411;
+    --superficie: #161c18;
+    --superficie-2: #1b221e;
+    --superficie-3: #232c26;
+    --borde: #2e3932;
+    --borde-suave: #252f29;
+    --borde-control: #6b7a70; /* ≥ 3:1 frente a las superficies oscuras */
+    --gris-titulo: #eef2ef;
+    --gris-texto: #c9d1cb;
+    --gris-suave: #9aa59d;
+    --verde-claro: rgba(16, 161, 59, 0.18);
+    --verde-oscuro: #5fd08a; /* acentos de texto: contraste AA sobre fondo oscuro */
+    --amarillo-claro: rgba(255, 213, 0, 0.14);
+    --peligro: #ff8a80;
+    --peligro-claro: rgba(179, 38, 30, 0.22);
+    --info: #6ab4e8;
+    --fondo-mapa: #0b0f0c;
+    --vidrio: rgba(22, 28, 24, 0.95);
+    --enlace: #6fd896;
+    --boton-primario: #0b7a2c;
+    --notificacion: #2b352f;
+    --placa-logo: #ffffff;
+    --sombra: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.45);
+  }
+
+  :root[data-tema="oscuro"] .insignia.amarilla { color: #f3d75b; }
+  :root[data-tema="oscuro"] .aviso { background: rgba(14, 107, 168, 0.18); color: #cfe6f7; }
+  :root[data-tema="oscuro"] .aviso.error { background: var(--peligro-claro); color: #ffd6d2; }
+  :root[data-tema="oscuro"] .aviso.exito { background: var(--verde-claro); color: #c9f2d6; }
+  :root[data-tema="oscuro"] .aviso.advertencia { background: var(--amarillo-claro); color: #fbeaa6; }
+  :root[data-tema="oscuro"] .barra-govco .govco-logo { color: #8fb0ff; }
+  :root[data-tema="oscuro"] .barra-govco .govco-separador { background: #8fb0ff; }
+  :root[data-tema="oscuro"] .btn-acento,
+  :root[data-tema="oscuro"] .navegacion a.btn-acento { color: #1f1f1f; }
+  :root[data-tema="oscuro"] .notificacion { border: 1px solid var(--borde); }
+  /* --gris-titulo es claro en oscuro: el blanco de los íconos de redes desaparecía (1,1:1) */
+  :root[data-tema="oscuro"] .redes a { background: var(--superficie-3); color: var(--gris-titulo); border: 1px solid var(--borde-control); }
+
+  /* El manual pide el logo sobre fondo claro: en oscuro va sobre una placa blanca */
+  :root[data-tema="oscuro"] .marca img,
+  :root[data-tema="oscuro"] .logo-pie,
+  :root[data-tema="oscuro"] .ingreso-tarjeta img,
+  :root[data-tema="oscuro"] .instalador .logo {
+    background: var(--placa-logo);
+    border-radius: 8px;
+    padding: 3px 8px; /* 3 px: con 4 px el encabezado medía 61 px, uno más que --alto-encabezado */
+    box-sizing: content-box;
+  }
+}
+
+/* Botón de tema */
+.boton-tema {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--gris-titulo);
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font: 600 13px var(--fuente-titulos);
+}
+
+.boton-tema:hover {
+  border-color: var(--verde);
+}
+
+.boton-tema svg {
+  width: 17px;
+  height: 17px;
+}
+
+.barra-govco .boton-tema {
+  padding: 3px 9px;
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .barra-govco .boton-tema span.texto-tema { display: none; }
+}
+
+@media print {
+  :root[data-tema="oscuro"] { color-scheme: light; }
+
+  /* Encabezado y pie impresos: identidad sí, controles no */
+  .saltar-contenido,
+  .barra-govco .govco-derecha,
+  .boton-menu,
+  .navegacion,
+  .notificaciones {
+    display: none !important;
+  }
+
+  .barra-govco,
+  .encabezado {
+    break-inside: avoid;
+  }
+
+  .pie {
+    break-inside: avoid;
   }
 }

@@ -9,15 +9,26 @@
       })(location);
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <script>
+      // Tema antes de pintar (evita el destello claro en modo oscuro)
+      (function (d) {
+        var p = "auto";
+        try { p = localStorage.getItem("geoportal.tema") || "auto"; } catch (e) {}
+        var q = /[?&](?:theme|tema)=(dark|light|oscuro|claro)\b/.exec(location.search); // tema pedido en la dirección
+        if (q) p = q[1] === "dark" || q[1] === "oscuro" ? "oscuro" : "claro";
+        var oscuro = p === "oscuro" || (p !== "claro" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+        d.documentElement.dataset.tema = oscuro ? "oscuro" : "claro";
+      })(document);
+    </script>
     <title>Geoportal Ambiental · Gobernación de Nariño</title>
     <meta name="description" content="Geoportal de la Secretaría de Ambiente y Desarrollo Sostenible de la Gobernación de Nariño: consulta, visualización y descarga de información geográfica ambiental.">
     <link rel="icon" href="assets/img/escudo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hind+Madurai:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
     <link rel="stylesheet" href="assets/css/institucional.css">
-    <link rel="stylesheet" href="assets/css/visor.css">
+    <link rel="stylesheet" href="assets/css/geoportal.css">
   </head>
   <body>
     <a class="saltar-contenido" href="#contenido">Saltar al contenido</a>
@@ -33,54 +44,36 @@
       </a>
       <button class="boton-menu" type="button" aria-expanded="false" aria-controls="navegacion" aria-label="Abrir menú"><span data-icono="menu"></span></button>
       <nav class="navegacion" id="navegacion" aria-label="Navegación principal">
-        <a href="#visor" data-ruta="visor">Visor</a>
+        <a href="#mapa" data-ruta="mapa">Mapa</a>
         <a href="#catalogo" data-ruta="catalogo">Catálogo</a>
         <a href="#acerca" data-ruta="acerca">Acerca del geoportal</a>
-        <a class="btn btn-acento btn-chico" id="abrir-geolibre" href="#" target="_blank" rel="noopener" data-icono="abrir">Abrir en GeoLibre</a>
+        <!-- Se muestran cuando el mapa está disponible (geoportal.js) -->
+        <button class="btn btn-secundario btn-chico" type="button" id="boton-insertar" data-icono="incrustar" hidden>Insertar</button>
+        <a class="btn btn-acento btn-chico" id="nueva-ventana" target="_blank" rel="noopener" data-icono="abrir" hidden>Nueva ventana</a>
       </nav>
     </header>
 
     <main id="contenido">
-      <!-- ============================ VISOR ============================ -->
-      <section class="vista visor" id="vista-visor" aria-label="Visor geográfico">
-        <aside class="panel" id="panel" aria-label="Capas disponibles">
-          <div class="panel-cabecera">
-            <h1>Capas ambientales</h1>
-            <p class="panel-resumen" id="resumen-capas">Cargando información…</p>
-            <label class="buscador">
-              <span class="sr-only">Buscar capas</span>
-              <span data-icono="buscar"></span>
-              <input type="search" id="buscar" placeholder="Buscar capa, tema o fuente" autocomplete="off">
-            </label>
-          </div>
-          <div class="panel-lista" id="lista-capas" role="tree" aria-label="Capas por categoría"></div>
-          <div class="panel-pie">
-            <button class="btn btn-secundario btn-chico" type="button" id="apagar-todo">Apagar todas</button>
-            <a class="btn btn-secundario btn-chico" id="descargar-proyecto" href="#" download data-icono="descargar">Proyecto .geolibre</a>
-          </div>
-        </aside>
-
-        <button class="alternar-panel" type="button" id="alternar-panel" aria-controls="panel" aria-expanded="true" title="Mostrar u ocultar el panel de capas">
-          <span data-icono="capas"></span><span class="sr-only">Panel de capas</span>
-        </button>
-
-        <div class="mapa-contenedor">
-          <div id="mapa" role="region" aria-label="Mapa"></div>
-
-          <div class="control-mapa control-base" id="control-base">
-            <button type="button" class="btn-icono" id="boton-base" aria-expanded="false" title="Mapa base"><span data-icono="base"></span><span class="sr-only">Mapa base</span></button>
-            <div class="menu-base" id="menu-base" hidden></div>
-          </div>
-
-          <section class="leyenda" id="leyenda" aria-label="Leyenda" hidden>
-            <header><h2>Leyenda</h2>
-              <button class="btn-icono" type="button" id="plegar-leyenda" aria-expanded="true" title="Plegar leyenda"><span data-icono="leyenda"></span><span class="sr-only">Plegar o desplegar la leyenda</span></button>
-            </header>
-            <ul id="leyenda-items"></ul>
-          </section>
-
-          <div class="coordenadas" id="coordenadas" aria-live="off">Lon —, Lat —</div>
+      <!-- ============================ MAPA (GeoLibre) ============================ -->
+      <!-- La interfaz principal es GeoLibre completo (compilación web oficial, sin modificar) con las capas
+           publicadas ya cargadas. Ver docs/estudio-sig.md. -->
+      <section class="vista mapa-geolibre" id="vista-mapa" aria-label="Mapa del geoportal (GeoLibre)">
+        <iframe class="marco-geolibre" id="marco-geolibre" title="Mapa del Geoportal Ambiental (GeoLibre)" allow="fullscreen; clipboard-read; clipboard-write; geolocation" hidden></iframe>
+        <div class="cargando-mapa" id="cargando-mapa" role="status"><span class="girando" aria-hidden="true"></span>Cargando el mapa…</div>
+        <div class="aviso aviso-mapa" id="aviso-tema" role="status" hidden>
+          <span></span>
+          <button class="btn btn-primario btn-chico" type="button" id="aplicar-tema">Recargar ahora</button>
+          <button class="btn-icono" type="button" id="cerrar-aviso-tema" title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
         </div>
+        <!-- Sin GeoLibre disponible, o geoportal sin instalar: estado vacío en lugar del marco -->
+        <div class="mapa-vacio" id="mapa-vacio" hidden>
+          <div>
+            <p><strong id="mapa-vacio-titulo">El mapa interactivo no está disponible.</strong></p>
+            <p id="mapa-vacio-texto"></p>
+            <p class="acciones-aviso" id="mapa-vacio-acciones"></p>
+          </div>
+        </div>
+        <a class="volver-geoportal" id="volver-geoportal" href="./" target="_top" hidden>Ver en el geoportal</a>
       </section>
 
       <!-- ============================ CATÁLOGO ============================ -->
@@ -88,7 +81,7 @@
         <div class="pagina-ancho">
           <div class="pagina-titulo">
             <h1>Catálogo de geodatos</h1>
-            <p>Información geográfica ambiental producida y administrada por la Secretaría de Ambiente y Desarrollo Sostenible y sus aliados. Cada geodato cuenta con su ficha de metadatos, descarga en formato abierto y apertura directa en GeoLibre.</p>
+            <p>Información geográfica ambiental producida y administrada por la Secretaría de Ambiente y Desarrollo Sostenible y sus aliados. Cada geodato cuenta con su ficha de metadatos, descarga en formato abierto y apertura directa en el mapa.</p>
           </div>
           <div class="filtros">
             <label class="buscador">
@@ -109,16 +102,18 @@
           <h1>Acerca del Geoportal Ambiental</h1>
           <p>El Geoportal Ambiental de la <strong>Gobernación de Nariño</strong> es la herramienta de la <strong>Secretaría de Ambiente y Desarrollo Sostenible</strong> para divulgar la información geográfica que soporta la planificación y gestión ambiental del departamento: recurso hídrico, áreas protegidas y ecosistemas estratégicos, biodiversidad, cambio climático y gestión del riesgo, y ordenamiento ambiental del territorio.</p>
           <h2>¿Qué puede hacer aquí?</h2>
+          <p>La sección <strong>Mapa</strong> es <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un sistema de información geográfica libre y de código abierto que funciona en el navegador, con todas las capas publicadas ya cargadas y organizadas por categoría. Sin instalar nada y sin que sus datos salgan de su equipo puede:</p>
           <ul>
-            <li><strong>Visualizar</strong> las capas publicadas sobre distintos mapas base, consultar sus atributos haciendo clic sobre el mapa y combinar capas con control de transparencia.</li>
-            <li><strong>Consultar la ficha de metadatos</strong> de cada geodato: fuente, fecha, escala, sistema de referencia original y licencia de uso.</li>
-            <li><strong>Descargar</strong> los geodatos en formatos abiertos: GeoJSON (vector, EPSG:4326) y GeoTIFF optimizado para la nube — COG (ráster).</li>
-            <li><strong>Analizar en GeoLibre</strong>: el botón «Abrir en GeoLibre» carga las capas en <a href="https://github.com/opengeos/GeoLibre" target="_blank" rel="noopener">GeoLibre</a>, un SIG libre y de código abierto que corre en el navegador, con más de mil herramientas de geoprocesamiento, sin instalar nada y sin que los datos salgan de su equipo.</li>
+            <li><strong>Visualizar y consultar</strong> las capas sobre distintos mapas base, en 2D o 3D, con su ventana emergente, su tabla de atributos y su ficha de metadatos.</li>
+            <li><strong>Añadir sus propios datos</strong> (archivos, servicios WMS, WFS, XYZ, catálogos y más de cuarenta fuentes) y combinarlos con los del geoportal.</li>
+            <li><strong>Editar, cambiar estilos, analizar y geoprocesar</strong>: consultas SQL, más de mil herramientas de geoprocesamiento, medición, perfiles, mapas de calor y complementos.</li>
+            <li><strong>Componer e imprimir mapas</strong>, exportar imágenes y datos, y guardar el proyecto <code>.geolibre</code> para seguir trabajando después.</li>
           </ul>
+          <p>El <strong>Catálogo</strong> reúne cada geodato con su ficha de metadatos (fuente, fecha, escala, sistema de referencia original y licencia) y su <strong>descarga</strong> en formatos abiertos: GeoJSON (vector, EPSG:4326) y GeoTIFF optimizado para la nube — COG (ráster).</p>
           <h2>Sistema de referencia</h2>
           <p>Los geodatos se publican en WGS 84 (EPSG:4326) para su visualización web. La ficha de cada capa indica el sistema de referencia en el que fue producida (p. ej. MAGNA-SIRGAS Origen Nacional, EPSG:9377).</p>
           <h2>Servicios para desarrolladores</h2>
-          <p>Toda la información del catálogo está disponible mediante una API abierta en <code>/api/capas</code>, con documentación en <a href="api/docs">/api/docs</a>. El proyecto completo de GeoLibre está en <a href="api/proyecto.geolibre">/api/proyecto.geolibre</a>.</p>
+          <p>Toda la información del catálogo está disponible mediante una API abierta en <code>/api/capas</code><span id="api-docs" hidden>, con documentación en <a href="api/docs">/api/docs</a></span>. El proyecto completo de GeoLibre está en <a href="api/proyecto.geolibre">/api/proyecto.geolibre</a>.</p>
           <h2>Condiciones de uso</h2>
           <p>Salvo que la ficha indique otra licencia, los geodatos se publican bajo <a href="https://creativecommons.org/licenses/by/4.0/deed.es" target="_blank" rel="noopener">Creative Commons Atribución 4.0</a>: puede usarlos citando a la Gobernación de Nariño y a la fuente indicada. La información tiene carácter de referencia y no reemplaza los actos administrativos que la adoptan.</p>
         </div>
@@ -137,11 +132,28 @@
       <div class="dialogo-cuerpo" id="ficha-cuerpo"></div>
     </dialog>
 
+    <!-- Insertar el mapa en otra página -->
+    <dialog class="dialogo dialogo-chico" id="insertar-mapa" aria-labelledby="insertar-titulo">
+      <div class="dialogo-encabezado">
+        <h2 id="insertar-titulo" style="flex:1">Insertar el mapa</h2>
+        <button class="btn-icono" type="button" data-cerrar title="Cerrar"><span data-icono="cerrar"></span><span class="sr-only">Cerrar</span></button>
+      </div>
+      <div class="dialogo-cuerpo">
+        <p>Copie este código en la página donde quiera mostrar el mapa con la vista y las capas actuales. En la página insertada el mapa se abre en el modo de consulta de GeoLibre.</p>
+        <div class="rejilla-insertar">
+          <label>Ancho <input type="text" id="insertar-ancho" value="100%"></label>
+          <label>Alto (px) <input type="number" id="insertar-alto" value="480" min="200" max="2000"></label>
+          <label class="check"><input type="checkbox" id="insertar-solo-mapa" checked> Solo el mapa</label>
+        </div>
+        <textarea id="insertar-codigo" class="codigo-insertar" rows="5" readonly aria-label="Código para insertar"></textarea>
+        <div class="acciones-dialogo"><button class="btn btn-primario" type="button" id="insertar-copiar">Copiar código</button></div>
+      </div>
+    </dialog>
+
     <div data-pie></div>
 
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script src="assets/js/config-institucional.js"></script>
     <script src="assets/js/institucional.js"></script>
-    <script src="assets/js/visor.js"></script>
+    <script src="assets/js/geoportal.js"></script>
   </body>
 </html>

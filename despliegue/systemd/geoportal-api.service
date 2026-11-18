@@ -19,6 +19,9 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/geoportal/datos
+# Estudio SIG: la API instala GeoLibre y escribe su política en GEOPORTAL_GEOLIBRE_DIR.
+# Añada esa carpeta (ProtectSystem=strict deja /var en solo lectura), por ejemplo:
+# ReadWritePaths=/var/www/vhosts/<dominio>/httpdocs/geoportal/geolibre
 
 [Install]
 WantedBy=multi-user.target

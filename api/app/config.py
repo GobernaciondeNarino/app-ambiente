@@ -11,6 +11,10 @@ from urllib.parse import urlsplit
 from pathlib import Path
 
 
+# Versión del geoportal (la misma que GP_VERSION de la edición PHP)
+VERSION = os.getenv("GEOPORTAL_VERSION", "1.2.0")
+
+
 def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None or value.strip() == "":
@@ -39,8 +43,10 @@ class Settings:
     # URLs públicas
     # Vacío = se detecta en cada petición (dominio, esquema y prefijo de subdirectorio)
     public_base_url: str = field(default_factory=lambda: os.getenv("GEOPORTAL_PUBLIC_URL", "").strip().rstrip("/"))
+    # «local» = Estudio SIG integrado (GeoLibre servido en /geolibre/ del geoportal);
+    # o la URL de una instancia externa, p. ej. https://web.geolibre.app
     geolibre_url: str = field(
-        default_factory=lambda: os.getenv("GEOLIBRE_PUBLIC_URL", "http://localhost:8081").rstrip("/")
+        default_factory=lambda: os.getenv("GEOLIBRE_PUBLIC_URL", "local").strip().rstrip("/") or "local"
     )
     cors_origins: list[str] = field(default_factory=lambda: _env_list("GEOPORTAL_CORS_ORIGINS"))
 
@@ -50,6 +56,13 @@ class Settings:
     # se referencia por URL y GeoLibre la descarga al abrir.
     inline_max_mb: float = field(default_factory=lambda: float(os.getenv("GEOPORTAL_INLINE_MAX_MB", "15")))
     coordinate_precision: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COORD_PRECISION", "6")))
+
+    # Servicio de compartir de GeoLibre (/api/compartir), como las opciones compartir_* de la edición PHP:
+    # tamaño máximo del proyecto (sin pasar max_upload_mb), versiones que se conservan por proyecto y
+    # publicaciones o versiones nuevas por usuario y hora
+    share_max_mb: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COMPARTIR_MAX_MB", "10")))
+    share_max_versions: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COMPARTIR_MAX_VERSIONES", "20")))
+    share_max_per_hour: int = field(default_factory=lambda: int(os.getenv("GEOPORTAL_COMPARTIR_MAX_HORA", "60")))
 
     # Proyecto GeoLibre
     project_name: str = field(

@@ -63,3 +63,29 @@ logotipo oficial del kit GOV.CO de MinTIC.
 - Respeta `prefers-reduced-motion`.
 - Diseño adaptable: en móvil el mapa ocupa la pantalla y el panel de capas se
   abre con un botón.
+
+## Modo oscuro
+
+El tema oscuro conserva la identidad: el verde institucional `#10A13B` sigue en barras,
+botones y acentos (los botones primarios usan `#0B7A2C` para mantener el contraste del texto
+blanco) y el amarillo `#FFD500` en el foco y los resaltados. Solo cambian las superficies y los
+textos, definidos como variables en `portal/assets/css/institucional.css`
+(`:root[data-tema="oscuro"]`):
+
+| Variable | Claro | Oscuro |
+| --- | --- | --- |
+| `--fondo` / `--superficie` | `#f5f7f5` / `#ffffff` | `#0f1411` / `#161c18` |
+| `--gris-titulo` / `--gris-texto` | `#383838` / `#4d4d4d` | `#eef2ef` / `#c9d1cb` |
+| `--verde-oscuro` (textos de acento) | `#0b7a2c` | `#5fd08a` (contraste AA sobre fondo oscuro) |
+| `--enlace` | `#0b7a2c` | `#6fd896` |
+
+En modo oscuro el logotipo se muestra sobre una placa blanca, para conservar sus colores
+originales y su legibilidad sin alterarlo. El tema se elige con el botón de la barra GOV.CO (automático, claro
+u oscuro), se aplica antes de pintar la página para evitar destellos y se comparte con el mapa
+(GeoLibre abre en tema oscuro o claro según el del portal, con el acento verde institucional
+`#10A13B` del archivo de interfaz).
+
+El mapa es la interfaz de GeoLibre (la de web.geolibre.app) bajo la barra GOV.CO y el encabezado
+de la Gobernación: dentro del mapa rigen los estilos de GeoLibre, con el verde institucional como
+color de acento; fuera de él (encabezado, catálogo, ficha, pie, administrador e instalador), los
+de este manual.

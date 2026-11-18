@@ -82,10 +82,31 @@ function urls_capa(array $capa): array
     return $urls;
 }
 
-function url_geolibre(string $proyecto, bool $visor = true): string
+/** ¿Se usa el GeoLibre integrado en la instalación (Estudio SIG)? */
+function geolibre_local(): bool
 {
-    $g = rtrim((string) gp_opcion('geolibre_url', 'https://web.geolibre.app'), '/');
-    return $g . '/?url=' . rawurlencode($proyecto) . ($visor ? '&layout=viewer' : '');
+    $g = (string) gp_opcion('geolibre_url', 'local');
+    return ($g === '' || $g === 'local') && is_file(gp_raiz() . '/geolibre/index.html');
+}
+
+/**
+ * Enlace que abre un proyecto en GeoLibre: el integrado (con idioma y acento del
+ * geoportal) o una instancia externa como https://web.geolibre.app.
+ * $visor = null usa el modo configurado en el administrador.
+ */
+function url_geolibre(string $proyecto, ?bool $visor = null): string
+{
+    $ajustes = function_exists('gl_ajustes') ? gl_ajustes() : ['modo' => 'visor', 'idioma' => 'es'];
+    $visor ??= $ajustes['modo'] === 'visor';
+    if (geolibre_local()) {
+        $base = gp_url_publica() . '/geolibre/';
+        $extra = ($ajustes['apariencia_institucional'] ?? true) ? '&settingsUrl=' . rawurlencode($base . 'geoportal-ajustes.json') : '';
+    } else {
+        $base = rtrim(function_exists('gl_url_externa') ? gl_url_externa() : 'https://web.geolibre.app', '/') . '/';
+        $extra = '&welcome=0';
+    }
+    return $base . '?url=' . rawurlencode($proyecto) . '&locale=' . rawurlencode($ajustes['idioma']) . $extra
+        . (!empty($ajustes['paneles_plegados']) ? '&panels=collapsed' : '') . ($visor ? '&layout=viewer' : '');
 }
 
 /** Representación de la capa con la misma forma que la edición Python (LayerOut). */
@@ -101,6 +122,7 @@ function capa_salida(array $c, ?array $categorias = null): array
     $out['category'] = ($c['category_id'] && isset($categorias[$c['category_id']])) ? categoria_salida($categorias[$c['category_id']]) : null;
     $out['urls'] = urls_capa($c);
     $out['geolibre_url'] = url_geolibre($out['urls']['proyecto']);
+    $out['geolibre_id'] = uuid5('capa:' . $c['slug']);
     return $out;
 }
 
@@ -121,7 +143,10 @@ function validar_metadatos(array $m): array
         if (!array_key_exists($k, $m) || $m[$k] === null) {
             return;
         }
-        $v = trim((string) $m[$k]);
+        if (!is_string($m[$k])) {
+            falla(422, "$k: debe ser texto.");
+        }
+        $v = trim($m[$k]);
         if (mb_strlen($v) > $max || mb_strlen($v) < $min) {
             falla(422, "$k: longitud no válida.");
         }
@@ -137,32 +162,49 @@ function validar_metadatos(array $m): array
     $texto('lineage', 5000);
     $texto('update_frequency', 40);
     $texto('label_field', 120);
-    if (array_key_exists('data_date', $m) && $m['data_date'] !== null) {
-        $d = trim((string) $m['data_date']);
-        if ($d !== '' && !preg_match('/^\d{4}(-\d{2}(-\d{2})?)?$/', $d)) {
+    $texto('data_date', 20);
+    if (($limpio['data_date'] ?? '') !== '') {
+        // AAAA, AAAA-MM o AAAA-MM-DD, con un mes y un día que existan (como la edición Python)
+        if (!preg_match('/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?\z/', $limpio['data_date'], $f)) {
             falla(422, 'data_date: use el formato AAAA, AAAA-MM o AAAA-MM-DD.');
         }
-        $limpio['data_date'] = $d;
+        if (!checkdate((int) ($f[2] ?? 1), (int) ($f[3] ?? 1), (int) $f[1])) {
+            falla(422, 'data_date: la fecha no existe (mes de 01 a 12 y un día válido para ese mes).');
+        }
+    }
+    if (($limpio['contact_email'] ?? '') !== '' && !correo_valido($limpio['contact_email'])) {
+        falla(422, 'contact_email: ' . GP_CORREO_NO_VALIDO);
     }
     if (array_key_exists('category_id', $m)) {
-        $limpio['category_id'] = $m['category_id'] === null || $m['category_id'] === '' ? null : (int) $m['category_id'];
+        $cat = $m['category_id'];
+        if ($cat !== null && $cat !== '' && filter_var($cat, FILTER_VALIDATE_INT) === false) {
+            falla(422, 'category_id: debe ser un número entero.'); // antes (int) 'abc' = 0 y la base de datos respondía 500
+        }
+        $limpio['category_id'] = $cat === null || $cat === '' ? null : (int) $cat;
     }
-    if (isset($m['keywords']) && is_array($m['keywords'])) {
+    // Listas de texto: otro tipo es un error (422), no se ignora ni se convierte
+    foreach (['keywords', 'popup_fields'] as $l) {
+        if (array_key_exists($l, $m) && $m[$l] !== null && (!is_array($m[$l]) || !array_is_list($m[$l]) || array_filter($m[$l], static fn ($x) => !is_string($x)))) {
+            falla(422, "$l: debe ser una lista de textos.");
+        }
+    }
+    if (isset($m['keywords'])) {
         $vistas = [];
         foreach ($m['keywords'] as $k) {
-            $k = mb_substr(trim((string) $k), 0, 60);
+            $k = mb_substr(trim($k), 0, 60);
             if ($k !== '' && !in_array(mb_strtolower($k), array_map('mb_strtolower', $vistas), true)) {
                 $vistas[] = $k;
             }
         }
         $limpio['keywords'] = array_slice($vistas, 0, 30);
     }
-    if (isset($m['popup_fields']) && is_array($m['popup_fields'])) {
-        $limpio['popup_fields'] = array_values(array_map('strval', $m['popup_fields']));
+    if (isset($m['popup_fields'])) {
+        $limpio['popup_fields'] = array_values($m['popup_fields']);
     }
     foreach (['downloadable', 'visible_by_default', 'published'] as $b) {
         if (array_key_exists($b, $m) && $m[$b] !== null) {
-            $limpio[$b] = (bool) $m[$b];
+            // «quizás» ya no cuenta como verdadero
+            $limpio[$b] = valor_booleano($m[$b]) ?? falla(422, "$b: debe ser verdadero o falso.");
         }
     }
     foreach (['opacity' => [0, 1], 'position' => [-1000000, 1000000]] as $n => [$min, $max]) {
@@ -173,7 +215,10 @@ function validar_metadatos(array $m): array
             $limpio[$n] = $n === 'position' ? (int) $m[$n] : (float) $m[$n];
         }
     }
-    if (isset($m['style']) && is_array($m['style'])) {
+    if (array_key_exists('style', $m) && $m['style'] !== null && (!is_array($m['style']) || ($m['style'] !== [] && array_is_list($m['style'])))) {
+        falla(422, 'style: debe ser un objeto JSON.');
+    }
+    if (isset($m['style'])) {
         $estilo = [];
         foreach ($m['style'] as $k => $v) {
             if (!in_array($k, ESTILO_PERMITIDO, true) || $v === null || $v === '') {
@@ -186,11 +231,13 @@ function validar_metadatos(array $m): array
                 $estilo[$k] = $v;
             } elseif ($k === 'colorRamp' || $k === 'rasterMode') {
                 $estilo[$k] = mb_substr((string) $v, 0, 20);
-            } elseif ($k === 'band') {
-                $estilo[$k] = max(1, (int) $v);
             } else {
                 if (!is_numeric($v)) {
                     falla(422, "$k: debe ser numérico.");
+                }
+                if ($k === 'band') {
+                    $estilo[$k] = max(1, (int) $v);
+                    continue;
                 }
                 $n = (float) $v;
                 if ($k === 'fillOpacity') {
@@ -213,7 +260,7 @@ function aplicar_metadatos(array &$capa, array $meta, array $usuario): array
     if (array_key_exists('published', $meta) && $usuario['role'] !== 'administrador') {
         falla(403, 'Solo un administrador puede publicar o retirar capas.');
     }
-    if (!empty($meta['category_id'])) {
+    if (($meta['category_id'] ?? null) !== null) { // también 0: no existe (antes llegaba a la base de datos y respondía 500)
         $st = gp_db()->prepare('SELECT id FROM ' . t('categorias') . ' WHERE id = ?');
         $st->execute([$meta['category_id']]);
         if (!$st->fetch()) {
@@ -276,6 +323,51 @@ function uuid5(string $nombre): string
     return sprintf('%s-%s-%s-%s-%s', substr($h, 0, 8), substr($h, 8, 4), '5' . substr($h, 13, 3), dechex((hexdec(substr($h, 16, 2)) & 0x3f) | 0x80) . substr($h, 18, 2), substr($h, 20, 12));
 }
 
+/** ¿GeoLibre puede transmitir por rangos el GeoTIFF publicado? (teselado y en EPSG:4326 o 3857) */
+function raster_apto_geolibre(array $c): bool
+{
+    // Con copia generada al cargar, el publicado está en EPSG:4326; si no, es el original
+    $copia = ($c['processed_path'] ?? '') !== ($c['original_path'] ?? '');
+    if (!$copia && !preg_match('/\bEPSG:(4326|3857)\b/', (string) ($c['source_crs'] ?? ''))) {
+        return false;
+    }
+    return tiff_teselado(gp_ruta_datos((string) $c['processed_path']));
+}
+
+/** Lee el primer directorio del TIFF (clásico o BigTIFF) y busca la etiqueta TileWidth (322). */
+function tiff_teselado(string $ruta): bool
+{
+    $f = @fopen($ruta, 'rb');
+    if (!$f) return false;
+    try {
+        $cab = (string) fread($f, 16);
+        $le = str_starts_with($cab, 'II');
+        if (!$le && !str_starts_with($cab, 'MM')) return false;
+        $u16 = static fn (string $b) => unpack($le ? 'v' : 'n', $b)[1];
+        $u32 = static fn (string $b) => unpack($le ? 'V' : 'N', $b)[1];
+        $u64 = static fn (string $b) => unpack($le ? 'P' : 'J', $b)[1];
+        $version = $u16(substr($cab, 2, 2));
+        if ($version === 42) {
+            fseek($f, $u32(substr($cab, 4, 4)));
+            $n = $u16((string) fread($f, 2));
+            $tam = 12;
+        } elseif ($version === 43) {
+            fseek($f, $u64(substr($cab, 8, 8)));
+            $n = $u64((string) fread($f, 8));
+            $tam = 20;
+        } else {
+            return false;
+        }
+        $entradas = (string) fread($f, min($n, 4096) * $tam);
+        for ($i = 0; $i + 2 <= strlen($entradas); $i += $tam) {
+            if ($u16(substr($entradas, $i, 2)) === 322) return true;
+        }
+        return false;
+    } finally {
+        fclose($f);
+    }
+}
+
 function capa_geolibre(array $c, ?string $grupo): array
 {
     $estilo = ESTILO_BASE_GEOLIBRE;
@@ -283,6 +375,10 @@ function capa_geolibre(array $c, ?string $grupo): array
         if (isset($c['style'][$k])) {
             $estilo[$k] = $c['style'][$k];
         }
+    }
+    if ($c['geometry_type'] === 'Línea') {
+        // En GeoLibre el color de línea es el del trazo (igual que la edición Python)
+        $estilo['strokeColor'] = $c['style']['strokeColor'] ?? $estilo['fillColor'];
     }
     $urls = urls_capa($c);
     $id = uuid5('capa:' . $c['slug']);
@@ -309,6 +405,18 @@ function capa_geolibre(array $c, ?string $grupo): array
     ];
     if ($grupo) {
         $out['groupId'] = $grupo;
+    }
+    if ($c['kind'] === 'raster' && !raster_apto_geolibre($c) && !empty($c['raster_info']['corners']) && isset($urls['vista_previa'])) {
+        // GeoLibre solo transmite GeoTIFF teselados en EPSG:4326/3857: si el publicado no lo es (ráster
+        // demasiado grande para convertirlo en el navegador o cargado con una versión anterior),
+        // se incluye su vista previa como imagen georreferenciada en lugar de una capa que no abriría.
+        $b = $c['bbox'] ?? null;
+        $out['type'] = 'image';
+        $out['source'] = ['type' => 'image', 'url' => $urls['vista_previa'], 'coordinates' => $c['raster_info']['corners']];
+        $out['metadata'] = ['sourceKind' => 'image'] + (is_array($b) && count($b) === 4 ? ['bounds' => [[$b[0], $b[1]], [$b[2], $b[3]]]] : []);
+        $out['descriptiveMetadata']['abstract'] = trim(($c['description'] ?? '') . ' Vista previa: para analizar los valores descargue el GeoTIFF original.');
+        $out['capabilities']['query'] = false;
+        return $out;
     }
     if ($c['kind'] === 'raster') {
         $info = $c['raster_info'] ?? [];
@@ -360,6 +468,15 @@ function capa_geolibre(array $c, ?string $grupo): array
     return $out;
 }
 
+/** Mapas base vectoriales que el proyecto acepta en ?base= (los del visor que GeoLibre abre como estilo). */
+const GP_BASES_PROYECTO = [
+    'calles' => 'https://tiles.openfreemap.org/styles/liberty',
+    'claro' => 'https://tiles.openfreemap.org/styles/positron',
+    'oscuro' => 'https://tiles.openfreemap.org/styles/dark',
+    'fiord' => 'https://tiles.openfreemap.org/styles/fiord',
+    'brillante' => 'https://tiles.openfreemap.org/styles/bright',
+];
+
 function proyecto_geolibre(array $capas, ?string $nombre = null): array
 {
     $cats = categorias_por_id();
@@ -397,7 +514,7 @@ function proyecto_geolibre(array $capas, ?string $nombre = null): array
         'version' => '0.2.0',
         'name' => $nombre ?? (string) gp_opcion('nombre_portal', 'Geoportal Ambiental — Gobernación de Nariño'),
         'mapView' => $vista,
-        'basemapStyleUrl' => (string) gp_opcion('mapa_base', 'https://tiles.openfreemap.org/styles/liberty'),
+        'basemapStyleUrl' => GP_BASES_PROYECTO[(string) ($_GET['base'] ?? '')] ?? (string) gp_opcion('mapa_base', 'https://tiles.openfreemap.org/styles/liberty'),
         'basemapVisible' => true,
         'basemapOpacity' => 1,
         'layers' => $capasGL,

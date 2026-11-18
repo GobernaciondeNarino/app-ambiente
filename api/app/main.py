@@ -10,13 +10,31 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from .config import get_settings, origin_of
+from . import errores
+from .config import VERSION, get_settings, origin_of
 from .db import Base, get_engine, session_scope
 from .models import Category, User
-from .routers import admin, public
+from .routers import admin, compartir, public
 from .security import hash_password
 
 log = logging.getLogger("geoportal")
+
+
+class CORSGeoLibre(CORSMiddleware):
+    """CORS para la instancia externa de GeoLibre, que el administrador puede cambiar en caliente.
+
+    El Estudio SIG integrado comparte origen con el geoportal y no necesita CORS; la instancia
+    externa (respaldo si el Estudio no está instalado) descarga el proyecto y los datos desde
+    otro origen. CORS compara orígenes (esquema + dominio + puerto), nunca rutas.
+    """
+
+    def is_allowed_origin(self, origin: str) -> bool:
+        if super().is_allowed_origin(origin):
+            return True
+        from .services import estudio
+
+        s = get_settings()
+        return bool(origin) and origin in {origin_of(estudio.url_externa(s)), origin_of(s.public_base_url)}
 
 # Categorías temáticas iniciales de la Secretaría de Ambiente y Desarrollo Sostenible
 DEFAULT_CATEGORIES = [
@@ -73,7 +91,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Geoportal Ambiental — Gobernación de Nariño",
         description="API de catálogo, consulta y administración de geodatos de la Secretaría de Ambiente y Desarrollo Sostenible.",
-        version=os.getenv("GEOPORTAL_VERSION", "1.0.0"),
+        version=VERSION,
         lifespan=lifespan,
         docs_url=None,  # se sirve abajo con una URL relativa (funciona en subdirectorios)
         redoc_url=None,
@@ -87,22 +105,24 @@ def create_app() -> FastAPI:
             # «openapi.json» relativo a /…/api/docs: vale en la raíz y en cualquier subdirectorio
             return get_swagger_ui_html(openapi_url="openapi.json", title="API · Geoportal Ambiental")
 
-    # GeoLibre se sirve desde otro origen y descarga proyectos y datos desde la API.
-    # CORS compara orígenes (esquema + dominio + puerto), nunca rutas.
-    origins = settings.cors_origins or [
-        o for o in {origin_of(settings.geolibre_url), origin_of(settings.public_base_url)} if o
-    ]
+    # Orígenes fijos (GEOPORTAL_CORS_ORIGINS); la instancia externa de GeoLibre se evalúa en cada petición
     app.add_middleware(
-        CORSMiddleware,
-        allow_origins=origins,
+        CORSGeoLibre,
+        allow_origins=settings.cors_origins,
         allow_methods=["GET", "HEAD", "OPTIONS"] if not settings.cors_origins else ["*"],
         allow_headers=["*"],
         expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
     )
+    # Errores en JSON y en español, con la misma forma que la edición PHP
+    errores.instalar(app)
+    # Servicio de compartir de GeoLibre: sus errores llevan además «error» (contrato v1 de GeoLibre)
+    compartir.instalar(app)
     # La compresión gzip la hace nginx (no aplica a respuestas parciales 206 de las COG)
     app.include_router(public.router)
     app.include_router(admin.auth_router)
     app.include_router(admin.router)
+    app.include_router(compartir.router)
+    app.include_router(compartir.router_admin)
 
     # Desarrollo sin nginx: GEOPORTAL_PORTAL_DIR=../portal sirve el sitio estático
     portal_dir = os.getenv("GEOPORTAL_PORTAL_DIR")

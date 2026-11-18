@@ -14,7 +14,11 @@ import httpx
 
 CLAVE = "Admin-Geoportal-2026"
 PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
-TIFF_MINIMO = b"II*\x00" + bytes(252)
+TIFF_MINIMO = b"II*\x00" + bytes(252)  # sin etiquetas de teselas (GeoTIFF por franjas)
+# Primer IFD con la etiqueta TileWidth (322): GeoLibre lo puede leer por rangos
+TIFF_TESELADO = (b"II*\x00" + (8).to_bytes(4, "little") + (1).to_bytes(2, "little")
+                 + (322).to_bytes(2, "little") + (3).to_bytes(2, "little") + (1).to_bytes(4, "little") + (256).to_bytes(4, "little")
+                 + bytes(4)).ljust(256, b"\x00")
 ESTADO: dict = {}
 
 
@@ -158,14 +162,15 @@ def test_carga_raster_y_rangos(sitio):
     }
     with httpx.Client(timeout=60) as c:
         r = _cargar(c, url + "api/admin/capas", tk, PNG_1X1, info, {"title": "DEM de prueba", "published": True}, nombre="dem.tif",
-                    extra={"geotiff": ("datos_4326.tif", TIFF_MINIMO)})
+                    extra={"geotiff": ("datos_4326.tif", TIFF_TESELADO)})
         assert r.status_code == 201, r.text
         capa = r.json()["capa"]
         ESTADO["raster"] = capa
         assert capa["kind"] == "raster" and capa["bbox"] == [-76.68, 1.28, -76.41, 1.55]
         # El GeoTIFF publicado es la copia teselada en 4326; el original se conserva
         rango = c.get(url + f"api/capas/{capa['slug']}/datos.tif", headers={"Range": "bytes=0-9"})
-        assert rango.status_code == 206 and rango.headers["content-range"] == f"bytes 0-9/{len(TIFF_MINIMO)}"
+        assert rango.status_code == 206 and rango.headers["content-range"] == f"bytes 0-9/{len(TIFF_TESELADO)}"
+        assert rango.content == TIFF_TESELADO[:10]
         assert c.get(url + f"api/capas/{capa['slug']}/datos.tif", headers={"Range": "bytes=999999-"}).status_code == 416
         original = c.get(url + f"api/admin/capas/{capa['id']}/original", headers=h)
         assert original.status_code == 200 and original.content == TIFF_MINIMO
@@ -214,6 +219,107 @@ def test_api_publica_y_proyecto_geolibre(sitio):
         assert "access-control-allow-origin" not in c.get(url + "api/capas", headers={"Origin": "https://otro.sitio"}).headers
 
 
+def test_estudio_sig(sitio):
+    url = sitio["url"]
+    origen = url.split("/geoportal/")[0]
+    h = {"Authorization": f"Bearer {ESTADO['token']}"}
+    acao = "access-control-allow-origin"
+    with httpx.Client(timeout=30) as c:
+        d = c.get(url + "api/admin/geolibre", headers=h).json()
+        assert d["estado"]["instalado"] is False and d["estado"]["version_disponible"] == "3.9.0"
+        assert d["integrado"] is False and d["ajustes"]["idioma"] == "es"
+        # Compartir y Galería con el servicio propio (share.geolibre.app no responde a otros dominios)
+        assert d["politica"]["sharing"] == {"shareUrl": url + "api/compartir", "embedOrigins": [origen, origen.replace("http://", "https://")]}
+        assert d["politica"]["ai"] == {"enabled": False}
+        for malo in ({"nivel": "experto"}, {"idioma": "xx"}, {"color_acento": "verde"}, {"url_colaboracion": "http://relé"},
+                     {"geolens_url": "http://inseguro"}, {"servicios": [{"name": "Sin URL", "kind": "wms"}]},
+                     {"url_externa": "javascript:alert(1)"}, {"nombre": "x"}):
+            assert c.put(url + "api/admin/geolibre", headers=h, json=malo).status_code == 422, malo
+
+        # GeoLibre «instalado» sin descargarlo: basta su index.html
+        carpeta = sitio["raiz"] / "geolibre"
+        carpeta.mkdir()
+        (carpeta / "index.html").write_text("<!doctype html><title>GeoLibre</title>")
+        (carpeta / ".version-geoportal").write_text("3.9.0")
+        r = c.put(url + "api/admin/geolibre", headers=h, json={
+            "usar_integrado": True, "nombre": "Estudio Ambiental", "menus_ocultos": ["help", "x"], "capacidades": ["project:edit", "data:add"],
+            "servicios": [{"name": "IDEAM", "kind": "wms", "fields": {"url": "https://ideam.example/wms", "layers": "a"}},
+                          {"name": "IDEAM", "kind": "xyz", "fields": {"url": "https://ideam.example/{z}/{x}/{y}.png"}}],
+        })
+        assert r.status_code == 200 and r.json()["archivos_escritos"] is True and r.json()["integrado"] is True
+        assert [s["id"] for s in r.json()["ajustes"]["servicios"]] == ["ideam", "ideam-2"]
+        dep = json.loads((carpeta / "deployment.json").read_text())
+        assert dep["branding"] == {"appName": "Estudio Ambiental", "welcome": False}
+        assert dep["interface"]["hiddenMenus"] == ["help"] and dep["capabilities"] == ["project:edit", "data:add"]
+        assert dep["sharing"]["embedOrigins"][0] == origen and "allowed" not in dep["plugins"]
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"restringir_complementos": True, "complementos_permitidos": ""})
+        assert r.json()["politica"]["plugins"]["allowed"] == []
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"restringir_complementos": False})
+        assert "allowed" not in r.json()["politica"]["plugins"]
+        assert c.get(url + "geolibre/deployment.json").json() == dep == c.get(url + "api/geolibre/deployment.json").json()
+        # GeoLibre copiado a mano trae un deployment.json vacío: /api/config lo regenera
+        (carpeta / "deployment.json").write_text("null")
+        c.get(url + "api/config")
+        assert json.loads((carpeta / "deployment.json").read_text())["branding"]["appName"] == "Estudio Ambiental"
+        interfaz = c.get(url + "geolibre/geoportal-ajustes.json").json()
+        # Por defecto, la disposición completa de web.geolibre.app: menús con texto y todos los paneles
+        completo = {"toolbarLabels": True, "showProjectInfo": True, "compactLayerList": False, "layerPanelVisible": True,
+                    "browserPanelVisible": True, "stylePanelVisible": True, "commentsPanelVisible": True, "bottomPanelsUnderMap": True}
+        assert interfaz == {"type": "geolibre-interface", "version": 1, "language": "es", "theme": {"scheme": "custom", "customColor": "#10A13B"}, "layout": completo}
+        assert json.loads((carpeta / "deployment.json").read_text())["interface"]["level"] == "advanced"
+        # Un archivo de interfaz que no coincide con los ajustes (versión anterior, sin «layout») se regenera
+        (carpeta / "geoportal-ajustes.json").write_text('{"type":"geolibre-interface","version":1,"language":"es"}')
+        assert c.get(url + "api/config").json()["estudio"]["paneles_plegados"] is False
+        assert json.loads((carpeta / "geoportal-ajustes.json").read_text())["layout"] == completo
+
+        cfg = c.get(url + "api/config").json()
+        assert cfg["estudio"]["activo"] is True and cfg["estudio"]["version"] == "3.9.0"
+        assert cfg["geolibre_url"] == url + "geolibre"
+        assert cfg["geolibre_editor_url"].startswith(url + "geolibre/?url=") and "settingsUrl=" in cfg["geolibre_editor_url"]
+        assert "panels=collapsed" not in cfg["geolibre_editor_url"]
+        # Preajuste «Esencial» (compacto): barra con iconos, lista compacta y paneles plegados
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"nivel": "intermediate", "paneles_plegados": True, "lista_compacta": True, "etiquetas_barra": False,
+                                                              "info_proyecto": False, "panel_explorador": False, "panel_comentarios": False})
+        assert r.json()["politica"]["interface"]["level"] == "intermediate"
+        assert c.get(url + "geolibre/geoportal-ajustes.json").json()["layout"]["toolbarLabels"] is False
+        assert "&panels=collapsed" in c.get(url + "api/config").json()["geolibre_editor_url"]
+        # Sin la apariencia institucional no se envía ?settingsUrl= (GeoLibre guarda los ajustes del visitante)
+        c.put(url + "api/admin/geolibre", headers=h, json={"apariencia_institucional": False})
+        cfg = c.get(url + "api/config").json()
+        assert cfg["estudio"]["ajustes_url"] is None and "settingsUrl=" not in cfg["geolibre_editor_url"]
+        # Vuelta a la interfaz completa (la de web.geolibre.app)
+        c.put(url + "api/admin/geolibre", headers=h, json={"nivel": "advanced", "paneles_plegados": False, "lista_compacta": False, "etiquetas_barra": True,
+                                                          "info_proyecto": True, "panel_explorador": True, "panel_comentarios": True, "apariencia_institucional": True})
+        # La instancia externa de respaldo sigue con CORS
+        assert c.get(url + "api/capas", headers={"Origin": "https://web.geolibre.app"}).headers.get(acao) == "https://web.geolibre.app"
+
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"usar_integrado": False, "url_externa": "https://gis.example.org/geolibre/"})
+        assert r.json()["integrado"] is False and r.json()["url_externa"] == "https://gis.example.org/geolibre"
+        cfg = c.get(url + "api/config").json()
+        assert cfg["estudio"]["activo"] is False and cfg["geolibre_url"] == "https://gis.example.org/geolibre"
+        assert c.get(url + "api/capas", headers={"Origin": "https://gis.example.org"}).headers.get(acao) == "https://gis.example.org"
+        assert acao not in c.get(url + "api/capas", headers={"Origin": "https://web.geolibre.app"}).headers
+        r = c.put(url + "api/admin/geolibre", headers=h, json={"usar_integrado": True, "nombre": "Geoportal Ambiental", "menus_ocultos": [], "servicios": []})
+        assert r.json()["integrado"] is True
+
+        # Un ráster cuyo GeoTIFF publicado no está teselado se incluye como imagen georreferenciada
+        info = {"kind": "raster", "source_format": "GeoTIFF", "source_crs": "EPSG:4326", "raster_info": {
+            "width": 10, "height": 10, "bands": 1, "corners": [[-77.0, 1.2], [-76.9, 1.2], [-76.9, 1.1], [-77.0, 1.1]]}}
+        r = _cargar(c, url + "api/admin/capas", ESTADO["token"], PNG_1X1, info, {"title": "Ráster por franjas", "published": True}, nombre="franjas.tif")
+        assert r.status_code == 201, r.text
+        franjas = r.json()["capa"]
+        capa_gl = next(l for l in c.get(url + "api/proyecto.geolibre").json()["layers"] if l["name"] == "Ráster por franjas")
+        assert capa_gl["type"] == "image" and capa_gl["source"]["coordinates"] == info["raster_info"]["corners"]
+        assert capa_gl["source"]["url"].endswith(f"api/capas/{franjas['slug']}/vista-previa.png")
+        assert c.delete(url + f"api/admin/capas/{franjas['id']}", headers=h).status_code == 204
+
+        # Proyecto con el mapa base del visor e identificadores estables para la API de incrustación
+        assert c.get(url + "api/proyecto.geolibre?base=oscuro").json()["basemapStyleUrl"] == "https://tiles.openfreemap.org/styles/dark"
+        capa = c.get(url + f"api/capas/{ESTADO['vector']['slug']}").json()
+        assert capa["geolibre_id"] == str(uuid.uuid5(uuid.NAMESPACE_URL, "geoportal-ambiente:capa:" + ESTADO["vector"]["slug"]))
+        assert "geolibre_configuracion" in {a["action"] for a in c.get(url + "api/admin/bitacora", headers=h).json()}
+
+
 def test_roles_bitacora_y_eliminacion(sitio):
     url = sitio["url"]
     h = {"Authorization": f"Bearer {ESTADO['token']}"}
@@ -228,6 +334,8 @@ def test_roles_bitacora_y_eliminacion(sitio):
         assert c.delete(url + f"api/admin/capas/{vid}", headers=he).status_code == 403
         assert c.get(url + "api/admin/usuarios", headers=he).status_code == 403
         assert c.get(url + "api/admin/configuracion", headers=he).status_code == 403
+        assert c.get(url + "api/admin/geolibre", headers=he).status_code == 403
+        assert c.post(url + "api/admin/geolibre/instalar", headers=he).status_code == 403
         assert c.put(url + f"api/admin/capas/{vid}", headers=he, json={"published": False}).status_code == 403
         assert c.put(url + f"api/admin/capas/{vid}", headers=he, json={"description": "Editado por la editora"}).status_code == 200
         # Una editora carga siempre como borrador

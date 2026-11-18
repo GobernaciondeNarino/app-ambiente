@@ -22,6 +22,9 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("GEOPORTAL_PUBLIC_URL", "http://portal.test")
     monkeypatch.setenv("GEOLIBRE_PUBLIC_URL", "http://visor.test")
     monkeypatch.setenv("GEOPORTAL_DATABASE_URL", "")
+    # Nunca escribir en una copia real de GeoLibre (portal/geolibre/) durante las pruebas
+    monkeypatch.setenv("GEOPORTAL_GEOLIBRE_DIR", str(tmp_path / "geolibre-sin-instalar"))
+    monkeypatch.delenv("GEOPORTAL_PORTAL_DIR", raising=False)
 
     from app import config, db
 

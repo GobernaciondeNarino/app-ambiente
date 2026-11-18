@@ -14,14 +14,16 @@ donde se le indique». El geoportal cubre esa parte:
   consumen directamente;
 - la **generación de proyectos GeoLibre** a partir del catálogo.
 
-GeoLibre se usa sin modificar su código (imagen oficial
-`ghcr.io/opengeos/geolibre`), así las actualizaciones del proyecto se adoptan
-cambiando la etiqueta de la imagen.
+GeoLibre se usa sin modificar su código: su compilación web oficial (la que publica
+en PyPI, verificada con SHA-256) se sirve en `geolibre/` del propio geoportal y es
+**el mapa de la portada**, con la interfaz completa de web.geolibre.app; se configura con sus mecanismos oficiales (`deployment.json` y
+`?settingsUrl=`). Las actualizaciones se adoptan cambiando la versión fijada en
+`portal/api/geolibre-version.json`. Ver [GeoLibre: el mapa del geoportal](estudio-sig.md).
 
 ## Ediciones
 
 El repositorio tiene dos backends con el mismo contrato de API. El sitio estático de `portal/`
-(visor, catálogo y administrador) funciona con cualquiera de los dos y detecta la edición con
+(mapa, catálogo y administrador) funciona con cualquiera de los dos y detecta la edición con
 `GET /api/config` (`edicion`, `ingesta`).
 
 | | Edición Docker (`api/`, Python) | Edición Plesk (`portal/api/`, PHP) |
@@ -39,26 +41,28 @@ Solo se cargan en el administrador y cuando se necesitan.
 ```mermaid
 flowchart TB
   subgraph Navegador
-    V[Visor público<br>MapLibre GL JS 4]
+    V[Portada<br>catálogo, ficha, insertar]
     A[Administrador]
-    G[GeoLibre]
+    G[Mapa: GeoLibre completo<br>en un iframe a toda la vista]
   end
   subgraph Servidor
-    N[nginx<br>sitio estático + proxy /api]
+    N[nginx<br>sitio estático, /geolibre/ y proxy /api]
     API[API FastAPI]
-    GL[Contenedor GeoLibre]
     D[(Volumen /datos)]
+    GV[(Volumen geolibre)]
   end
   V & A --> N --> API --> D
-  G -. carga la app .-> GL
-  G -- ?url=…/api/proyecto.geolibre --> N
+  V -- API de incrustación v2 --> G
+  G -- /geolibre/ y ?url=…/api/proyecto.geolibre --> N
+  API -- instala y escribe deployment.json --> GV
+  N -- sirve --> GV
 ```
 
 | Servicio | Imagen | Puerto | Función |
 | --- | --- | --- | --- |
-| `web` | `nginx:1.27-alpine` | 8080 | Sirve `portal/` y hace proxy de `/api/` |
-| `api` | `./api` (Python 3.12) | interno 8000 | Ingesta, catálogo, datos, autenticación, proyectos |
-| `geolibre` | `ghcr.io/opengeos/geolibre` | 8081 | SIG web para análisis |
+| `web` | `nginx:1.27-alpine` | 8080 | Sirve `portal/`, GeoLibre en `/geolibre/` (volumen `geolibre`) y hace proxy de `/api/` |
+| `api` | `./api` (Python 3.12) | interno 8000 | Ingesta, catálogo, datos, autenticación, proyectos, instalación y política de GeoLibre |
+| `geolibre` (perfil `geolibre-separado`) | `ghcr.io/opengeos/geolibre` | 8081 | Opcional: GeoLibre en su propio origen, con *sidecar* de Python |
 
 ### Almacenamiento (volumen `geodatos` → `/datos`)
 
@@ -75,13 +79,32 @@ tablas se crean al iniciar.
 
 ### API
 
-Documentación interactiva en `/api/docs`.
+Documentación interactiva en `/api/docs` (solo en la edición Python; la edición PHP no la tiene).
+
+**Errores (iguales en las dos ediciones):** JSON `{"detail": "texto en español"}`, sin trazas ni
+rutas internas, con 400, 401 (con `WWW-Authenticate: Bearer`), 403, 404, 405 «Método no
+permitido.», 413 y 422 para datos no válidos: tipos incorrectos, `publicar=` ausente o no booleano,
+`category_id` inexistente, `data_date` fuera de `AAAA`, `AAAA-MM` o `AAAA-MM-DD` con fecha real, o
+correos no válidos. `POST /api/auth/ingresar` responde 429 con `Retry-After` tras 5 fallos del mismo
+usuario desde la misma IP, o 20 fallos desde la misma IP, en 15 minutos (contados en la bitácora,
+sin tablas nuevas). En PHP, `gp_ip_cliente()` usa `REMOTE_ADDR`; solo si la conexión
+llega del propio servidor (bucle local: el nginx de Plesk delante de Apache sin mod_remoteip) toma la
+última entrada de `X-Forwarded-For` (la que añade ese nginx, no la que envía el cliente) o, si falta,
+`X-Real-IP`. En Python, la que entrega uvicorn con `--proxy-headers`: el `Dockerfile` solo
+confía en proxies de redes privadas y el servicio systemd solo en `127.0.0.1`. En una intranet
+cuyos equipos usan direcciones privadas, restrinja `--forwarded-allow-ips` a la IP exacta del
+proxy para que un equipo interno no pueda falsear la suya. `api/tests/test_contrato.py` y `pruebas/edicion_php/test_contrato_php.py`
+comprueban ese contrato en cada edición. Diferencias legítimas que se mantienen: la ingesta (GDAL en
+el servidor frente a conversión en el navegador), `/api/admin/configuracion` solo en PHP, el
+*preflight* CORS (200 en Python, 204 en PHP) y un `Range` mal formado (400 en Python, se ignora en
+PHP).
 
 **Pública (solo capas publicadas):**
 
 | Método y ruta | Descripción |
 | --- | --- |
-| `GET /api/config` | Parámetros del visor y URL de GeoLibre |
+| `GET /api/config` | Nombre, vista inicial, URL de GeoLibre y estado de GeoLibre integrado (`estudio`) |
+| `GET /api/geolibre/deployment.json` · `ajustes.json` | Política de despliegue y archivo de interfaz de GeoLibre |
 | `GET /api/categorias` | Categorías con capas publicadas |
 | `GET /api/capas?q=&categoria=&tipo=` | Catálogo con búsqueda |
 | `GET /api/capas/{slug}` | Ficha de la capa |
@@ -90,10 +113,11 @@ Documentación interactiva en `/api/docs`.
 | `GET /api/capas/{slug}/vista-previa.png` | Vista previa del ráster |
 | `GET /api/capas/{slug}/descarga[?original=1]` | Descarga |
 | `GET /api/capas/{slug}/proyecto.geolibre` | Proyecto GeoLibre de una capa |
-| `GET /api/proyecto.geolibre[?categoria=&capas=a,b]` | Proyecto GeoLibre del catálogo |
+| `GET /api/proyecto.geolibre[?categoria=&capas=a,b&base=]` | Proyecto GeoLibre del catálogo |
 
 **Administración (token Bearer):** `POST /api/auth/ingresar`, `GET /api/auth/yo`,
-`POST /api/auth/cambiar-clave`, y bajo `/api/admin/`: `resumen`, `capas` (CRUD,
+`POST /api/auth/cambiar-clave`, y bajo `/api/admin/`: `geolibre` (GET/PUT, solo
+administradores), `geolibre/instalar` (POST), `resumen`, `capas` (CRUD,
 `POST capas` multipart con `archivo` + `metadatos` JSON, `POST capas/{id}/archivo`,
 `POST capas/{id}/publicacion?publicar=`, `GET capas/{id}/muestra`),
 `categorias`, `usuarios`, `bitacora`.
@@ -112,24 +136,80 @@ Documentación interactiva en `/api/docs`.
 - simbología → `style`; ventana emergente → `popup`; ficha →
   `descriptiveMetadata` (GeoLibre la muestra en *Metadata* y la exporta como
   STAC); `capabilities.export` refleja «permitir descarga»;
-- los identificadores son deterministas (UUID v5 del slug), así un proyecto
-  guardado sigue reconociendo sus capas.
+- los identificadores son deterministas (UUID v5 del slug, expuestos como
+  `geolibre_id` en `/api/capas`), así un proyecto guardado sigue reconociendo sus
+  capas y la portada las controla en GeoLibre con la API de incrustación;
+- `?base=calles|claro|oscuro|fiord|brillante` elige el mapa base del proyecto;
+- en la edición PHP, un ráster cuyo GeoTIFF publicado no está teselado o no está en
+  EPSG:4326/3857 entra como imagen georreferenciada (vista previa PNG).
 
-El enlace usa los parámetros de GeoLibre `?url=<proyecto>&layout=viewer`
-(interfaz de solo lectura). El administrador puede quitar `&layout=viewer` para
-la interfaz completa.
+La portada abre `geolibre/?url=<proyecto>&settingsUrl=geolibre/geoportal-ajustes.json`
+con `locale`, `theme` (claro u oscuro, el del portal), `lat`/`lon`/`zoom` y, solo para
+el mapa insertado (`?maponly`) o el modo de consulta, `layout=viewer`. Con una instancia externa se usa `?url=<proyecto>&welcome=0`.
+
+### GeoLibre integrado
+
+| Pieza | Edición PHP | Edición Python/Docker |
+| --- | --- | --- |
+| Ajustes | Opción `geolibre` (JSON) en la tabla `opciones` | `geolibre-ajustes.json` en el volumen de datos |
+| Política y archivo de interfaz | `geolibre/deployment.json`, `geolibre/geoportal-ajustes.json` (y `/api/geolibre/deployment.json`) | Igual, en el volumen `geolibre` |
+| Instalación | `gl_instalar()` en `portal/api/lib/geolibre.php` | `estudio.instalar()` en `api/app/services/estudio.py` |
+| Integrado o externo | Opción `geolibre_url` (`local` o URL) y `geolibre_url_externa` | `GEOLIBRE_PUBLIC_URL` y `geolibre-url*.txt` en el volumen de datos |
+| Rutas | `GET/PUT /api/admin/geolibre`, `POST /api/admin/geolibre/instalar` | Iguales |
+
+`sharing.embedOrigins` contiene el origen público del portal y sus variantes
+`http`/`https` y con o sin `www.`. Si GeoLibre se copió a mano y trae el
+`deployment.json` vacío del paquete, `/api/config` genera el del geoportal.
+
+### Servicio de compartir
+
+GeoLibre publica proyectos con un servicio HTTP (contrato v1, `docs/server-api.md` de GeoLibre). El
+público `share.geolibre.app` solo acepta los dominios de GeoLibre, así que el geoportal aloja el suyo,
+en las dos ediciones (`portal/api/lib/compartir.php` y `api/app/routers/compartir.py`) y en su base de
+datos (tablas `compartir_tokens`, `compartir_proyectos` y `compartir_versiones`).
+`sharing.shareUrl` = `<URL pública>/api/compartir`. GeoLibre solo acepta un servicio en `https` (o en
+`localhost`).
+
+| Método y ruta (relativa a la base) | Autenticación | Respuesta |
+| --- | --- | --- |
+| `GET /api/users/me` | token | `{user, sessionId: null, scopes}` |
+| `GET /api/projects?limit&offset&featured&mine&shared_with_me` | opcional (`mine` lo exige) | `{projects, limit, offset, total}`; sin `mine`, solo públicos; `featured`, públicos de administradores |
+| `POST /api/projects` `{filename, content, visibility}` | token | 201 `{project}` con `projectUrl` (`<geoportal>/?compartido=usuario/proyecto#mapa`) y `rawJsonUrl`; el título sale del documento |
+| `GET /api/users/{usuario}/projects` | opcional | Proyectos de ese usuario (el dueño ve también los no listados y privados) |
+| `GET /api/projects/{id}` | opcional | `{project}` |
+| `PUT /api/projects/{id}/content` `{content, expectedVersion}` | dueño | 201 `{project, version}`; con `expectedVersion` desfasado se guarda igual y añade `warning`, como el contrato |
+| `GET /api/projects/{id}/versions[/{n}]` | dueño / opcional | Lista de versiones (se conservan 20) o el documento de una versión |
+| `DELETE /api/projects/{id}` | dueño o administrador | 204 |
+| `GET /{usuario}/{proyecto}.geolibre.json` | opcional (privado: su dueño) | Documento; públicos y no listados con `ETag` y 304 |
+| `GET /{usuario}/{proyecto}` | opcional | 302 a la portada con `?compartido=` |
+| `GET /settings` | — | 302 a *Mi cuenta* del administrador («Obtener token de API» de GeoLibre) |
+| `GET /api/collections/browse` | — | `{collections: []}` |
+| `/api/shares…`, `/api/organizations…`, `/api/groups…`, `/api/transfers…` | — | 404 «no disponible» (GeoLibre oculta esas funciones) |
+
+Errores `{"error": "…", "detail": "…"}` con 401 (`WWW-Authenticate: Bearer`), 403, 404, 405, 413,
+422 y 429 (`Retry-After`). Límites: 10 MB por proyecto (en PHP, además, según `memory_limit` y
+`max_allowed_packet`), 60 publicaciones por usuario y hora, 20 versiones por proyecto.
+
+**Tokens personales** (`gpc_` + 48 caracteres hexadecimales; solo se guarda su SHA-256): los
+administradores y editores los emiten en *Mi cuenta*. Rutas del administrador, con la sesión normal:
+`GET /api/admin/compartir/tokens[?todos=true]`, `POST /api/admin/compartir/tokens`
+`{name, expires_in_days}` (el token se muestra una sola vez) y `DELETE /api/admin/compartir/tokens/{id}`.
+Un token revocado, vencido o de un usuario inactivo da 401; el token de sesión no sirve en
+`/api/compartir` ni el personal en `/api/admin`.
+
+No se implementan los enlaces con rol, vencimiento o contraseña, las miniaturas, las bifurcaciones,
+las organizaciones ni los grupos (GeoLibre muestra esos ajustes como no disponibles).
 
 ## Despliegue en producción
 
 1. Servidor Linux con Docker y Docker Compose.
-2. Dos nombres DNS con TLS, por ejemplo:
-   - `geoportal-ambiental.narino.gov.co` → puerto 8080
-   - `visor-sig.narino.gov.co` → puerto 8081
+2. Un nombre DNS con TLS, por ejemplo `geoportal-ambiental.narino.gov.co` → puerto 8080
+   (GeoLibre queda en `/geolibre/` del mismo origen).
 3. `.env`:
 
    ```ini
    GEOPORTAL_PUBLIC_URL=https://geoportal-ambiental.narino.gov.co
-   GEOLIBRE_PUBLIC_URL=https://visor-sig.narino.gov.co
+   GEOLIBRE_PUBLIC_URL=local
    GEOPORTAL_SECRET_KEY=<openssl rand -base64 48>
    GEOPORTAL_ADMIN_PASSWORD=<clave fuerte>
    GEOPORTAL_API_DOCS=false
@@ -138,22 +218,28 @@ la interfaz completa.
 4. `docker compose up -d --build`.
 5. Proxy inverso con TLS delante (nginx/Caddy/Traefik institucional). Ajuste
    `client_max_body_size` y los tiempos de espera si cambia el límite de carga.
+6. *Administrador → Mapa (GeoLibre) → Instalar GeoLibre* (la API necesita salida HTTPS hacia
+   `files.pythonhosted.org`; el archivo queda en el volumen `geolibre`).
 
-Requisitos que impone GeoLibre:
+Requisitos de GeoLibre:
 
-- su política de seguridad (CSP) solo permite conectarse a orígenes `https:`
-  (más `localhost` en desarrollo), por lo que **el geoportal debe publicarse con
-  HTTPS**;
-- descarga proyecto y datos desde otro origen: la API ya responde con CORS para
-  `GEOLIBRE_PUBLIC_URL` (y expone `Content-Range`/`Accept-Ranges` para las COG).
+- su política de seguridad (CSP) solo permite conectarse a orígenes `https:` (más
+  `localhost`), por lo que una **instancia externa** exige el geoportal en HTTPS; el
+  GeoLibre integrado comparte origen y no tiene esa restricción, pero HTTPS se recomienda
+  igual;
+- una instancia externa descarga proyecto y datos desde otro origen: la API responde con
+  CORS para su origen (configurable en caliente desde el administrador) y expone
+  `Content-Range`/`Accept-Ranges` para los GeoTIFF.
 
 ### Configuración de GeoLibre
 
-`geolibre/deployment.json` fija la política de la instancia (nivel de interfaz
-*intermedio*, sin mapas base regionales). El `docker-compose.yml` además
-desactiva el servicio de compartir proyectos públicos, la conexión GeoLens y el
-*sidecar* de Python (`GEOLIBRE_DISABLE_SIDECAR=1`; póngalo en `0` si necesita la
-caja de herramientas Whitebox del lado del servidor). Ver
+Toda la política se edita en *Administrador → Mapa (GeoLibre)* (marca, idioma, acento, modo,
+nivel de interfaz y menús, permisos, complementos, catálogo de servicios, compartir,
+colaboración, Overpass y GeoLens); ver la tabla completa en
+[GeoLibre: el mapa del geoportal](estudio-sig.md#configuración-administrador--mapa-geolibre). El servicio
+separado `geolibre` del `docker-compose.yml` (imagen oficial, con *sidecar* de Python
+opcional) queda en el perfil `geolibre-separado` y usa `geolibre/deployment.json` del
+repositorio. Ver
 [self-hosting](https://github.com/opengeos/GeoLibre/blob/main/docs/self-hosting.md)
 y [deployment-policy](https://github.com/opengeos/GeoLibre/blob/main/docs/deployment-policy.md).
 

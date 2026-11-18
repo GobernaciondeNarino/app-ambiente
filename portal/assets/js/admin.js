@@ -33,6 +33,12 @@
   const ACCIONES = {
     ingreso: "Ingreso",
     ingreso_fallido: "Ingreso fallido",
+    ingreso_bloqueado: "Ingreso bloqueado (demasiados intentos)",
+    compartir_publicacion: "Proyecto compartido desde GeoLibre",
+    compartir_actualizacion: "Proyecto compartido actualizado",
+    compartir_eliminacion: "Proyecto compartido eliminado",
+    compartir_token_emitido: "Token para compartir creado",
+    compartir_token_revocado: "Token para compartir revocado",
     carga: "Carga de geodato",
     edicion: "Edición",
     actualizacion_archivo: "Actualización de archivo",
@@ -45,10 +51,14 @@
     usuario_creado: "Usuario creado",
     usuario_editado: "Usuario editado",
     cambio_clave: "Cambio de contraseña",
+    geolibre_configuracion: "Configuración del mapa (GeoLibre)",
+    geolibre_instalacion: "Instalación de GeoLibre",
+    configuracion: "Configuración del sitio",
+    instalacion: "Instalación",
   };
 
   const estado = { token: null, usuario: null, categorias: [], capa: null, mapa: null, sucio: false, ingesta: "servidor", edicion: "" };
-  const ACEPTA_NAVEGADOR = ".geojson,.json,.zip,.gpkg,.kml,.kmz,.csv,.tif,.tiff";
+  const ACEPTA_NAVEGADOR = ".geojson,.json,.zip,.gpkg,.kml,.kmz,.gpx,.csv,.tif,.tiff";
 
   // ------------------------------------------------------------------ sesión
 
@@ -113,6 +123,92 @@
     return "Error " + codigo + " en el servidor.";
   }
 
+  // ------------------------------------------------------------------ validación junto al campo
+
+  let contadorErrores = 0;
+
+  /** Muestra el mensaje debajo del control y lo enlaza con aria-describedby. */
+  function errorEnCampo(el, mensaje) {
+    let span = el.dataset.errorId && document.getElementById(el.dataset.errorId);
+    if (!span) {
+      span = document.createElement("span");
+      span.className = "error-campo";
+      span.id = "error-campo-" + ++contadorErrores;
+      el.dataset.errorId = span.id;
+      (el.closest(".campo") || el.parentElement).appendChild(span);
+    }
+    span.textContent = mensaje;
+    el.setAttribute("aria-invalid", "true");
+    const ids = (el.getAttribute("aria-describedby") || "").split(" ").filter(Boolean);
+    if (!ids.includes(span.id)) el.setAttribute("aria-describedby", ids.concat(span.id).join(" "));
+  }
+
+  function quitarError(el) {
+    const id = el.dataset.errorId;
+    const span = document.getElementById(id);
+    if (span) span.remove();
+    el.removeAttribute("aria-invalid");
+    delete el.dataset.errorId;
+    const ids = (el.getAttribute("aria-describedby") || "").split(" ").filter((x) => x && x !== id);
+    if (ids.length) el.setAttribute("aria-describedby", ids.join(" "));
+    else el.removeAttribute("aria-describedby");
+  }
+
+  function limpiarErrores(raiz) {
+    $$("[data-error-id]", raiz).forEach(quitarError);
+  }
+
+  // Al corregir un campo marcado, su error desaparece
+  document.addEventListener("input", (e) => e.target.dataset && e.target.dataset.errorId && quitarError(e.target));
+
+  function mensajeValidez(el) {
+    const v = el.validity;
+    if (v.valueMissing) return "Este campo es obligatorio.";
+    if (v.typeMismatch && el.type === "email") return "Escriba un correo válido, p. ej. nombre@narino.gov.co.";
+    if (v.typeMismatch && el.type === "url") return "Escriba una dirección completa, p. ej. https://servidor.gov.co/…";
+    if (v.patternMismatch) return el.dataset.errorFormato || "El formato no es válido.";
+    if (v.tooShort) return "Mínimo " + el.minLength + " caracteres.";
+    if (v.tooLong) return "Máximo " + el.maxLength + " caracteres.";
+    if (v.rangeUnderflow || v.rangeOverflow) return "Use un valor entre " + el.min + " y " + el.max + ".";
+    if (v.badInput || v.stepMismatch) return "Escriba un número válido.";
+    return el.validationMessage;
+  }
+
+  /** Hace visible un control que esté en una pestaña oculta o en un bloque plegado. */
+  function mostrarCampo(el) {
+    const panel = el.closest(".panel-pestana[hidden]");
+    if (panel) seleccionarPestana(panel.dataset.panel);
+    const pe = el.closest(".panel-estudio[hidden]");
+    if (pe) seleccionarPestanaEstudio(pe.dataset.pePanel);
+    const det = el.closest("details:not([open])");
+    if (det) det.open = true;
+  }
+
+  /** Valida los controles de raiz con las reglas del HTML (required, type, pattern…); cada error va junto a su campo. */
+  function validar(raiz) {
+    limpiarErrores(raiz);
+    const malos = $$("input, select, textarea", raiz).filter((el) => !el.disabled && el.willValidate && !el.checkValidity());
+    malos.forEach((el) => errorEnCampo(el, mensajeValidez(el)));
+    if (malos.length) {
+      mostrarCampo(malos[0]);
+      malos[0].focus();
+    }
+    return !malos.length;
+  }
+
+  /** Si el servidor señala un campo («nombre_campo: mensaje»), muestra el error junto a él y devuelve el texto con su etiqueta. */
+  function errorDelServidor(raiz, mensaje) {
+    const m = /^([a-z_]+)(?:\.[a-z0-9_]+)*:\s*(.+)$/i.exec(mensaje || "");
+    const el = m && raiz.querySelector('[name="' + m[1] + '"]');
+    if (!el) return mensaje;
+    errorEnCampo(el, m[2].charAt(0).toUpperCase() + m[2].slice(1));
+    mostrarCampo(el);
+    el.focus();
+    const l = el.id && document.querySelector('label[for="' + el.id + '"]');
+    const etiqueta = ((l && l.textContent) || el.getAttribute("aria-label") || "").trim();
+    return etiqueta ? etiqueta + ": " + m[2] : mensaje;
+  }
+
   function subir(ruta, formData, alProgreso) {
     return new Promise((resolver, rechazar) => {
       const xhr = new XMLHttpRequest();
@@ -155,7 +251,7 @@
     if (estado.ingesta === "navegador") {
       $("#archivo").setAttribute("accept", ACEPTA_NAVEGADOR);
       $("#zona-ayuda").textContent =
-        "GeoJSON · Shapefile (.zip con .shp, .shx, .dbf y .prj) · GeoPackage · KML/KMZ · CSV · GeoTIFF/COG" +
+        "GeoJSON · Shapefile (.zip con .shp, .shx, .dbf y .prj) · GeoPackage · KML/KMZ · GPX · CSV · GeoTIFF/COG" +
         (estado.maxCargaMb ? " · máximo " + estado.maxCargaMb + " MB" : "") + ". El archivo se procesa en su navegador antes de subirlo.";
     }
     await cargarCategorias();
@@ -182,6 +278,9 @@
     } catch (ex) {
       err.textContent = ex.message;
       err.hidden = false;
+      // Para reintentar sin buscar el campo
+      $("#clave").focus();
+      $("#clave").select();
     }
   });
 
@@ -197,8 +296,9 @@
     categorias: verCategorias,
     usuarios: verUsuarios,
     bitacora: verBitacora,
-    cuenta: () => {},
+    cuenta: verCuenta,
     configuracion: verConfiguracion,
+    estudio: verEstudio,
   };
 
   function enrutar() {
@@ -213,10 +313,16 @@
       estado.sucio = false;
     }
     $$(".vista").forEach((v) => (v.hidden = v.id !== "vista-" + vista));
-    $$(".menu-lateral a").forEach((a) => {
+    const menu = $(".menu-lateral");
+    $$("a", menu).forEach((a) => {
       const actual = a.dataset.vista === vista || (vista === "capa" && a.dataset.vista === "capas");
-      if (actual) a.setAttribute("aria-current", "page");
-      else a.removeAttribute("aria-current");
+      if (actual) {
+        a.setAttribute("aria-current", "page");
+        // En el teléfono el menú es una fila con desplazamiento: centra la sección actual
+        const r = a.getBoundingClientRect();
+        const rm = menu.getBoundingClientRect();
+        if (menu.scrollWidth > menu.clientWidth) menu.scrollLeft += r.left - rm.left - (rm.width - r.width) / 2;
+      } else a.removeAttribute("aria-current");
     });
     Promise.resolve()
       .then(() => VISTAS[vista](id))
@@ -265,6 +371,13 @@
     $("#dialogo-cuerpo").innerHTML = cuerpoHTML;
     const pie = $("#dialogo-pie");
     pie.innerHTML = "";
+    // Una sola respuesta por diálogo: botón, X o Esc (estos dos equivalen a cancelar)
+    let respondido = false;
+    const responder = (valor) => {
+      if (respondido) return;
+      respondido = true;
+      alCerrar && alCerrar(valor);
+    };
     botones.forEach((b) => {
       const el = document.createElement("button");
       el.type = b.enviar ? "submit" : "button";
@@ -273,7 +386,7 @@
       if (!b.enviar)
         el.addEventListener("click", () => {
           d.close();
-          alCerrar && alCerrar(b.valor);
+          responder(b.valor);
         });
       pie.appendChild(el);
     });
@@ -284,7 +397,8 @@
       const ok = await alEnviar(form);
       if (ok !== false) d.close();
     };
-    d.onclose = null;
+    // El evento «close» llega después: si ya se abrió otro diálogo, no es de este
+    d.onclose = () => !d.open && responder(false);
     d.showModal();
     const primero = $("#dialogo-cuerpo input, #dialogo-cuerpo select, #dialogo-cuerpo textarea");
     if (primero) primero.focus();
@@ -294,14 +408,19 @@
 
   // ------------------------------------------------------------------ campos de metadatos
 
+  function opcionesCategoria(seleccion) {
+    return (
+      '<option value="">— Sin categoría —</option>' +
+      estado.categorias
+        .map((x) => '<option value="' + x.id + '"' + (seleccion === x.id ? " selected" : "") + ">" + escapar(x.name) + "</option>")
+        .join("")
+    );
+  }
+
   function camposMetadatos(capa, prefijo) {
     const c = capa || {};
     const p = prefijo;
-    const opcionesCat =
-      '<option value="">— Sin categoría —</option>' +
-      estado.categorias
-        .map((x) => '<option value="' + x.id + '"' + (c.category_id === x.id ? " selected" : "") + ">" + escapar(x.name) + "</option>")
-        .join("");
+    const opcionesCat = opcionesCategoria(c.category_id);
     const lic = c.license || "CC-BY-4.0";
     const opcionesLic =
       LICENCIAS.map(([v, t]) => '<option value="' + escapar(v) + '"' + (v === lic ? " selected" : "") + ">" + escapar(t) + "</option>").join("") +
@@ -325,7 +444,7 @@
       campo("fuente", "Fuente / entidad productora", texto("fuente", "source", c.source, ' list="fuentes-sugeridas"'), "p. ej. IGAC, IDEAM, Corponariño, Gobernación de Nariño.") +
       campo("autor", "Autor o responsable técnico", texto("autor", "author", c.author)) +
       campo("correo", "Correo de contacto", '<input type="email" id="' + p + 'correo" name="contact_email" value="' + escapar(c.contact_email || "") + '">') +
-      campo("fecha", "Fecha de la información", texto("fecha", "data_date", c.data_date, ' placeholder="AAAA-MM-DD" pattern="\\d{4}(-\\d{2}(-\\d{2})?)?"'), "Fecha de producción o corte (AAAA, AAAA-MM o AAAA-MM-DD).") +
+      campo("fecha", "Fecha de la información", texto("fecha", "data_date", c.data_date, ' placeholder="AAAA-MM-DD" pattern="\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?" data-error-formato="Use AAAA, AAAA-MM o AAAA-MM-DD, p. ej. 2024-06."'), "Fecha de producción o corte (AAAA, AAAA-MM o AAAA-MM-DD).") +
       campo("escala", "Escala", texto("escala", "scale", c.scale, ' placeholder="1:25.000"')) +
       campo("frecuencia", "Frecuencia de actualización", '<select id="' + p + 'frecuencia" name="update_frequency">' + opcionesFrec + "</select>") +
       campo("licencia", "Licencia de uso", '<select id="' + p + 'licencia" name="license">' + opcionesLic + "</select>") +
@@ -423,6 +542,11 @@
     if (!$("#campos-carga").dataset.listo) {
       $("#campos-carga").innerHTML = camposMetadatos(null, "c-");
       $("#campos-carga").dataset.listo = "1";
+    } else {
+      // El formulario se arma una vez: las categorías creadas o renombradas después se actualizan aquí
+      const sel = $("#c-categoria");
+      const valor = sel.value;
+      sel.innerHTML = opcionesCategoria(Number(valor) || null);
     }
   }
 
@@ -469,15 +593,21 @@
         return;
       }
       const meta = leerMetadatos(form);
-      if (!meta.title || meta.title.length < 2) {
-        err.textContent = "Escriba un título para la capa.";
+      if (!validar($("#campos-carga"))) {
+        err.textContent = "Revise los campos marcados de la ficha.";
         err.hidden = false;
+        return;
+      }
+      if (meta.title.length < 2) {
+        errorEnCampo($("#c-titulo"), "Escriba un título de al menos 2 caracteres.");
         $("#c-titulo").focus();
         return;
       }
       if (esAdmin() && $("#publicar-al-cargar").checked) meta.published = true;
       const prog = $("#progreso");
       const boton = form.querySelector("button[type=submit]");
+      $("#progreso-barra").style.width = "0";
+      $("#progreso-texto").textContent = "Preparando el archivo…";
       prog.hidden = false;
       prog.classList.add("procesando");
       boton.disabled = true;
@@ -496,6 +626,7 @@
         });
         notificar("Geodato cargado: " + r.capa.title);
         form.reset();
+        limpiarErrores(form);
         elegirArchivo(null);
         estado.advertencias = advertencias.concat((r.advertencias || []).filter((a) => !advertencias.includes(a)));
         location.hash = "#capa/" + r.capa.id;
@@ -645,7 +776,8 @@
     if (!b) return;
     const c = estado.capa;
     if (b.dataset.accion === "publicar") {
-      if (estado.sucio) await guardarCapa();
+      // Si el guardado falla no se publica: verCapa() recargaría la ficha y se perderían los cambios
+      if (estado.sucio && !(await guardarCapa())) return;
       if (await publicar(c.id, !c.published, c.title)) verCapa(c.id);
     }
     if (b.dataset.accion === "eliminar" && (await eliminar(c.id, c.title))) {
@@ -654,17 +786,41 @@
     }
   });
 
+  /** Marca la pestaña activa; solo ella entra en el orden de tabulación (las demás, con las flechas). */
+  function marcarPestanas(botones, activa) {
+    botones.forEach((b) => {
+      b.setAttribute("aria-selected", String(b === activa));
+      b.tabIndex = b === activa ? 0 : -1;
+    });
+  }
+
+  /** Teclado de las pestañas (patrón ARIA): flechas, Inicio y Fin cambian de pestaña. */
+  function tecladoPestanas(lista, activar) {
+    lista.addEventListener("keydown", (e) => {
+      const tabs = $$('[role="tab"]', lista);
+      const i = tabs.indexOf(document.activeElement);
+      const destino = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+      if (i < 0 || destino === undefined) return;
+      e.preventDefault();
+      const t = tabs[(destino + tabs.length) % tabs.length];
+      activar(t);
+      t.focus();
+    });
+  }
+
   function seleccionarPestana(nombre) {
-    $$(".pestanas [data-pestana]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.pestana === nombre)));
+    const botones = $$(".pestanas-capa [data-pestana]");
+    marcarPestanas(botones, botones.find((b) => b.dataset.pestana === nombre));
     $$(".panel-pestana").forEach((p) => (p.hidden = p.dataset.panel !== nombre));
     $("#acciones-guardar").hidden = nombre === "datos" || nombre === "archivo";
     if (nombre === "datos") cargarMuestra();
   }
 
-  $(".pestanas").addEventListener("click", (e) => {
+  $(".pestanas-capa").addEventListener("click", (e) => {
     const b = e.target.closest("[data-pestana]");
     if (b) seleccionarPestana(b.dataset.pestana);
   });
+  tecladoPestanas($(".pestanas-capa"), (b) => seleccionarPestana(b.dataset.pestana));
 
   function pintarSimbologia() {
     const c = estado.capa;
@@ -778,9 +934,13 @@
   async function guardarCapa() {
     const c = estado.capa;
     const meta = leerMetadatos($("#campos-edicion"));
-    if (!meta.title || meta.title.length < 2) {
+    if (!validar($("#campos-edicion"))) {
+      notificar("Revise los campos marcados en Metadatos.", "error");
+      return false;
+    }
+    if (meta.title.length < 2) {
       seleccionarPestana("metadatos");
-      notificar("El título es obligatorio.", "error");
+      errorEnCampo($("#e-titulo"), "Escriba un título de al menos 2 caracteres.");
       $("#e-titulo").focus();
       return false;
     }
@@ -815,7 +975,7 @@
       notificar("Cambios guardados.");
       return true;
     } catch (ex) {
-      notificar(ex.message, "error");
+      notificar(errorDelServidor($("#campos-edicion"), ex.message), "error");
       return false;
     }
   }
@@ -924,16 +1084,44 @@
 
   // ------------------------------------------------------------------ mapa de vista previa
 
+  // Textos de los controles de MapLibre en español (los mismos que usa el visor)
+  const TEXTOS_MAPA = {
+    "NavigationControl.ZoomIn": "Acercar",
+    "NavigationControl.ZoomOut": "Alejar",
+    "NavigationControl.ResetBearing": "Restablecer orientación",
+    "Map.Title": "Vista previa de la capa",
+    "Popup.Close": "Cerrar ventana emergente",
+    "AttributionControl.ToggleAttribution": "Mostrar u ocultar la atribución",
+    "AttributionControl.MapFeedback": "Comentarios sobre el mapa",
+    "LogoControl.Title": "Logotipo de MapLibre",
+  };
+
+  /**
+   * Crea el mapa de vista previa. Si MapLibre no cargó o el navegador no tiene WebGL, deja un aviso
+   * en su lugar y devuelve null: el resto del editor sigue funcionando.
+   */
   function asegurarMapa() {
-    if (estado.mapa) return estado.mapa;
-    estado.mapa = new maplibregl.Map({
-      container: "mapa-previa",
-      style: "https://tiles.openfreemap.org/styles/positron",
-      center: [-77.8, 1.45],
-      zoom: 6.5,
-      attributionControl: { compact: true },
-    });
-    estado.mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    if (estado.mapa || estado.sinMapa) return estado.mapa;
+    try {
+      if (!window.maplibregl) throw new Error("No se cargó la biblioteca de mapas (MapLibre).");
+      estado.mapa = new maplibregl.Map({
+        container: "mapa-previa",
+        style: "https://tiles.openfreemap.org/styles/positron",
+        center: [-77.8, 1.45],
+        zoom: 6.5,
+        attributionControl: { compact: true },
+        locale: TEXTOS_MAPA,
+      });
+      estado.mapa.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    } catch (ex) {
+      console.warn("Vista previa del mapa no disponible:", ex);
+      estado.mapa = null;
+      estado.sinMapa = true;
+      $(".mapa-previa").classList.add("sin-mapa");
+      $("#mapa-previa").innerHTML =
+        '<p class="aviso advertencia" role="status">La vista previa del mapa no está disponible: no se pudo cargar la biblioteca de mapas o el navegador no admite WebGL. ' +
+        "La capa se puede editar, guardar y publicar con normalidad.</p>";
+    }
     return estado.mapa;
   }
 
@@ -945,6 +1133,7 @@
   async function previsualizar() {
     const c = estado.capa;
     const m = asegurarMapa();
+    if (!m) return;
     const dibujar = async () => {
       limpiarPrevia(m);
       try {
@@ -1019,13 +1208,15 @@
         '<div class="campo ancho"><label for="cat-desc">Descripción</label><textarea id="cat-desc" name="description" rows="3">' + escapar(c.description) + "</textarea></div>" +
         '<div class="campo"><label for="cat-color">Color</label><input id="cat-color" name="color" type="color" value="' + escapar(c.color) + '"></div>' +
         '<div class="campo"><label for="cat-pos">Orden</label><input id="cat-pos" name="position" type="number" value="' + c.position + '"></div>' +
-        '</div><div class="aviso error" id="cat-error" hidden></div>',
+        '</div><div class="aviso error" id="cat-error" role="alert" hidden></div>',
       [
         { texto: "Cancelar", clase: "btn-secundario" },
         { texto: "Guardar", clase: "btn-primario", enviar: true },
       ],
       null,
       async (form) => {
+        $("#cat-error").hidden = true;
+        if (!validar($("#dialogo-cuerpo"))) return false;
         const datos = {
           name: form.name.value.trim(),
           description: form.description.value.trim(),
@@ -1038,7 +1229,7 @@
           verCategorias();
           return true;
         } catch (ex) {
-          $("#cat-error").textContent = ex.message;
+          $("#cat-error").textContent = errorDelServidor($("#dialogo-cuerpo"), ex.message);
           $("#cat-error").hidden = false;
           return false;
         }
@@ -1085,19 +1276,21 @@
     abrirDialogo(
       u ? "Editar usuario «" + u.username + "»" : "Nuevo usuario",
       '<div class="rejilla-campos">' +
-        (u ? "" : '<div class="campo"><label for="u-usuario" class="obligatorio">Usuario</label><input id="u-usuario" name="username" type="text" required pattern="[a-zA-Z0-9._-]+" minlength="3" autocomplete="off"><span class="ayuda">Letras, números, punto, guion.</span></div>') +
+        (u ? "" : '<div class="campo"><label for="u-usuario" class="obligatorio">Usuario</label><input id="u-usuario" name="username" type="text" required pattern="[a-zA-Z0-9._\\-]+" data-error-formato="Use solo letras sin tilde, números, punto, guion o guion bajo." minlength="3" autocomplete="off"><span class="ayuda">Letras, números, punto, guion.</span></div>') +
         '<div class="campo"><label for="u-rol">Rol</label><select id="u-rol" name="role"><option value="editor"' + (u && u.role === "editor" ? " selected" : "") + '>Editor</option><option value="administrador"' + (u && u.role === "administrador" ? " selected" : "") + ">Administrador</option></select></div>" +
         '<div class="campo"><label for="u-nombre">Nombre completo</label><input id="u-nombre" name="full_name" type="text" value="' + escapar(u ? u.full_name : "") + '"></div>' +
         '<div class="campo"><label for="u-correo">Correo</label><input id="u-correo" name="email" type="email" value="' + escapar(u ? u.email : "") + '"></div>' +
-        '<div class="campo"><label for="u-clave"' + (u ? "" : ' class="obligatorio"') + ">" + (u ? "Nueva contraseña (opcional)" : "Contraseña") + '</label><input id="u-clave" name="password" type="password" autocomplete="new-password"><span class="ayuda">Mínimo 10 caracteres con letras y números o símbolos.</span></div>' +
+        '<div class="campo"><label for="u-clave"' + (u ? "" : ' class="obligatorio"') + ">" + (u ? "Nueva contraseña (opcional)" : "Contraseña") + '</label><input id="u-clave" name="password" type="password" autocomplete="new-password" minlength="10"' + (u ? "" : " required") + '><span class="ayuda">Mínimo 10 caracteres con letras y números o símbolos.</span></div>' +
         (u ? '<label class="check"><input type="checkbox" name="active"' + (u.active ? " checked" : "") + "> Usuario activo</label>" : "") +
-        '</div><div class="aviso error" id="u-error" hidden></div>',
+        '</div><div class="aviso error" id="u-error" role="alert" hidden></div>',
       [
         { texto: "Cancelar", clase: "btn-secundario" },
         { texto: "Guardar", clase: "btn-primario", enviar: true },
       ],
       null,
       async (form) => {
+        $("#u-error").hidden = true;
+        if (!validar($("#dialogo-cuerpo"))) return false;
         const datos = { full_name: form.full_name.value.trim(), email: form.email.value.trim(), role: form.role.value };
         if (form.password.value) datos.password = form.password.value;
         if (u) datos.active = form.active.checked;
@@ -1108,7 +1301,7 @@
           verUsuarios();
           return true;
         } catch (ex) {
-          $("#u-error").textContent = ex.message;
+          $("#u-error").textContent = errorDelServidor($("#dialogo-cuerpo"), ex.message);
           $("#u-error").hidden = false;
           return false;
         }
@@ -1142,12 +1335,103 @@
 
   $("#form-clave").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const form = e.currentTarget;
+    const err = $("#error-clave");
+    err.hidden = true;
+    if (!validar(form)) return;
     const nueva = $("#clave-nueva").value;
-    if (nueva !== $("#clave-confirmar").value) return notificar("Las contraseñas nuevas no coinciden.", "error");
+    if (nueva !== $("#clave-confirmar").value) {
+      errorEnCampo($("#clave-confirmar"), "No coincide con la nueva contraseña.");
+      $("#clave-confirmar").focus();
+      return;
+    }
     try {
       await api("/auth/cambiar-clave", { method: "POST", json: { current_password: $("#clave-actual").value, new_password: nueva } });
-      e.target.reset();
+      form.reset();
       notificar("Contraseña actualizada.");
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.hidden = false;
+    }
+  });
+
+  // Tokens personales para publicar desde GeoLibre (Proyecto → Compartir…) en el servicio del geoportal
+  async function verCuenta() {
+    $("#token-nuevo").hidden = true;
+    await pintarTokens();
+  }
+
+  async function pintarTokens() {
+    const cuerpo = $("#lista-tokens");
+    try {
+      const r = await api("/admin/compartir/tokens");
+      $("#token-servicio").textContent = r.share_url;
+      cuerpo.innerHTML = r.tokens.length
+        ? r.tokens
+            .map(
+              (t) =>
+                "<tr><td>" + escapar(t.name) + "</td><td><code>" + escapar(t.prefix) + "…</code></td>" +
+                "<td>" + formatoFecha(t.created_at, true) + "</td>" +
+                "<td>" + (t.last_used_at ? formatoFecha(t.last_used_at, true) : "Nunca") + "</td>" +
+                "<td>" + (t.expires_at ? (t.expired ? '<span class="insignia amarilla">Vencido</span> ' : "") + formatoFecha(t.expires_at, true) : "No vence") + "</td>" +
+                '<td class="acciones"><button class="btn-icono" type="button" data-revocar="' + t.id + '" title="Revocar">' + icono("eliminar") +
+                '<span class="sr-only">Revocar el token «' + escapar(t.name) + '»</span></button></td></tr>',
+            )
+            .join("")
+        : '<tr><td colspan="6">No tiene tokens. Cree uno para publicar proyectos desde GeoLibre.</td></tr>';
+    } catch (ex) {
+      cuerpo.innerHTML = '<tr><td colspan="6">No fue posible consultar los tokens: ' + escapar(ex.message) + "</td></tr>";
+    }
+  }
+
+  $("#form-token").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.currentTarget; // después de un await, e.currentTarget ya es null
+    const nombre = $("#token-nombre");
+    if (!nombre.value.trim()) {
+      errorEnCampo(nombre, "Escriba un nombre que identifique dónde usará el token.");
+      nombre.focus();
+      return;
+    }
+    const dias = $("#token-dias").value;
+    try {
+      const t = await api("/admin/compartir/tokens", { method: "POST", json: { name: nombre.value.trim(), expires_in_days: dias ? Number(dias) : null } });
+      $("#token-valor").value = t.token;
+      $("#token-servicio").textContent = t.share_url;
+      $("#token-nuevo").hidden = false;
+      $("#token-valor").select();
+      form.reset();
+      $("#token-dias").value = "90";
+      notificar("Token creado. Cópielo ahora: no se volverá a mostrar.");
+      await pintarTokens();
+    } catch (ex) {
+      notificar(errorDelServidor(form, ex.message), "error");
+    }
+  });
+
+  $("#token-copiar").addEventListener("click", async () => {
+    const campo = $("#token-valor");
+    let copiado = false;
+    try {
+      await navigator.clipboard.writeText(campo.value);
+      copiado = true;
+    } catch (_) {
+      campo.select();
+      try { copiado = document.execCommand("copy"); } catch (_e) { /* sin portapapeles */ }
+    }
+    notificar(copiado ? "Token copiado al portapapeles." : "Seleccione el token y cópielo con Ctrl + C.");
+  });
+
+  $("#lista-tokens").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-revocar]");
+    if (!b) return;
+    const ok = await confirmar("Revocar token", "GeoLibre dejará de poder publicar con este token. Los proyectos ya publicados se conservan.", "Revocar", true);
+    if (!ok) return;
+    try {
+      await api("/admin/compartir/tokens/" + b.dataset.revocar, { method: "DELETE" });
+      notificar("Token revocado.");
+      $("#token-nuevo").hidden = true;
+      await pintarTokens();
     } catch (ex) {
       notificar(ex.message, "error");
     }
@@ -1161,7 +1445,6 @@
     const f = $("#form-configuracion");
     f.nombre_portal.value = c.nombre_portal;
     f.url_publica.value = c.url_publica;
-    f.geolibre_url.value = c.geolibre_url;
     f.max_carga_mb.value = c.max_carga_mb;
     f.inline_max_mb.value = c.inline_max_mb;
     f.horas_sesion.value = c.horas_sesion;
@@ -1178,13 +1461,13 @@
   $("#form-configuracion").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.currentTarget;
+    if (!validar(f)) return;
     try {
       await api("/admin/configuracion", {
         method: "PUT",
         json: {
           nombre_portal: f.nombre_portal.value.trim(),
           url_publica: f.url_publica.value.trim(),
-          geolibre_url: f.geolibre_url.value.trim(),
           max_carga_mb: Number(f.max_carga_mb.value),
           inline_max_mb: Number(f.inline_max_mb.value),
           horas_sesion: Number(f.horas_sesion.value),
@@ -1192,6 +1475,317 @@
       });
       notificar("Configuración guardada.");
       verConfiguracion();
+    } catch (ex) {
+      notificar(errorDelServidor(f, ex.message), "error");
+    }
+  });
+
+
+  // ------------------------------------------------------------------ Mapa del geoportal (GeoLibre integrado)
+
+  const NOMBRES_IDIOMA = {
+    es: "Español", en: "English", pt: "Português", fr: "Français", de: "Deutsch", it: "Italiano", nl: "Nederlands",
+    ar: "العربية", az: "Azərbaycanca", fa: "فارسی", he: "עברית", hi: "हिन्दी", id: "Bahasa Indonesia", ja: "日本語",
+    ka: "ქართული", ko: "한국어", ru: "Русский", th: "ไทย", tr: "Türkçe", vi: "Tiếng Việt", zh: "中文",
+  };
+  const NOMBRES_ACENTO = { blue: "Azul", violet: "Violeta", emerald: "Esmeralda", rose: "Rosa", amber: "Ámbar", custom: "Personalizado (color institucional)" };
+  const NOMBRES_MENU = {
+    project: "Proyecto", edit: "Editar", view: "Ver", addData: "Añadir datos", processing: "Procesamiento",
+    controls: "Controles", plugins: "Complementos", help: "Ayuda",
+  };
+  const NOMBRES_CAPACIDAD = {
+    "project:edit": ["Editar proyectos", "Crear, abrir, cambiar y guardar proyectos y capas."],
+    "data:add": ["Añadir datos", "Cargar archivos propios y conectar servicios y catálogos."],
+    "processing:run": ["Geoprocesamiento", "Ejecutar las herramientas de análisis (WhiteboxTools, GDAL, SQL…)."],
+    "export:data": ["Exportar", "Descargar capas, mapas e imágenes del Estudio."],
+    "plugins:install": ["Instalar complementos", "Agregar complementos desde el gestor de GeoLibre."],
+    "settings:manage": ["Preferencias", "Cambiar las preferencias de la aplicación."],
+  };
+  const NOMBRES_SERVICIO = { wms: "WMS", wfs: "WFS", wmts: "WMTS", xyz: "Teselas XYZ", arcgis: "ArcGIS REST", csw: "Catálogo CSW" };
+
+  // Presentación del Estudio: disposición (archivo de interfaz de GeoLibre) y preajustes que la rellenan
+  const CAMPOS_DISPOSICION = ["paneles_plegados", "lista_compacta", "etiquetas_barra", "info_proyecto", "panel_estilo", "panel_explorador", "panel_comentarios", "paneles_inferiores"];
+  const PREAJUSTES = {
+    // «Completo» es la interfaz de web.geolibre.app y la que trae el geoportal por defecto
+    completo: { nivel: "advanced", modo: "completo", paneles_plegados: false, lista_compacta: false, etiquetas_barra: true, info_proyecto: true, panel_estilo: true, panel_explorador: true, panel_comentarios: true, paneles_inferiores: true },
+    estandar: { nivel: "intermediate", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: true, panel_explorador: false, panel_comentarios: false, paneles_inferiores: true },
+    esencial: { nivel: "beginner", modo: "completo", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false, paneles_inferiores: true },
+    consulta: { nivel: "beginner", modo: "visor", paneles_plegados: true, lista_compacta: true, etiquetas_barra: false, info_proyecto: false, panel_estilo: false, panel_explorador: false, panel_comentarios: false, paneles_inferiores: true },
+  };
+
+  function marcarPreajuste() {
+    const f = $("#form-estudio");
+    $$("[data-preajuste]").forEach((b) => {
+      const p = PREAJUSTES[b.dataset.preajuste];
+      const igual = f.nivel.value === p.nivel && f.modo.value === p.modo && CAMPOS_DISPOSICION.every((k) => f[k].checked === p[k]);
+      b.setAttribute("aria-pressed", String(igual));
+      b.classList.toggle("btn-primario", igual);
+      b.classList.toggle("btn-secundario", !igual);
+    });
+  }
+
+  function textoLista(v) {
+    return (v || []).join(", ");
+  }
+
+  function pintarEstadoEstudio(r) {
+    const e = r.estado;
+    const req = e.requisitos || {};
+    const ok = (b) => (b ? "Sí" : "No");
+    const desactualizado = e.instalado && e.version_disponible && e.version_instalada !== e.version_disponible;
+    $("#estudio-estado-cuerpo").innerHTML =
+      '<dl class="tecnica">' +
+      "<dt>Instalado</dt><dd>" + (e.instalado ? "Sí · versión " + escapar(e.version_instalada) : "No") + "</dd>" +
+      "<dt>Versión disponible</dt><dd>" + escapar(e.version_disponible || "—") + (e.tamano_descarga_mb ? " · descarga de " + e.tamano_descarga_mb + " MB" : "") + "</dd>" +
+      "<dt>En uso</dt><dd>" + (r.integrado ? "Estudio integrado" : "Instancia externa: " + escapar(r.url_externa)) + "</dd>" +
+      "<dt>Requisitos</dt><dd>ZipArchive: " + ok(req.zip) + " · Descarga: " + ok(req.descarga) + " · Escritura: " + ok(req.escritura) + "</dd>" +
+      "</dl>" +
+      (e.puede_instalar
+        ? '<div class="acciones-formulario"><button class="btn ' + (e.instalado && !desactualizado ? "btn-secundario" : "btn-primario") + '" type="button" id="estudio-instalar">' + icono("descargar") +
+          (e.instalado ? (desactualizado ? "Actualizar a " + escapar(e.version_disponible) : "Reinstalar GeoLibre " + escapar(e.version_disponible)) : "Instalar GeoLibre " + escapar(e.version_disponible || "")) + "</button></div>" +
+          '<p class="ayuda-pie">Se descarga la compilación web oficial publicada en PyPI, se verifica su suma SHA-256 y se copia en <code>geolibre/</code>. Los ajustes de esta página se conservan.</p>'
+        : '<p class="aviso advertencia">Este servidor no puede instalar GeoLibre automáticamente. Ejecute <code>scripts/descargar-geolibre.sh</code> o descargue el paquete «con GeoLibre» y suba la carpeta <code>geolibre/</code> por el Administrador de archivos de Plesk.</p>');
+    const b = $("#estudio-instalar");
+    if (b) b.addEventListener("click", instalarGeoLibre);
+    $("#estudio-abrir").hidden = !r.integrado;
+  }
+
+  async function instalarGeoLibre(ev) {
+    const b = ev.currentTarget;
+    if (!confirm("Se descargará GeoLibre (" + (estado.estudio.estado.tamano_descarga_mb || "≈60") + " MB) y se instalará en la carpeta geolibre/ del geoportal. ¿Continuar?")) return;
+    b.disabled = true;
+    b.textContent = "Descargando e instalando… (puede tardar unos minutos)";
+    try {
+      const r = await api("/admin/geolibre/instalar", { method: "POST" });
+      notificar("GeoLibre " + r.instalado.version + " instalado (" + r.instalado.archivos + " archivos).");
+      verEstudio();
+    } catch (ex) {
+      // Un proxy (el nginx de Plesk corta a los 60 s) puede responder 502/504 o cerrar la conexión
+      // mientras el servidor sigue instalando: se comprueba si la instalación terminó antes de dar error.
+      const corte = !/^Error 4\d\d|exige|permite|Sesión/.test(ex.message);
+      const version = corte ? await esperarInstalacion(b) : null;
+      if (version) {
+        notificar("GeoLibre " + version + " instalado.");
+        verEstudio();
+        return;
+      }
+      notificar(ex.message, "error");
+      b.disabled = false;
+      b.textContent = "Reintentar la instalación";
+    }
+  }
+
+  /** Consulta el estado cada 5 s durante 10 minutos; devuelve la versión instalada o null. */
+  async function esperarInstalacion(boton) {
+    const objetivo = estado.estudio && estado.estudio.estado && estado.estudio.estado.version_disponible;
+    boton.textContent = "Comprobando si la instalación terminó…";
+    for (let i = 0; i < 120; i++) {
+      await new Promise((ok) => setTimeout(ok, 5000));
+      try {
+        const r = await api("/admin/geolibre");
+        if (r.estado.instalado && (!objetivo || r.estado.version_instalada === objetivo)) return r.estado.version_instalada;
+      } catch (_) {
+        // el servidor sigue ocupado: se vuelve a intentar
+      }
+    }
+    return null;
+  }
+
+  function filaServicio(s) {
+    s = s || { name: "", kind: "wms", fields: { url: "" }, category: "Gobernación de Nariño" };
+    const f = s.fields || {};
+    const capas = f.layers || f.layer || f.typeName || "";
+    return (
+      "<tr>" +
+      '<td><input type="text" data-s="name" value="' + escapar(s.name) + '" aria-label="Nombre del servicio" required></td>' +
+      '<td><select data-s="kind" aria-label="Tipo">' + Object.entries(NOMBRES_SERVICIO).map(([k, n]) => '<option value="' + k + '"' + (k === s.kind ? " selected" : "") + ">" + n + "</option>").join("") + "</select></td>" +
+      '<td><input type="url" data-s="url" value="' + escapar(f.url || "") + '" aria-label="URL" placeholder="https://…" required></td>' +
+      '<td><input type="text" data-s="layers" value="' + escapar(capas) + '" aria-label="Capas" placeholder="Opcional"></td>' +
+      '<td><input type="text" data-s="category" value="' + escapar(s.category || "") + '" aria-label="Categoría"></td>' +
+      '<td class="acciones"><button class="btn-icono" type="button" data-quitar-servicio title="Quitar">' + icono("eliminar") + '<span class="sr-only">Quitar servicio</span></button></td>' +
+      "</tr>"
+    );
+  }
+
+  function leerServicios() {
+    return $$("#est-servicios tr").map((tr) => {
+      const v = (k) => tr.querySelector('[data-s="' + k + '"]').value.trim();
+      const fields = { url: v("url") };
+      if (v("layers")) fields.layers = v("layers");
+      return { name: v("name"), kind: v("kind"), category: v("category") || "Gobernación de Nariño", fields };
+    }).filter((s) => s.name || s.fields.url);
+  }
+
+  function seleccionarPestanaEstudio(nombre) {
+    const botones = $$(".pestanas-estudio [data-pe]");
+    marcarPestanas(botones, botones.find((b) => b.dataset.pe === nombre));
+    $$(".panel-estudio").forEach((p) => (p.hidden = p.dataset.pePanel !== nombre));
+  }
+
+  async function verEstudio() {
+    if (!esAdmin()) return (location.hash = "#resumen");
+    const r = await api("/admin/geolibre");
+    estado.estudio = r;
+    const a = r.ajustes;
+    const o = r.opciones;
+    pintarEstadoEstudio(r);
+
+    const fo = $("#form-estudio-origen");
+    fo.usar_integrado.value = r.usar_integrado ? "1" : "0";
+    fo.url_externa.value = r.url_externa || "";
+
+    const f = $("#form-estudio");
+    f.nombre.value = a.nombre;
+    f.modo.value = a.modo;
+    f.idioma.innerHTML = o.idiomas.map((c) => '<option value="' + c + '">' + escapar(NOMBRES_IDIOMA[c] || c) + " (" + c + ")</option>").join("");
+    f.idioma.value = a.idioma;
+    f.acento.innerHTML = o.acentos.map((c) => '<option value="' + c + '">' + escapar(NOMBRES_ACENTO[c] || c) + "</option>").join("");
+    f.acento.value = a.acento;
+    f.color_acento.value = a.color_acento;
+    $("#est-color-valor").textContent = a.color_acento;
+    f.bienvenida.checked = !!a.bienvenida;
+    f.nivel.value = a.nivel;
+    f.bloquear_nivel.checked = !!a.bloquear_nivel;
+    CAMPOS_DISPOSICION.forEach((k) => (f[k].checked = !!a[k]));
+    $("#est-menus").innerHTML = o.menus.map((m) => '<label><input type="checkbox" name="menus_ocultos" value="' + m + '"' + (a.menus_ocultos.includes(m) ? " checked" : "") + "> " + escapar(NOMBRES_MENU[m] || m) + "</label>").join("");
+    f.elementos_ocultos.value = textoLista(a.elementos_ocultos);
+    f.fuentes_ocultas.value = textoLista(a.fuentes_ocultas);
+    $("#est-capacidades").innerHTML = o.capacidades.map((c) => {
+      const [t, d] = NOMBRES_CAPACIDAD[c] || [c, ""];
+      return '<label class="opcion-radio"><input type="checkbox" name="capacidades" value="' + c + '"' + (a.capacidades.includes(c) ? " checked" : "") + "> <span><strong>" + escapar(t) + " <code>" + c + "</code></strong><small>" + escapar(d) + "</small></span></label>";
+    }).join("");
+    f.instalar_complementos.checked = !!a.instalar_complementos;
+    f.registro_complementos.value = a.registro_complementos;
+    f.panel_inicial.value = a.panel_inicial;
+    f.complementos_activos.value = textoLista(a.complementos_activos);
+    f.complementos_bloqueados.value = textoLista(a.complementos_bloqueados);
+    f.restringir_complementos.checked = !!a.restringir_complementos;
+    f.complementos_permitidos.value = textoLista(a.complementos_permitidos);
+    f.complementos_ocultos.value = textoLista(a.complementos_ocultos);
+    f.servicios_predeterminados.checked = !!a.servicios_predeterminados;
+    f.mapas_regionales.checked = !!a.mapas_regionales;
+    $("#est-servicios").innerHTML = a.servicios.map(filaServicio).join("");
+    f.compartir_propio.checked = !!a.compartir_propio;
+    f.apariencia_institucional.checked = a.apariencia_institucional !== false;
+    f.url_compartir.value = a.url_compartir;
+    f.url_colaboracion.value = a.url_colaboracion;
+    f.overpass_url.value = a.overpass_url;
+    f.geolens_url.value = a.geolens_url;
+    $("#est-politica").textContent = JSON.stringify(r.politica, null, 2);
+    $("#est-politica-url").href = API + "/geolibre/deployment.json";
+    actualizarAcento();
+    marcarPreajuste();
+    $("#estudio-sin-guardar").hidden = true;
+  }
+
+  function actualizarAcento() {
+    const f = $("#form-estudio");
+    f.color_acento.disabled = f.acento.value !== "custom";
+    $("#est-color-valor").textContent = f.color_acento.value.toUpperCase();
+  }
+
+  $(".pestanas-estudio").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pe]");
+    if (b) seleccionarPestanaEstudio(b.dataset.pe);
+  });
+  tecladoPestanas($(".pestanas-estudio"), (b) => seleccionarPestanaEstudio(b.dataset.pe));
+  $("#form-estudio").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-preajuste]");
+    if (!b) return;
+    const f = e.currentTarget;
+    const p = PREAJUSTES[b.dataset.preajuste];
+    f.nivel.value = p.nivel;
+    f.modo.value = p.modo;
+    CAMPOS_DISPOSICION.forEach((k) => (f[k].checked = p[k]));
+    $("#estudio-sin-guardar").hidden = false;
+    marcarPreajuste();
+  });
+  $("#form-estudio").addEventListener("input", (e) => {
+    $("#estudio-sin-guardar").hidden = false;
+    marcarPreajuste();
+    if (e.target.name === "acento" || e.target.name === "color_acento") actualizarAcento();
+  });
+  $("#form-estudio").addEventListener("change", (e) => {
+    if (e.target.name === "acento") actualizarAcento();
+  });
+  $("#est-agregar-servicio").addEventListener("click", () => {
+    $("#est-servicios").insertAdjacentHTML("beforeend", filaServicio());
+    $("#est-servicios tr:last-child input").focus();
+    $("#estudio-sin-guardar").hidden = false;
+  });
+  $("#est-servicios").addEventListener("click", (e) => {
+    if (e.target.closest("[data-quitar-servicio]")) {
+      e.target.closest("tr").remove();
+      $("#estudio-sin-guardar").hidden = false;
+    }
+  });
+
+  $("#form-estudio").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget;
+    // Las filas de servicio vacías no se guardan: se quitan para que no cuenten como campos obligatorios
+    $$("#est-servicios tr").forEach((tr) => {
+      if ($$("input", tr).every((i) => !i.value.trim() || i.dataset.s === "category")) tr.remove();
+    });
+    if (!validar(f)) return notificar("Revise los campos marcados.", "error");
+    const marcados = (nombre) => $$('#form-estudio [name="' + nombre + '"]:checked').map((x) => x.value);
+    const datos = {
+      nombre: f.nombre.value.trim(),
+      modo: f.modo.value,
+      idioma: f.idioma.value,
+      acento: f.acento.value,
+      color_acento: f.color_acento.value,
+      bienvenida: f.bienvenida.checked,
+      nivel: f.nivel.value,
+      bloquear_nivel: f.bloquear_nivel.checked,
+      ...Object.fromEntries(CAMPOS_DISPOSICION.map((k) => [k, f[k].checked])),
+      menus_ocultos: marcados("menus_ocultos"),
+      elementos_ocultos: f.elementos_ocultos.value,
+      fuentes_ocultas: f.fuentes_ocultas.value,
+      capacidades: marcados("capacidades"),
+      instalar_complementos: f.instalar_complementos.checked,
+      registro_complementos: f.registro_complementos.value.trim(),
+      panel_inicial: f.panel_inicial.value.trim(),
+      complementos_activos: f.complementos_activos.value,
+      complementos_bloqueados: f.complementos_bloqueados.value,
+      restringir_complementos: f.restringir_complementos.checked,
+      complementos_permitidos: f.complementos_permitidos.value,
+      complementos_ocultos: f.complementos_ocultos.value,
+      servicios_predeterminados: f.servicios_predeterminados.checked,
+      mapas_regionales: f.mapas_regionales.checked,
+      servicios: leerServicios(),
+      compartir_propio: f.compartir_propio.checked,
+      apariencia_institucional: f.apariencia_institucional.checked,
+      url_compartir: f.url_compartir.value.trim(),
+      url_colaboracion: f.url_colaboracion.value.trim(),
+      overpass_url: f.overpass_url.value.trim(),
+      geolens_url: f.geolens_url.value.trim(),
+    };
+    if (datos.nombre.length < 2) return notificar("Indique el nombre de la aplicación.", "error");
+    try {
+      const r = await api("/admin/geolibre", { method: "PUT", json: datos });
+      notificar(r.archivos_escritos === false
+        ? "Ajustes guardados. GeoLibre no está instalado: se aplicarán al instalarlo."
+        : "Ajustes del mapa guardados. Se aplican la próxima vez que se abra el mapa.");
+      verEstudio();
+    } catch (ex) {
+      notificar(errorDelServidor(f, ex.message), "error");
+    }
+  });
+
+  $("#form-estudio-origen").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.currentTarget;
+    if (!validar(f)) return;
+    const integrado = f.usar_integrado.value === "1";
+    if (integrado && !estado.estudio.estado.instalado) {
+      notificar("Primero instale GeoLibre en este servidor.", "error");
+      return;
+    }
+    try {
+      await api("/admin/geolibre", { method: "PUT", json: { usar_integrado: integrado, url_externa: f.url_externa.value.trim() } });
+      notificar(integrado ? "El geoportal usa el GeoLibre instalado en este servidor." : "El geoportal abre GeoLibre en la instancia externa.");
+      verEstudio();
     } catch (ex) {
       notificar(ex.message, "error");
     }

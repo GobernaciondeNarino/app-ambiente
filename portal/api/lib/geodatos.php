@@ -7,7 +7,7 @@
 
 declare(strict_types=1);
 
-const EXT_VECTOR = ['geojson', 'json', 'zip', 'kml', 'kmz', 'gpkg', 'csv'];
+const EXT_VECTOR = ['geojson', 'json', 'zip', 'kml', 'kmz', 'gpx', 'gpkg', 'csv'];
 const EXT_RASTER = ['tif', 'tiff'];
 
 /** Recorre coordenadas anidadas y actualiza la caja [o, s, e, n]. */

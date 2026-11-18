@@ -201,7 +201,8 @@
     try {
       obj = JSON.parse(texto);
     } catch (e) {
-      falla("El GeoJSON no es JSON válido: " + e.message);
+      console.warn("GeoJSON no válido:", e); // detalle técnico (en inglés) solo en la consola
+      falla("El GeoJSON no es JSON válido: revise el archivo (está incompleto o mal formado).");
     }
     const fc = normalizarFC(obj);
     const crs = fc.crs && fc.crs.properties ? codigoCRS(fc.crs.properties.name || fc.crs.properties.code) : null;
@@ -224,7 +225,8 @@
     try {
       resultado = await shp(buffer); // usa el .prj para reproyectar a WGS 84 y el .cpg para la codificación
     } catch (e) {
-      falla("No se pudo leer el Shapefile: " + e.message);
+      console.warn("Shapefile no legible:", e);
+      falla("No se pudo leer el Shapefile: compruebe que el ZIP trae el .shp, el .shx y el .dbf completos y sin dañar.");
     }
     const fc = normalizarFC(Array.isArray(resultado) ? resultado[0] : resultado);
     let etiqueta;
@@ -249,6 +251,15 @@
     const fc = normalizarFC(tg.kml(doc));
     await aWGS84(fc, "EPSG:4326", {}, avisos);
     return { fc, crs: etiquetaCRS("EPSG:4326", " (KML)") };
+  }
+
+  async function leerGPX(texto, avisos) {
+    const tg = await cargar("togeojson");
+    const doc = new DOMParser().parseFromString(texto, "text/xml");
+    if (doc.getElementsByTagName("parsererror").length) falla("El GPX no es XML válido.");
+    const fc = normalizarFC(tg.gpx(doc));
+    await aWGS84(fc, "EPSG:4326", {}, avisos);
+    return { fc, crs: etiquetaCRS("EPSG:4326", " (GPX)") };
   }
 
   // GeoPackage: geometrías en «GP» + WKB
@@ -717,7 +728,8 @@
     try {
       imagen = await abrirTiff(archivo);
     } catch (e) {
-      falla("No se pudo leer el GeoTIFF: " + e.message);
+      console.warn("GeoTIFF no legible:", e);
+      falla("No se pudo leer el GeoTIFF: el archivo está dañado o no es un GeoTIFF que el navegador pueda abrir. Pruebe a exportarlo de nuevo como GeoTIFF (sin comprimir o con LZW o DEFLATE).");
     }
     let bbox;
     try {
@@ -784,7 +796,7 @@
   // ---------------------------------------------------------------- entrada
 
   const NOMBRES = { geojson: "GeoJSON", json: "GeoJSON", kml: "KML", kmz: "KMZ", gpkg: "GeoPackage", csv: "CSV", tif: "GeoTIFF", tiff: "GeoTIFF" };
-  const FORMATOS = [".geojson", ".json", ".zip", ".kml", ".kmz", ".gpkg", ".csv", ".tif", ".tiff"];
+  const FORMATOS = [".geojson", ".json", ".zip", ".kml", ".kmz", ".gpx", ".gpkg", ".csv", ".tif", ".tiff"];
   const NO_DISPONIBLES = {
     fgb: "FlatGeobuf", parquet: "GeoParquet", geoparquet: "GeoParquet", gml: "GML", shp: "Shapefile suelto",
     img: "ERDAS Imagine", asc: "ASCII Grid", jp2: "JPEG 2000", vrt: "VRT",
@@ -800,6 +812,7 @@
     }
     if (ext === "geojson" || ext === "json") return { kind: "vector", formato: "GeoJSON", ...(await leerGeoJSON(await texto(), opciones, avisos)) };
     if (ext === "kml") return { kind: "vector", formato: "KML", ...(await leerKML(await texto(), avisos)) };
+    if (ext === "gpx") return { kind: "vector", formato: "GPX", ...(await leerGPX(await texto(), avisos)) };
     if (ext === "csv") return { kind: "vector", formato: "CSV", ...(await leerCSV(await buffer(), opciones, avisos)) };
     if (ext === "gpkg") return { kind: "vector", formato: "GeoPackage", ...(await leerGeoPackage(await buffer(), opciones, avisos)) };
     if (ext === "tif" || ext === "tiff") {

@@ -36,6 +36,27 @@
     retirar: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
     archivo: '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5Z"/><path d="M14 3v5h5"/>',
     check: '<path d="m5 12 5 5 9-10"/>',
+    sol: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    luna: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+    auto: '<circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor"/>',
+    estudio: '<path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/>',
+    regla: '<path d="M3 17 17 3l4 4L7 21H3v-4Z"/><path d="m7 13 2 2m1-5 2 2m1-5 2 2"/>',
+    compartir: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
+    imagen: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+    tabla: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M3 15h18M9 4v16"/>',
+    montana: '<path d="m3 20 6-10 4 6 3-4 5 8H3Z"/>',
+    subirCapa: '<path d="m6 15 6-6 6 6"/>',
+    bajarCapa: '<path d="m6 9 6 6 6-6"/>',
+    teclado: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+    mas: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>',
+    herramientas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg>',
+    area: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 7 11 3l9 5-3 12-10 1Z" fill="currentColor" fill-opacity=".15"/></svg>',
+    imprimir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8V3h10v5M7 17H4v-7h16v7h-3"/><path d="M7 14h10v7H7z"/></svg>',
+    pantalla: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>',
+    incrustar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>',
+    anadir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    enfoque: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>',
+    ubicacion: '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
     facebook: '<path d="M14 8h3V4h-3a4 4 0 0 0-4 4v2H7v4h3v7h4v-7h3l1-4h-4V8Z" fill="currentColor" stroke="none"/>',
     x: '<path d="M4 4l16 16M20 4 4 20" />',
     youtube: '<path d="M21.6 7.2a2.6 2.6 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.6 2.6 0 0 0 2.4 7.2 27 27 0 0 0 2 12a27 27 0 0 0 .4 4.8 2.6 2.6 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.6 2.6 0 0 0 1.8-1.8A27 27 0 0 0 22 12a27 27 0 0 0-.4-4.8ZM10 15V9l5.2 3L10 15Z" fill="currentColor" stroke="none"/>',
@@ -63,22 +84,31 @@
   }
 
   function barraGovco() {
+    // «Contacto» lleva al pie institucional; en páginas sin pie (administrador) el enlace no tendría destino
+    const hayPie = !!document.querySelector("[data-pie], #contacto");
     return (
-      '<div class="barra-govco" role="banner" aria-label="Portal del Estado colombiano">' +
+      // region y no banner: el encabezado de cada página ya es el banner (un solo banner por página)
+      '<div class="barra-govco" role="region" aria-label="Barra GOV.CO del Estado colombiano">' +
       '<a class="govco-logo" href="https://www.gov.co" target="_blank" rel="noopener" title="Ir al portal GOV.CO">' +
       '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm0 4.2 1.4 2.9 3.2.5-2.3 2.2.5 3.2L12 13.5 9.2 15l.5-3.2-2.3-2.2 3.2-.5L12 6.2Z"/></svg>' +
       '<span class="govco-separador" aria-hidden="true"></span><span>GOV.CO</span></a>' +
+      '<div class="govco-derecha">' +
       '<nav class="govco-enlaces" aria-label="Enlaces de la entidad">' +
       '<a href="' + escapar(I.sitioWeb || "https://narino.gov.co") + '" target="_blank" rel="noopener">narino.gov.co</a>' +
-      '<a href="#contacto">Contacto</a>' +
-      "</nav></div>"
+      (hayPie ? '<a href="#contacto">Contacto</a>' : "") +
+      "</nav>" +
+      // Sin aria-live: el cambio de tema ya se anuncia con notificar(); el estado va en aria-label
+      '<button type="button" class="boton-tema" data-boton-tema></button>' +
+      "</div></div>"
     );
   }
+
+  const NOMBRES_REDES = { facebook: "Facebook", x: "X", youtube: "YouTube", instagram: "Instagram" };
 
   function pie(base) {
     const redes = Object.entries(I.redes || {})
       .filter(([, url]) => url)
-      .map(([red, url]) => '<a href="' + escapar(url) + '" target="_blank" rel="noopener" aria-label="' + red + '">' + icono(red) + "</a>")
+      .map(([red, url]) => '<a href="' + escapar(url) + '" target="_blank" rel="noopener" aria-label="' + escapar((NOMBRES_REDES[red] || red) + " de la " + (I.entidad || "Gobernación de Nariño")) + '">' + icono(red) + "</a>")
       .join("");
     const legales = (I.enlacesLegales || [])
       .map((e) => '<a href="' + escapar(e.url) + '" target="_blank" rel="noopener">' + escapar(e.texto) + "</a>")
@@ -114,7 +144,10 @@
     );
   }
 
+  let reloj = null;
+
   function iniciarReloj() {
+    if (reloj) return;
     const fmt = new Intl.DateTimeFormat("es-CO", {
       timeZone: "America/Bogota",
       hour: "2-digit",
@@ -124,7 +157,7 @@
     });
     const pintar = () => document.querySelectorAll("[data-hora-legal]").forEach((el) => (el.textContent = fmt.format(new Date())));
     pintar();
-    setInterval(pintar, 1000);
+    reloj = setInterval(pintar, 1000);
   }
 
   function notificar(mensaje, tipo) {
@@ -139,23 +172,42 @@
     const n = document.createElement("div");
     n.className = "notificacion" + (tipo === "error" ? " error" : "");
     n.textContent = mensaje;
+    n.title = "Clic para cerrar";
+    n.addEventListener("click", () => n.remove());
     zona.appendChild(n);
+    // Como mucho tres avisos a la vista: en el teléfono no deben tapar el mapa
+    while (zona.children.length > 3) zona.firstElementChild.remove();
     setTimeout(() => n.remove(), tipo === "error" ? 7000 : 4000);
+    return n;
   }
 
   function formatoBytes(b) {
-    if (!b) return "0 B";
-    const u = ["B", "KB", "MB", "GB"];
-    const i = Math.min(Math.floor(Math.log(b) / Math.log(1024)), u.length - 1);
-    return (b / Math.pow(1024, i)).toFixed(i ? 1 : 0).replace(".", ",") + " " + u[i];
+    const n = Number(b);
+    if (!isFinite(n) || n < 1) return "0 B"; // nulos, negativos, fracciones y textos no numéricos
+    const u = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), u.length - 1);
+    return (n / Math.pow(1024, i)).toFixed(i ? 1 : 0).replace(".", ",") + " " + u[i];
   }
 
   function formatoNumero(n) {
-    return new Intl.NumberFormat("es-CO").format(n || 0);
+    const x = Number(n);
+    return new Intl.NumberFormat("es-CO").format(isFinite(x) ? x : 0);
   }
 
+  /**
+   * Fecha legible en hora de Colombia. Las fechas sin hora (AAAA, AAAA-MM, AAAA-MM-DD) se
+   * muestran tal cual: new Date("2024-06-15") es medianoche UTC y en Bogotá caía el día anterior.
+   */
   function formatoFecha(iso, conHora) {
     if (!iso) return "";
+    const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/.exec(String(iso).trim());
+    if (m) {
+      if (!m[2]) return m[1];
+      const dia = m[3] ? +m[3] : 1;
+      const utc = new Date(Date.UTC(+m[1], +m[2] - 1, dia));
+      if (utc.getUTCMonth() !== +m[2] - 1 || utc.getUTCDate() !== dia) return iso; // 2024-13, 2024-02-30…
+      return new Intl.DateTimeFormat("es-CO", m[3] ? { timeZone: "UTC", dateStyle: "medium" } : { timeZone: "UTC", month: "long", year: "numeric" }).format(utc);
+    }
     const d = new Date(iso);
     if (isNaN(d)) return iso;
     return new Intl.DateTimeFormat("es-CO", {
@@ -165,22 +217,133 @@
     }).format(d);
   }
 
+  // ---------------------------------------------------------------- tema claro / oscuro
+
+  const CLAVE_TEMA = "geoportal.tema";
+  const ETIQUETAS_TEMA = { auto: "Automático", claro: "Claro", oscuro: "Oscuro" };
+  const ICONO_TEMA = { auto: "auto", claro: "sol", oscuro: "luna" };
+  const consultaOscuro = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+  /** Tema pedido en la dirección (?theme=dark|light o ?tema=oscuro|claro): vale para esta visita, no se guarda. */
+  function temaDeURL() {
+    const m = /[?&](?:theme|tema)=(dark|light|oscuro|claro)\b/.exec(location.search);
+    return m ? (m[1] === "dark" || m[1] === "oscuro" ? "oscuro" : "claro") : null;
+  }
+  let temaForzado = temaDeURL();
+
+  function preferenciaTema() {
+    if (temaForzado) return temaForzado;
+    try {
+      const p = localStorage.getItem(CLAVE_TEMA);
+      return p === "claro" || p === "oscuro" ? p : "auto";
+    } catch (_) {
+      return "auto";
+    }
+  }
+
+  function temaEfectivo(pref) {
+    const p = pref || preferenciaTema();
+    if (p === "auto") return consultaOscuro && consultaOscuro.matches ? "oscuro" : "claro";
+    return p;
+  }
+
+  function aplicarTema(pref) {
+    const anterior = document.documentElement.dataset.tema;
+    const tema = temaEfectivo(pref);
+    document.documentElement.dataset.tema = tema;
+    document.querySelectorAll("[data-boton-tema]").forEach((b) => {
+      const p = pref || preferenciaTema();
+      b.innerHTML = icono(ICONO_TEMA[p]) + '<span class="texto-tema">' + ETIQUETAS_TEMA[p] + "</span>";
+      b.title = "Tema: " + ETIQUETAS_TEMA[p] + " (clic para cambiar)";
+      b.setAttribute("aria-label", "Tema de la página: " + ETIQUETAS_TEMA[p] + ". Cambiar tema");
+    });
+    if (anterior !== tema) document.dispatchEvent(new CustomEvent("geoportal:tema", { detail: { tema } }));
+  }
+
+  let avisoTema = null;
+
+  function alternarTema() {
+    const orden = ["auto", "claro", "oscuro"];
+    const siguiente = orden[(orden.indexOf(preferenciaTema()) + 1) % orden.length];
+    temaForzado = null; // la elección del usuario prevalece sobre la dirección
+    try {
+      localStorage.setItem(CLAVE_TEMA, siguiente);
+    } catch (_) {
+      /* sin almacenamiento: el cambio dura mientras la página esté abierta */
+    }
+    aplicarTema(siguiente);
+    if (avisoTema) avisoTema.remove();
+    avisoTema = notificar("Tema " + ETIQUETAS_TEMA[siguiente].toLowerCase() + (siguiente === "auto" ? " (sigue la configuración del sistema)" : "") + ".");
+  }
+
+  if (consultaOscuro && consultaOscuro.addEventListener) {
+    consultaOscuro.addEventListener("change", () => preferenciaTema() === "auto" && aplicarTema("auto"));
+  }
+
+  let eventosMontados = false; // montar() puede llamarse más de una vez: los oyentes, una sola
+
   function montar(base) {
     document.querySelectorAll("[data-govco]").forEach((el) => (el.outerHTML = barraGovco()));
     document.querySelectorAll("[data-pie]").forEach((el) => (el.outerHTML = pie(base || "")));
     document.querySelectorAll("[data-icono]").forEach((el) => {
       el.insertAdjacentHTML("afterbegin", icono(el.dataset.icono));
     });
-    const boton = document.querySelector(".boton-menu");
-    const nav = document.querySelector(".navegacion");
-    if (boton && nav) {
-      boton.addEventListener("click", () => {
-        const abierto = nav.classList.toggle("abierta");
-        boton.setAttribute("aria-expanded", String(abierto));
+    if (!eventosMontados) {
+      eventosMontados = true;
+      prepararMenu();
+      document.addEventListener("click", (e) => {
+        if (e.target.closest("[data-boton-tema]")) alternarTema();
+        irAncla(e);
       });
     }
+    aplicarTema();
     iniciarReloj();
   }
 
-  window.Institucional = { icono, escapar, montar, notificar, formatoBytes, formatoNumero, formatoFecha, datos: I };
+  /** Menú de navegación del teléfono: botón, Esc, clic fuera y al elegir un destino. */
+  function prepararMenu() {
+    const boton = document.querySelector(".boton-menu");
+    const nav = document.querySelector(".navegacion");
+    if (!boton || !nav) return;
+    const abrir = (si) => nav.classList.toggle("abierta", si);
+    // aria-expanded sigue a la clase, también cuando otro script cierra el menú (por ejemplo, al cambiar de ruta)
+    new MutationObserver(() => boton.setAttribute("aria-expanded", String(nav.classList.contains("abierta")))).observe(nav, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    boton.addEventListener("click", () => abrir(!nav.classList.contains("abierta")));
+    nav.addEventListener("click", (e) => {
+      if (e.target.closest("a")) abrir(false);
+    });
+    document.addEventListener("click", (e) => {
+      if (nav.classList.contains("abierta") && !nav.contains(e.target) && !boton.contains(e.target)) abrir(false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || !nav.classList.contains("abierta")) return;
+      abrir(false);
+      if (nav.contains(document.activeElement) || document.activeElement === document.body) boton.focus();
+    });
+    window.addEventListener("hashchange", () => abrir(false));
+  }
+
+  /**
+   * «Saltar al contenido» y «Contacto» llevan el foco a su destino sin cambiar la dirección:
+   * el visor y el administrador usan el #fragmento como ruta, y #contenido o #contacto los
+   * devolvía a la vista inicial.
+   */
+  function irAncla(e) {
+    const a = e.target.closest("a.saltar-contenido, .barra-govco a[href^='#']");
+    if (!a || e.defaultPrevented || e.button > 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const destino = document.getElementById(a.getAttribute("href").slice(1));
+    if (!destino) return;
+    e.preventDefault();
+    if (!destino.hasAttribute("tabindex")) destino.setAttribute("tabindex", "-1");
+    destino.focus({ preventScroll: true });
+    destino.scrollIntoView({ block: "start" });
+  }
+
+  window.Institucional = {
+    icono, escapar, montar, notificar, formatoBytes, formatoNumero, formatoFecha, datos: I,
+    tema: { actual: () => temaEfectivo(), preferencia: preferenciaTema, aplicar: aplicarTema, alternar: alternarTema },
+  };
 })();
